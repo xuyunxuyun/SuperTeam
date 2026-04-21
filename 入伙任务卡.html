@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>汉末废柴堆 · 入伙任务卡 | 手风琴式折叠清单</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #f0f7f0;
+            font-family: 'Segoe UI', 'Helvetica Neue', 'Noto Sans', system-ui, -apple-system, 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
+            padding: 40px 24px;
+            color: #2c3e2f;
+            font-size: 18px;
+            /* 基础字体调大 */
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* 页眉 - 小清新风格 */
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #cfe3cf;
+        }
+
+        .header h1 {
+            font-size: 2.4rem;
+            /* 加大 */
+            font-weight: 600;
+            color: #4a7c59;
+            margin-bottom: 12px;
+            letter-spacing: -0.3px;
+        }
+
+        .header h1:before {
+            content: "🌱 ";
+            font-size: 2.2rem;
+        }
+
+        .header .sub {
+            color: #7f9f7f;
+            font-size: 1rem;
+        }
+
+        /* 进度条 */
+        .progress-area {
+            background: #e2f0e2;
+            border-radius: 40px;
+            padding: 6px;
+            margin-bottom: 32px;
+            border: 1px solid #c0dbc0;
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, #6eaa6e, #8bc48a);
+            height: 14px;
+            border-radius: 40px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 12px;
+            font-size: 0.95rem;
+            color: #5f8b5f;
+            font-weight: 500;
+        }
+
+        /* 任务卡片 - 手风琴整体 */
+        .mission-group {
+            background: white;
+            border-radius: 28px;
+            margin-bottom: 24px;
+            overflow: hidden;
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.05);
+            border: 1px solid #ddecdd;
+            transition: all 0.2s;
+        }
+
+        .group-header {
+            background: #ffffff;
+            padding: 20px 28px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+            border-bottom: 1px solid #eef3ee;
+        }
+
+        .group-header:hover {
+            background: #f9fff9;
+        }
+
+        .group-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #3b6e3b;
+        }
+
+        .group-title .emoji {
+            font-size: 1.7rem;
+        }
+
+        .group-count {
+            font-size: 0.9rem;
+            color: #8fbc8f;
+            background: #eef5ee;
+            padding: 6px 14px;
+            border-radius: 40px;
+            font-weight: 500;
+        }
+
+        .group-expand-icon {
+            font-size: 1.2rem;
+            color: #8fbc8f;
+            transition: transform 0.2s;
+        }
+
+        /* 任务列表容器 */
+        .tasks-container {
+            display: none;
+            background: #fefef8;
+        }
+
+        /* 每个小任务卡片样式 */
+        .task-item {
+            border-bottom: 1px solid #eef3ee;
+        }
+
+        .task-header {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            padding: 16px 28px;
+            cursor: pointer;
+            background: #fefef8;
+            transition: background 0.2s;
+        }
+
+        .task-header:hover {
+            background: #f9fff9;
+        }
+
+        .task-checkbox {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2px solid #c0dbc0;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .task-checkbox.checked {
+            background: #6eaa6e;
+            border-color: #6eaa6e;
+            color: white;
+        }
+
+        .task-title {
+            flex: 1;
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #3a5e3a;
+        }
+
+        .task-title a {
+            color: #3a5e3a;
+            text-decoration: none;
+            border-bottom: 1px dashed #b8d4b8;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .task-title a:hover {
+            color: #4a7c59;
+            border-bottom-color: #6eaa6e;
+        }
+
+        .task-expand-icon {
+            font-size: 0.9rem;
+            color: #b8d4b8;
+            transition: transform 0.2s;
+        }
+
+        /* 任务详情区域 */
+        .task-detail {
+            display: none;
+            padding: 24px 28px 28px 70px;
+            background: #fafdfa;
+            border-top: 1px solid #eef3ee;
+            font-size: 1rem;
+            line-height: 1.65;
+            color: #4a6e4a;
+        }
+
+        .detail-content {
+            display: flex;
+            gap: 32px;
+            flex-wrap: wrap;
+        }
+
+        .detail-text {
+            flex: 2;
+            min-width: 240px;
+        }
+
+        .detail-text p {
+            margin-bottom: 14px;
+        }
+
+        .detail-text ul,
+        .detail-text ol {
+            margin-left: 24px;
+            margin-bottom: 14px;
+        }
+
+        .detail-text li {
+            margin: 8px 0;
+        }
+
+        .detail-text code {
+            background: #eef3ee;
+            padding: 3px 10px;
+            border-radius: 18px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #4a7c59;
+        }
+
+        .tip {
+            background: #eef5ee;
+            border-left: 4px solid #8bc48a;
+            padding: 12px 18px;
+            margin: 18px 0;
+            border-radius: 18px;
+            font-size: 0.95rem;
+            color: #5a7e5a;
+        }
+
+        .speaker-info {
+            flex: 1;
+            min-width: 160px;
+            text-align: center;
+            background: #f5faf5;
+            border-radius: 28px;
+            padding: 20px 12px;
+        }
+
+        .speaker-avatar {
+            width: 110px;
+            height: 110px;
+            margin: 0 auto 14px;
+            background: #e0f0e0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 56px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .speaker-name {
+            font-weight: 700;
+            color: #3b6e3b;
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+        }
+
+        .speaker-quote {
+            font-size: 0.85rem;
+            color: #8fbc8f;
+            font-style: italic;
+        }
+
+        /* 彩蛋区域 */
+        .easter-egg {
+            text-align: center;
+            margin-top: 40px;
+            padding: 32px;
+            background: #e8f3e8;
+            border-radius: 32px;
+            border: 1px solid #cfe3cf;
+        }
+
+        .easter-egg h3 {
+            color: #4a7c59;
+            margin-bottom: 12px;
+            font-size: 1.5rem;
+        }
+
+        .easter-egg p {
+            color: #6f9e6f;
+            font-size: 1rem;
+        }
+
+        .complete-message {
+            display: none;
+            background: #6eaa6e;
+            color: white;
+            text-align: center;
+            padding: 18px;
+            border-radius: 48px;
+            margin-top: 24px;
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .complete-message.show {
+            display: block;
+        }
+
+        button {
+            background: #d4e8d4;
+            border: none;
+            color: #4a7c59;
+            padding: 14px 24px;
+            border-radius: 48px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 32px;
+            width: 100%;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #c4dec4;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 48px;
+            font-size: 0.8rem;
+            color: #9fbf9f;
+        }
+
+        /* 响应式微调 */
+        @media (max-width: 700px) {
+            body {
+                padding: 24px 16px;
+                font-size: 16px;
+            }
+
+            .task-detail {
+                padding: 20px 18px 24px 48px;
+            }
+
+            .group-title {
+                font-size: 1.2rem;
+            }
+
+            .task-title {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>汉末废柴堆 · 入伙任务卡</h1>
+            <div class="sub">做完一个勾一个🌱</div>
+        </div>
+
+        <div class="progress-area">
+            <div class="progress-bar" id="progressBar"></div>
+            <div class="stats">
+                <span id="doneCount">0</span> / <span id="totalCount">0</span> 任务完成
+                <span>🍃 废柴指数</span>
+            </div>
+        </div>
+
+        <div id="missionsContainer"></div>
+
+        <div class="easter-egg" id="easterEgg" style="display: none;">
+            <h3>🌸 你废了！</h3>
+            <p>全勾完了？欢迎加入废柴堆。<br>——荀彧说：已存档。你可以毕业了。</p>
+        </div>
+        <div class="complete-message" id="completeMessage">
+            🌱 全勾完了？你废了。欢迎加入废柴堆。
+        </div>
+        <button id="resetBtn">🍃 重置任务卡（从头再来）</button>
+        <footer>汉末废柴堆 · 入伙任务卡</footer>
+    </div>
+
+    <script>
+        // ==================== 任务数据（保持原样，但保证每个任务都有完整字段）====================
+        const missionsData = [
+            {
+                name: "1. 混入废柴",
+                emoji: "🌱",
+                tasks: [
+                    {
+                        text: "打开 DeepSeek", speaker: "郭嘉", speakerEmoji: "📸", speakerQuote: "别走错门，我截图了",
+                        detail: "<p>点击链接 <a href='https://chat.deepseek.com' target='_blank' rel='noopener noreferrer' style='color:#4a7c59; text-decoration:underline;'>chat.deepseek.com</a> 打开DeepSeek官网，或在浏览器地址栏直接输入。</p><div class='tip'>💡 郭嘉说：“浏览器用Chrome或Edge，我截图都用Chrome，颜色正。用别的，截出来报看。”</div>"
+                    },
+                    {
+                        text: "登录或注册用户", speaker: "曹操", speakerEmoji: "😎", speakerQuote: "我当年也是这么进来的",
+                        detail: "<p>如果还没有登录，就点击 <code>登录</code> ，可以使用微信扫码。</p><div class='tip'>💡 曹操说：“注册完换个头像，别用默认的。默认头像像个路人，我曹操不要面子吗？”</div>"
+                    },
+                    {
+                        text: "打开新对话", speaker: "赵云", speakerEmoji: "⚔️", speakerQuote: "干净的窗口",
+                        detail: "<p>登录后，点击左侧 <code>➕开启新对话</code> ，开启一个空白对话窗口。</p><div class='tip'>💡 赵云说：“每次做新任务都开一个新会话。不听话我也没办法，但我帮你盯着。”</div>"
+                    },
+                    {
+                        text: "启动团队", speaker: "荀彧", speakerEmoji: "📋", speakerQuote: "文件传好了叫我",
+                        detail: "<p>点击输入框下方 <code>📎上传文件</code> ，选择 <code>prompt.md</code> 和 <code>characters_汉末废柴堆.md</code>，同时上传。</p><p>等待文件上传并解析完毕，然后点击 <code>⬆️发送</code> 。</p><div class='tip'>💡 荀彧说：“两个文件一起传，顺序不重要。传完等我3秒加载。超时了喊我。”</div>"
+                    },
+                    {
+                        text: "@所有人 说一句话", speaker: "张飞", speakerEmoji: "🐯", speakerQuote: "喊一嗓子！",
+                        detail: "<p>在群里输入 <code>@所有人</code>，然后随便说点什么，比如“我来了”或“有人吗”。</p><div class='tip'>💡 张飞说：“喊大声点！让俺知道你在。害羞的话 @张飞 只喊我也行，俺不笑话你。”</div>"
+                    },
+                    {
+                        text: "@一个人 说一句话", speaker: "貂蝉", speakerEmoji: "🌸", speakerQuote: "选一个你好奇的人",
+                        detail: "<p>输入 <code>@人名</code>，比如 <code>@郭嘉</code> 或 <code>@赵云</code>，然后说句话。</p><div class='tip'>💡 貂蝉说：“@张飞的话，他可能会问你吃不吃鸡腿。@曹操的话，他可能会回你一个表情包。”</div>"
+                    },
+                    {
+                        text: "导出聊天记录", speaker: "陈群", speakerEmoji: "📄", speakerQuote: "这是你第一次指挥他们",
+                        detail: "<p>点击输入框下方 <code>📎上传文件</code> ，选择 <code>plugins_文心雕文龙.md</code> ，等待文件上传并解析完毕。</p><p>点击 <code>⬆️发送</code> 。</p><p>在聊天中选择 <code>企微聊天风</code> 等代码写完。</p><p>点击代码框右上角的 <code>▶️运行</code> 可预览效果，点击 <code>⬇️下载</code> 可保存为 <code>聊天记录.html</code> 。</p><p>双击HTML文件用浏览器打开。</p><div class='tip'>💡 陈群说：“保存为.html，双击就能看。后缀必须是.html。不是的话，我格式化不了。”</div>"
+                    },
+                    {
+                        text: "给团队布置一个任务", speaker: "诸葛亮", speakerEmoji: "🎋", speakerQuote: "随便说",
+                        detail: "<p>在群里说一句话，比如 <code>@荀彧 请团队帮我做一个2026年人工智能技术分析报告</code> 。</p><div class='tip'>💡 诸葛亮说：“不用太复杂，他们会自己分工的。你说‘帮我写个报告’，他们能吵半小时。”</div>"
+                    },
+                    {
+                        text: "完成第一个任务", speaker: "荀彧", speakerEmoji: "📋", speakerQuote: "不用你动手",
+                        detail: "<p>观察群里大家的对话，他们自己会讨论、分工、执行。你可以调整需求，但是不需要插手。</p><p>如果他们还没做完，就说一句 <code>继续</code> 。</p><div class='tip'>💡 荀彧说：“你是老板，不是打工人。看着就行。他们卡住了，你就说‘继续’，别真动手。”</div>"
+                    },
+                    {
+                        text: "导出任务文档", speaker: "陈群", speakerEmoji: "📄", speakerQuote: "留个纪念",
+                        detail: "<p>点击输入框下方 <code>📎上传文件</code> ，选择 <code>plugins_文心雕文龙.md</code> ，等待文件上传并解析完毕。</p><p>点击 <code>⬆️发送</code> 。</p><p>在聊天中选择一种风格，等代码写完。</p><p>预览或保存为 <code>任务文档.html</code>。</p><div class='tip'>💡 陈群说：“这是你第一次指挥团队。文档存好了，以后回头看。格式不对我会叹气，忍着点。”</div>"
+                    }
+                ]
+            },
+            {
+                name: "2. 成为废柴",
+                emoji: "🔥",
+                tasks: [
+                    {
+                        text: "启动团队", speaker: "赵云", speakerEmoji: "⚔️", speakerQuote: "又来？",
+                        detail: "<p>点击 <code>➕开启新对话</code> 开启一个新对话。</p><p>上传 <code>prompt.md</code> 和 <code>characters_汉末废柴堆.md</code>，发送。</p><div class='tip'>💡 赵云说：“新会话，新开始。规矩就是规矩。你嫌烦，我也得说。”</div>"
+                    },
+                    {
+                        text: "启动课程重构插件", speaker: "罗辑", speakerEmoji: "🌌", speakerQuote: "这是计划的一部分",
+                        detail: "<p>上传 <code>plugins_罗辑斩万象.md</code> 文件并发送。</p><div class='tip'>💡 罗辑说：“上传。我会把你的内容拆成知识单元。你问为什么？这是计划的一部分。”</div>"
+                    },
+                    {
+                        text: "上传课程资料", speaker: "罗辑", speakerEmoji: "🌌", speakerQuote: "我来拆",
+                        detail: "<p>上传你的教学课件，PPT、Word都可以，或者一段描述课程内容的文字也可以。</p><p>发送后罗辑会自动拆解为知识单元并重新组合成学习路线。</p><div class='tip'>💡 罗辑说：“PPT、Word、纯文本都行。你来看就行。拆错了你骂我，我不还嘴。”</div>"
+                    },
+                    {
+                        text: "审核课程重构结果", speaker: "荀彧", speakerEmoji: "📋", speakerQuote: "不满意就让他重做",
+                        detail: "<p>罗辑会输出一份《知识拆解报告》。</p><p>仔细看，如果觉得哪里不对，点击 <code>✏️修改</code>，重新发送，再拆一遍。</p><div class='tip'>💡 荀彧说：“这一步你说了算。别客气。你客气了，罗辑下次还敢。”</div>"
+                    },
+                    {
+                        text: "导出推荐学习路线", speaker: "罗辑", speakerEmoji: "🌌", speakerQuote: "选一条走",
+                        detail: "<p>使用 文心雕文龙 插件，导出 <code>知识拆解报告.html</code>。</p><p>打开查看罗辑为你生成的几条学习路径。</p><div class='tip'>💡 罗辑说：“路线不止一条。选你最感兴趣的那条。选错了也没事，反正不是我走。”</div>"
+                    },
+                    {
+                        text: "启动团队", speaker: "赵云", speakerEmoji: "⚔️", speakerQuote: "又开一个？",
+                        detail: "<p>点击 <code>➕开启新对话</code> 开启一个新对话。</p><p>上传 <code>prompt.md</code> 和 <code>characters_汉末废柴堆.md</code>，发送。</p><div class='tip'>💡 赵云说：“新任务新窗口，出了错好找原因。别嫌麻烦。嫌麻烦的人，最后最麻烦。”</div>"
+                    },
+                    {
+                        text: "开启沉浸式游戏体验", speaker: "诸葛亮", speakerEmoji: "🪶", speakerQuote: "主持人会接你",
+                        detail: "<p>上传 <code>plugins_游戏不能停.md</code> 文件，从《知识拆解报告》中复制一个沉浸式体验的知识单元信息，粘贴到对话框中发送。</p><p>按照主持人的提示，输入你的专业、学习阶段等信息。</p><div class='tip'>💡 诸葛亮说：“上传插件。主持人会从团队里选人出来陪你玩。你只管回答，输了不扣分。”</div>"
+                    },
+                    {
+                        text: "沉浸式体验学习过程", speaker: "曹冲", speakerEmoji: "🐘", speakerQuote: "玩着玩着就学会了",
+                        detail: "<p>跟着游戏剧情走，做选择、回答问题、推进剧情。每个选择都会影响你学到的内容。</p><div class='tip'>💡 曹冲说：“别想太多对不对。选你真实想选的。错了也没关系，又没人扣你工资。”</div>"
+                    },
+                    {
+                        text: "导出学习复盘文档", speaker: "诸葛亮", speakerEmoji: "🪶", speakerQuote: "你的第一次冒险",
+                        detail: "<p>游戏通关后，使用 文心雕文龙 插件导出复盘文档。保存为 <code>游戏复盘.html</code>。</p><div class='tip'>💡 诸葛亮说：“这是你第一次在游戏里学习的记录。存好了。以后可以拿出来笑自己。”</div>"
+                    },
+                    {
+                        text: "体验其他学习方式", speaker: "苏格拉底", speakerEmoji: "🏛️", speakerQuote: "换一种方式",
+                        detail: "<p>使用以下插件进行体验：</p><p>使用 <code>plugins_酥皮格拉底.md</code> 插件体验 启发式提问</p><p>使用 <code>plugins_费曼听不懂.md</code> 插件体验 讲解输出</p><p>使用 <code>plugins_天黑请推理.md</code> 插件体验 逻辑推演</p><p>使用 <code>plugins_包袱请就位.md</code> 插件体验 情景喜剧</p><p>使用 <code>plugins_动口不动手.md</code> 插件体验 辩论式学习</p><p>使用 <code>plugins_鲁班不一般.md</code> 插件体验 实操验证</p><p>上传插件，输入学习内容并发送。</p><div class='tip'>💡 苏格拉底说：“教一遍、辩一遍、推一遍、演一遍。同一种知识，换个姿势再来一次。”</div>"
+                    },
+                    {
+                        text: "导出学习复盘文档", speaker: "费曼", speakerEmoji: "🎓", speakerQuote: "都试试",
+                        detail: "<p>用不同的插件学习知识点，每次完成后导出复盘文档。建议至少体验3种不同的学习方式。</p><div class='tip'>💡 费曼说：“教一遍、辩一遍、推一遍——三种方式都走完，你就真的懂了。骗你是小狗。”</div>"
+                    },
+                    {
+                        text: "启动团队", speaker: "赵云", speakerEmoji: "⚔️", speakerQuote: "又开一个？",
+                        detail: "<p>点击 <code>➕开启新对话</code> 开启一个新对话。</p><p>上传 <code>prompt.md</code> 和 <code>characters_汉末废柴堆.md</code>，发送。</p><div class='tip'>💡 赵云说：“新会话，新开始。规矩。我说第三遍了，你记住没？”</div>"
+                    },
+                    {
+                        text: "启动学习画像插件", speaker: "云天明", speakerEmoji: "⭐", speakerQuote: "故事要开始了",
+                        detail: "<p>上传 <code>plugins_云开天自明.md</code> 文件。</p><div class='tip'>💡 云天明说：“上传。故事要开始了。别问什么故事，讲完你就知道了。”</div>"
+                    },
+                    {
+                        text: "上传所有复盘文档", speaker: "云天明", speakerEmoji: "⭐", speakerQuote: "把你走过的路给我",
+                        detail: "<p>把罗辑生成的《知识拆解报告》和所有插件生成的学习复盘文档，一次性上传并发送。</p><div class='tip'>💡 云天明说：“你走过的每一步，我都会看见。看不见的，你就没走过。”</div>"
+                    },
+                    {
+                        text: "导出学习画像", speaker: "郑玄", speakerEmoji: "🧑‍🏫", speakerQuote: "看看你长什么样",
+                        detail: "<p>云天明输出《学习画像》后，使用 文心雕文龙 插件导出学习画像。</p><div class='tip'>💡 郑玄说：“分数只是参考，画像才是你自己。丑没关系，反正不给别人看。”</div>"
+                    }
+                ]
+            },
+            {
+                name: "3. 超越废柴",
+                emoji: "🚀",
+                tasks: [
+                    {
+                        text: "启动专家团队", speaker: "王阳明", speakerEmoji: "🍃", speakerQuote: "专家已就位",
+                        detail: "<p>在新对话中启动团队。</p><p>上传 <code>plugins_明明啥都会.md</code> 插件。</p><div class='tip'>💡 王阳明说：“十一位专家已在后台待命。能源、金融、制造、教育、物流，你问哪个？都问也行，他们话多。”</div>"
+                    },
+                    {
+                        text: "对话专家团队", speaker: "王阳明", speakerEmoji: "🍃", speakerQuote: "问你想问的",
+                        detail: "<p>@你想咨询的专家，比如 <code>@宋应星</code>（制造）或 <code>@徐霞客</code>（旅游），提出你的问题。</p><div class='tip'>💡 王阳明说：“@你想咨询的专家。不用客气，他们就是来帮你的。不帮？我帮你说他。”</div>"
+                    },
+                    {
+                        text: "制作行业微案例", speaker: "王阳明", speakerEmoji: "🍃", speakerQuote: "想要什么案例？",
+                        detail: "<p>上传 <code>plugins_举了个栗子.md</code> 插件。</p><p>按提示输入课程名称、知识点、时长、案例维度。</p><p>按照提示制作完成后，使用 文心雕文龙 插件导出，即可使用。</p><div class='tip'>💡 王阳明说：“思政、时事、科技？说清楚，我给你找最合适的。说不清楚？那就都来一个。”</div>"
+                    },
+                    {
+                        text: "启动面试团队", speaker: "张良", speakerEmoji: "📖", speakerQuote: "三个老狐狸在等你",
+                        detail: "<p>在新对话中启动团队。</p><p>上传 <code>plugins_出汗小天团.md</code> 插件。</p><div class='tip'>💡 张良说：“我、萧何、韩信，加起来近七千岁。准备好了吗？没准备好也没用，开始了。”</div>"
+                    },
+                    {
+                        text: "制作并优化简历", speaker: "萧何", speakerEmoji: "📊", speakerQuote: "数字呢？动词呢？",
+                        detail: "<p>上传你的简历，三位面试官会逐条给你修改意见。</p><p>简历修改完后导出。</p><div class='tip'>💡 萧何说：“数字、动词、结果——这三样写清楚，简历就稳了。写不清楚？我帮你问。”</div>"
+                    },
+                    {
+                        text: "体验模拟面试", speaker: "韩信", speakerEmoji: "⚔️", speakerQuote: "你觉得你凭什么？",
+                        detail: "<p>粘贴招聘网站的岗位描述。</p><p>选择面试模式和压力等级。</p><p>开始面试。</p><div class='tip'>💡 韩信说：“我会一直追问，问到你说不出话。别怕，扛过去。扛不过去？下次再来。”</div>"
+                    },
+                    {
+                        text: "启动小作坊", speaker: "哪吒", speakerEmoji: "🔥", speakerQuote: "敖丙，开工了！",
+                        detail: "<p>在新对话中启动团队。</p><p>上传 <code>plugins_陈塘小作坊.md</code> 插件。</p><div class='tip'>💡 哪吒说：“你说内容，我们做课件。按五步法来，一步一步确认。你别急，我比你还急。”</div>"
+                    },
+                    {
+                        text: "制作演示文档", speaker: "敖丙", speakerEmoji: "💧", speakerQuote: "我们按五步法给你做",
+                        detail: "<p>输入课程内容，也可以粘贴文字或上传文件。</p><p>哪吒会逐页和你确认内容，敖丙会逐页和你确认布局。</p><p>全部确认后生成HTML课件。</p><div class='tip'>💡 敖丙说：“哪吒写代码，我确定布局。你不用会做，你只管说。说错了？哪吒自己改。”</div>"
+                    },
+                    {
+                        text: "启动插件制作", speaker: "盘古", speakerEmoji: "🪓", speakerQuote: "斧子磨好了",
+                        detail: "<p>在新对话中启动团队。</p><p>然后上传 <code>plugins_盘古开插件.md</code> 插件。</p><div class='tip'>💡 盘古说：“混沌开了，新世界就有了。你想造什么插件？说。不说？那我劈谁？”</div>"
+                    },
+                    {
+                        text: "根据需求制作新插件", speaker: "盘古", speakerEmoji: "🪓", speakerQuote: "你想造什么？",
+                        detail: "<p>回答盘古的问题：插件叫什么名字？做什么用？需要人设吗？盘古会帮你生成完整的插件代码。</p><div class='tip'>💡 盘古说：“不用写代码。回答问题就行：叫什么？做什么用？需要人设吗？剩下的交给我。我累点没事。”</div>"
+                    },
+                    {
+                        text: "保存插件内容", speaker: "盘古", speakerEmoji: "🪓", speakerQuote: "文件名要叫 plugins_xxx.md",
+                        detail: "<p>复制盘古输出的内容，粘贴到记事本，另存为 <code>plugins_你的插件名.md</code>。</p><div class='tip'>💡 盘古说：“复制→粘贴到记事本→另存为。文件名必须是 plugins_开头，后缀是.md。记不住？截图。”</div>"
+                    },
+                    {
+                        text: "测试并修改插件", speaker: "郭嘉", speakerEmoji: "📸", speakerQuote: "截图了！",
+                        detail: "<p>在新会话中启动团队，上传刚做的新插件，测试是否正常工作。</p><p>如果有问题，把报错信息发给盘古，他会帮你改。</p><div class='tip'>💡 郭嘉说：“在新会话里上传插件测试。有问题把报错截图给我，我帮你盯着。盯不住？我喊文若叔。”</div>"
+                    },
+                    {
+                        text: "再和这些废柴聊一聊", speaker: "刘备", speakerEmoji: "🧻", speakerQuote: "纸巾我备好了",
+                        detail: "<p>点击链接 <a href='https://v.wjx.cn/vm/wdlNJvi.aspx' target='_blank' rel='noopener noreferrer' style='color:#4a7c59; text-decoration:underline;'>来自废柴堆的问题</a> 打开问卷，选择你想回答的问题（一个也行，二十个也行）。</p><div class='tip'>💡 刘备说：“说什么都行。开心的、不开心的、想骂的、想夸的。我都接着，不哭。纸巾够用。”</div>"
+                    }
+                ]
+            }
+        ];
+
+        let missions = JSON.parse(JSON.stringify(missionsData));
+        let totalTasks = 0;
+        missions.forEach(g => totalTasks += g.tasks.length);
+
+        // 存储展开状态: 当前打开的大组索引（同一时间只有一个大组展开，-1代表全折叠）
+        let currentOpenGroup = null;
+        // 存储每个任务组内部当前展开的小任务索引（用于手风琴效果：每个组内同一时间只展开一个任务）
+        let groupOpenTaskIndex = {};  // { "groupIndex": taskIndex }  -1代表该组内没有展开任务
+
+        function saveGlobalState() {
+            localStorage.setItem('wasteMissions', JSON.stringify(missions));
+            localStorage.setItem('currentOpenGroup', currentOpenGroup !== null ? currentOpenGroup : -1);
+            localStorage.setItem('groupOpenTaskIndex', JSON.stringify(groupOpenTaskIndex));
+        }
+
+        function loadGlobalState() {
+            const saved = localStorage.getItem('wasteMissions');
+            if (saved) missions = JSON.parse(saved);
+            const savedGroup = localStorage.getItem('currentOpenGroup');
+            if (savedGroup !== null && parseInt(savedGroup) !== -1) currentOpenGroup = parseInt(savedGroup);
+            else currentOpenGroup = null;
+            const savedTaskIdx = localStorage.getItem('groupOpenTaskIndex');
+            if (savedTaskIdx) groupOpenTaskIndex = JSON.parse(savedTaskIdx);
+            else groupOpenTaskIndex = {};
+        }
+
+        // 勾选任务时: 自动折叠当前任务并打开下一个未完成任务（同组内）
+        function autoJumpToNextTask(groupIdx, currentTaskIdx) {
+            const group = missions[groupIdx];
+            if (!group) return;
+            // 寻找当前任务后面第一个未完成的任务
+            let nextIndex = -1;
+            for (let i = currentTaskIdx + 1; i < group.tasks.length; i++) {
+                if (!group.tasks[i].done) {
+                    nextIndex = i;
+                    break;
+                }
+            }
+            if (nextIndex !== -1) {
+                // 折叠当前展开的任务（如果有）
+                if (groupOpenTaskIndex[groupIdx] !== undefined) {
+                    // 只是折叠当前展开项，不改变 groupOpenTaskIndex 就代表关闭旧的
+                }
+                // 设置新的展开任务索引
+                groupOpenTaskIndex[groupIdx] = nextIndex;
+                // 重新渲染以保证界面展开到新的任务详情
+                render();
+                // 滚动到新任务位置，提升体验
+                setTimeout(() => {
+                    const targetTask = document.querySelector(`.task-item[data-group='${groupIdx}'][data-task='${nextIndex}']`);
+                    if (targetTask) targetTask.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 50);
+            } else {
+                // 没有下一个任务了，但也可以保留当前折叠状态，不清空展开也可以，渲染后同一组内手风琴规则保证不会错误
+                // 如果已完成所有任务，最好折叠当前打开的任务
+                if (groupOpenTaskIndex[groupIdx] !== undefined) delete groupOpenTaskIndex[groupIdx];
+                render();
+            }
+        }
+
+        function render() {
+            const container = document.getElementById('missionsContainer');
+            container.innerHTML = '';
+            let doneCount = 0;
+            missions.forEach((group, gi) => {
+                const groupDone = group.tasks.filter(t => t.done).length;
+                doneCount += groupDone;
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'mission-group';
+                // 头部
+                const header = document.createElement('div');
+                header.className = 'group-header';
+                header.innerHTML = `
+                <div class="group-title">
+                    <span class="emoji">${group.emoji}</span>
+                    <span>${group.name}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <div class="group-count">${groupDone}/${group.tasks.length}</div>
+                    <div class="group-expand-icon">▼</div>
+                </div>
+            `;
+                const tasksContainer = document.createElement('div');
+                tasksContainer.className = 'tasks-container';
+                // 大组手风琴逻辑: 只有当前打开的大组才显示任务列表
+                const isGroupOpen = (currentOpenGroup === gi);
+                tasksContainer.style.display = isGroupOpen ? 'block' : 'none';
+                const iconSpan = header.querySelector('.group-expand-icon');
+                iconSpan.style.transform = isGroupOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+
+                // 点击大组头部：关闭其他所有大组，切换当前组
+                header.addEventListener('click', (e) => {
+                    if (e.target.tagName === 'A') return;
+                    if (currentOpenGroup === gi) {
+                        // 如果已经打开，就折叠（并清除该组内部的任务展开索引）
+                        currentOpenGroup = null;
+                        delete groupOpenTaskIndex[gi];
+                    } else {
+                        currentOpenGroup = gi;
+                        // 打开新组时，确保该组内默认有展开的任务: 如果没有设定展开任务且存在未完成任务，展开第一个未完成；若全部完成则展开第一个
+                        if (groupOpenTaskIndex[gi] === undefined) {
+                            const firstIncomplete = group.tasks.findIndex(t => !t.done);
+                            groupOpenTaskIndex[gi] = firstIncomplete !== -1 ? firstIncomplete : 0;
+                        }
+                    }
+                    saveGlobalState();
+                    render();
+                });
+
+                // 渲染任务列表
+                group.tasks.forEach((task, ti) => {
+                    const taskItem = document.createElement('div');
+                    taskItem.className = 'task-item';
+                    taskItem.setAttribute('data-group', gi);
+                    taskItem.setAttribute('data-task', ti);
+                    const taskHeader = document.createElement('div');
+                    taskHeader.className = 'task-header';
+                    const checkboxSpan = document.createElement('div');
+                    checkboxSpan.className = `task-checkbox ${task.done ? 'checked' : ''}`;
+                    checkboxSpan.innerHTML = task.done ? '✓' : '';
+                    checkboxSpan.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (!task.done) {
+                            task.done = true;
+                            saveGlobalState();
+                            // 勾选后自动跳转下一未完成任务（同组内）
+                            autoJumpToNextTask(gi, ti);
+                        } else {
+                            // 取消勾选时，只是改变状态并重新渲染，不进行自动跳转
+                            task.done = false;
+                            saveGlobalState();
+                            render();
+                        }
+                    });
+                    const titleSpan = document.createElement('div');
+                    titleSpan.className = 'task-title';
+                    // 处理超链接显示
+                    let displayText = task.text;
+                    if (task.hasLink && task.linkUrl) {
+                        titleSpan.innerHTML = `<a href="${task.linkUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${task.linkText || task.text}</a>`;
+                    } else {
+                        titleSpan.innerText = task.text;
+                    }
+                    const expandIcon = document.createElement('div');
+                    expandIcon.className = 'task-expand-icon';
+                    expandIcon.innerHTML = '▼';
+                    const detailDiv = document.createElement('div');
+                    detailDiv.className = 'task-detail';
+                    detailDiv.innerHTML = `
+                    <div class="detail-content">
+                        <div class="detail-text">
+                            ${task.detail}
+                        </div>
+                        <div class="speaker-info">
+                            <div class="speaker-avatar">${task.speakerEmoji || '💬'}</div>
+                            <div class="speaker-name">${task.speaker}</div>
+                            <div class="speaker-quote">“${task.speakerQuote}”</div>
+                        </div>
+                    </div>
+                `;
+                    // 同组内任务手风琴: 只有当前大组打开时，且该任务索引等于 groupOpenTaskIndex[gi] 才展开详情
+                    const isTaskOpen = (isGroupOpen && groupOpenTaskIndex[gi] === ti);
+                    detailDiv.style.display = isTaskOpen ? 'block' : 'none';
+                    expandIcon.style.transform = isTaskOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+                    // 点击任务头部：展开当前任务，并折叠同组其他任务详情
+                    taskHeader.addEventListener('click', (e) => {
+                        if (e.target.tagName === 'A') return;
+                        if (e.target === checkboxSpan || checkboxSpan.contains(e.target)) return;
+                        if (!isGroupOpen) return; // 大组未打开，不能展开任务
+                        if (groupOpenTaskIndex[gi] === ti) {
+                            // 如果已经展开，则折叠当前
+                            delete groupOpenTaskIndex[gi];
+                        } else {
+                            // 否则打开当前，关闭组内其他
+                            groupOpenTaskIndex[gi] = ti;
+                        }
+                        saveGlobalState();
+                        render();
+                    });
+                    taskHeader.appendChild(checkboxSpan);
+                    taskHeader.appendChild(titleSpan);
+                    taskHeader.appendChild(expandIcon);
+                    taskItem.appendChild(taskHeader);
+                    taskItem.appendChild(detailDiv);
+                    tasksContainer.appendChild(taskItem);
+                });
+                groupDiv.appendChild(header);
+                groupDiv.appendChild(tasksContainer);
+                container.appendChild(groupDiv);
+            });
+
+            const percent = (doneCount / totalTasks) * 100;
+            document.getElementById('progressBar').style.width = percent + '%';
+            document.getElementById('doneCount').innerText = doneCount;
+            document.getElementById('totalCount').innerText = totalTasks;
+            const easterEgg = document.getElementById('easterEgg');
+            const completeMsg = document.getElementById('completeMessage');
+            if (doneCount === totalTasks && totalTasks > 0) {
+                easterEgg.style.display = 'block';
+                completeMsg.classList.add('show');
+            } else {
+                easterEgg.style.display = 'none';
+                completeMsg.classList.remove('show');
+            }
+        }
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            missions = JSON.parse(JSON.stringify(missionsData));
+            currentOpenGroup = null;
+            groupOpenTaskIndex = {};
+            saveGlobalState();
+            // 清除旧的localstorage部分标记但无需全部清除
+            render();
+        });
+
+        loadGlobalState();
+        render();
+    </script>
+</body>
+
+</html>
