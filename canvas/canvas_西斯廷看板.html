@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <!--
+
+        SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
+        本文件是"汉末废柴堆 · 超级团队组建系统"的一部分。
+
+        完整项目受 CC BY-NC-SA 4.0 许可证保护，详见根目录 LICENSE 文件。
+
+        本项目核心设计思想、架构方案、方法论受 NOTICE 文件独立保护。
+
+        个人可免费使用，严禁用于商业目的。
+
+        商业授权请联系：xxuuyyuunn@sina.com
+
+    -->
+
+    <!--
+
+        **版本历史**
+
+        | 版本号 | 过程节点说明 | 修订人 | 修订日期 | 修订内容 |
+        | :----- | :----------- | :----- | :------- | :------- |
+        | V0.1.0 | 初稿创建     | 徐昀 | 2026-05-26 | 根据用户需求生成 |
+
+    -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>西斯廷看板</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack-all.js"></script>
+    <!-- html2canvas 用于导出PNG -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', 'Roboto', sans-serif;
+            background: #0a0f1f;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            color: #eef2ff;
+        }
+        .tabs-header {
+            background: #111827;
+            padding: 6px 20px 0 20px;
+            display: flex;
+            gap: 6px;
+            align-items: flex-end;
+            overflow-x: auto;
+            flex-shrink: 0;
+            border-bottom: 1px solid #2d3a5e;
+        }
+        .tabs-header::-webkit-scrollbar { height: 4px; }
+        .tab-item {
+            background: #1f2937;
+            color: #cbd5e6;
+            padding: 6px 16px;
+            border-radius: 12px 12px 0 0;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid #2d3a5e;
+            border-bottom: none;
+        }
+        .tab-item.active {
+            background: #0f172f;
+            color: white;
+            border-top: 2px solid #3b82f6;
+        }
+        .tab-name { display: inline-block; cursor: pointer; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+        .close-tab {
+            background: rgba(255,255,255,0.1);
+            border-radius: 30px;
+            width: 20px; height: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .close-tab:hover { background: #ef4444; color: white; }
+        .add-tab-btn {
+            background: #2d3a5e;
+            border: none;
+            color: #cbd5e6;
+            padding: 4px 16px;
+            border-radius: 30px;
+            margin-left: 6px;
+            cursor: pointer;
+        }
+        .add-tab-btn:hover { background: #3b82f6; color: white; }
+        .screens-container { flex: 1; position: relative; background: #0a0f1f; overflow: hidden; }
+        .screen-pane {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: none;
+            padding: 16px;
+            overflow: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        .screen-pane::-webkit-scrollbar { display: none; }
+        .screen-pane.active-screen { display: block; }
+        .grid-stack { background: #0a0f1f; min-height: 100%; }
+        .grid-stack-item {
+            background: rgba(18, 25, 45, 0.9);
+            backdrop-filter: blur(6px);
+            border-radius: 16px;
+            border: 1px solid rgba(59, 130, 246, 0.35);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            overflow: hidden;
+            transition: border 0.2s;
+        }
+        .grid-stack-item:hover { border-color: #3b82f6; }
+        
+        /* 卡片头部 - 默认半透明，悬浮时完全显示 */
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 10px;
+            background: rgba(0,0,0,0.35);
+            border-bottom: 1px solid #2d3a5e;
+            cursor: grab;
+            transition: opacity 0.2s ease, background 0.2s;
+            opacity: 0.45;
+        }
+        .grid-stack-item:hover .card-header {
+            opacity: 1;
+            background: rgba(0,0,0,0.6);
+        }
+        .card-header:active { cursor: grabbing; }
+        .card-title {
+            font-weight: 600;
+            font-size: 0.8rem;
+            background: linear-gradient(135deg, #e0f2fe, #60a5fa);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .card-actions { display: flex; gap: 6px; opacity: 0.85; }
+        .card-actions button {
+            background: rgba(45,58,94,0.9);
+            border: none;
+            color: #cbd5e6;
+            border-radius: 20px;
+            padding: 3px 8px;
+            font-size: 10px;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+        .card-actions button:hover { background: #ef4444; color: white; }
+        
+        .chart-container {
+            width: 100%;
+            height: calc(100% - 34px);
+            padding: 6px 8px 8px 8px;
+            overflow: hidden;
+        }
+        .chart-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            color: #8ba0c0;
+            font-size: 12px;
+            gap: 10px;
+            padding: 20px;
+        }
+        .import-json-btn {
+            background: #3b82f6;
+            border: none;
+            color: white;
+            border-radius: 30px;
+            padding: 6px 16px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .import-json-btn:hover { background: #2563eb; }
+        
+        /* 右下角主按钮区域 - 悬浮才显示，离开后自动隐藏 */
+        .edit-toolbar {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #111827e6;
+            backdrop-filter: blur(12px);
+            border-radius: 40px;
+            padding: 6px 16px;
+            display: flex;
+            gap: 10px;
+            z-index: 200;
+            border: 1px solid #3b82f6;
+            transition: opacity 0.2s, transform 0.2s;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(10px);
+        }
+        .edit-toolbar.visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+        .edit-toolbar button {
+            background: #1e293b;
+            border: none;
+            color: white;
+            border-radius: 30px;
+            padding: 6px 14px;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .edit-toolbar button:hover { background: #3b82f6; }
+        
+        .status-toast {
+            position: fixed;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2d3a5ecc;
+            backdrop-filter: blur(8px);
+            padding: 4px 16px;
+            border-radius: 30px;
+            font-size: 12px;
+            color: white;
+            pointer-events: none;
+            z-index: 300;
+        }
+        .modal-mask {
+            position: fixed;
+            top:0; left:0; width:100%; height:100%;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-panel {
+            background: #0f172f;
+            border-radius: 24px;
+            width: 560px;
+            max-width: 90%;
+            padding: 20px;
+            border: 1px solid #3b82f6;
+        }
+        .modal-panel textarea {
+            width: 100%;
+            background: #0b0f1a;
+            border: 1px solid #2d3a5e;
+            border-radius: 16px;
+            padding: 12px;
+            color: #e2e8f0;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 12px 0;
+        }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px; }
+        .file-upload-label {
+            background: #2d3a5e;
+            border-radius: 30px;
+            padding: 6px 14px;
+            font-size: 12px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .file-upload-label:hover { background: #3b82f6; }
+        input[type="file"] { display: none; }
+        .btn-secondary { background: #2d3a5e; border: none; padding: 6px 16px; border-radius: 30px; color: white; cursor: pointer; }
+        .btn-primary { background: #3b82f6; border: none; padding: 6px 16px; border-radius: 30px; color: white; cursor: pointer; }
+    </style>
+</head>
+<body>
+<div class="tabs-header" id="tabsHeader">
+    <button class="add-tab-btn" id="addTabBtn"><i class="fas fa-plus"></i> 新建大屏</button>
+</div>
+<div class="screens-container" id="screensContainer"></div>
+<div class="edit-toolbar" id="editToolbar">
+    <button id="globalAddChartBtn"><i class="fas fa-chart-simple"></i> 添加图表</button>
+    <button id="globalExportDashboardBtn"><i class="fas fa-download"></i> 导出大屏</button>
+    <button id="globalImportDashboardBtn"><i class="fas fa-upload"></i> 导入大屏</button>
+    <button id="globalExportPngBtn"><i class="fas fa-camera"></i> 导出PNG</button>
+</div>
+<div id="statusToast" class="status-toast" style="display: none;"></div>
+
+<script>
+    // ==================== 优化1: 修复 looseJsonParse 解析顺序 ====================
+    function looseJsonParse(str) {
+        str = str.trim();
+        // 1. 先移除注释
+        str = str.replace(/\/\*[\s\S]*?\*\//g, '');
+        str = str.replace(/\/\/.*/g, '');
+        // 2. 处理无引号的属性名 (先处理，避免单引号替换干扰)
+        str = str.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
+        // 3. 最后处理单引号
+        str = str.replace(/'/g, '"');
+        // 4. 修复尾随逗号
+        str = str.replace(/,\s*}/g, '}');
+        str = str.replace(/,\s*\]/g, ']');
+        try {
+            return JSON.parse(str);
+        } catch(e) {
+            try {
+                const fn = new Function('return (' + str + ')');
+                const obj = fn();
+                return JSON.parse(JSON.stringify(obj));
+            } catch(e2) {
+                throw new Error('无法解析为有效的图表配置: ' + e2.message);
+            }
+        }
+    }
+    
+    // ==================== 优化2: 不覆盖用户已有配置 ====================
+    function enhanceChartOption(originalOpt) {
+        if (!originalOpt || typeof originalOpt !== 'object') return originalOpt;
+        let opt = JSON.parse(JSON.stringify(originalOpt));
+        
+        // 标题处理：只添加默认样式，不覆盖用户的位置设置
+        if (opt.title) {
+            if (typeof opt.title === 'string') opt.title = { text: opt.title };
+            if (!opt.title.textStyle) {
+                opt.title.textStyle = {
+                    color: '#c7e9ff',
+                    fontSize: 16,
+                    fontWeight: 'bold',
+                    textShadow: '0 0 8px #3b82f6, 0 0 2px #1e3a8a',
+                    fontFamily: 'inherit'
+                };
+            }
+            // 只在用户没有设置 left/right/center 时才设置 left
+            if (opt.title.left === undefined && opt.title.right === undefined) {
+                opt.title.left = 'left';
+            }
+        }
+        
+        // 图例处理：只在用户没有设置图例时添加默认配置
+        if (opt.legend === undefined) {
+            opt.legend = { orient: 'horizontal', left: 'center', top: 'bottom' };
+        } else if (typeof opt.legend === 'string') {
+            opt.legend = { orient: 'horizontal', left: 'center', top: 'bottom' };
+        } else {
+            // 如果用户已有 legend，只补充缺失的样式，不覆盖用户设置的位置
+            if (!opt.legend.textStyle) opt.legend.textStyle = {};
+            if (opt.legend.textStyle.color === undefined) opt.legend.textStyle.color = '#cbd5e6';
+            if (opt.legend.backgroundColor === undefined) opt.legend.backgroundColor = 'rgba(0,0,0,0.2)';
+            if (opt.legend.borderRadius === undefined) opt.legend.borderRadius = 8;
+            if (opt.legend.padding === undefined) opt.legend.padding = [4, 12, 4, 12];
+            // 只有用户没有设置位置时才补充底部居中
+            if (opt.legend.left === undefined && opt.legend.right === undefined && opt.legend.top === undefined) {
+                opt.legend.left = 'center';
+                opt.legend.top = 'bottom';
+            }
+        }
+        
+        // 网格处理：只在用户没有设置 grid 时添加默认值
+        if (opt.grid === undefined) {
+            opt.grid = { bottom: '12%', containLabel: true };
+        } else if (typeof opt.grid === 'object' && opt.grid.bottom === undefined) {
+            opt.grid.bottom = '12%';
+        }
+        
+        return opt;
+    }
+    
+    let screens = [];
+    let activeScreenId = null;
+    let nextScreenId = 1;
+    let nextCardId = 100;
+    let gridStackMap = new Map();
+    let chartInstanceMap = new Map();
+    let gridSaveDebounceTimer = null; // 防抖定时器
+
+    function showTip(msg, duration = 2000) {
+        const toast = document.getElementById('statusToast');
+        toast.innerText = msg;
+        toast.style.display = 'block';
+        setTimeout(() => toast.style.display = 'none', duration);
+    }
+
+    function createCardConfig() {
+        return { id: nextCardId++, chartOption: null, w: 4, h: 5, x: 0, y: 0 };
+    }
+
+    function buildCardWidgetHtml(card, screenId) {
+        const hasChart = card.chartOption && typeof card.chartOption === 'object';
+        let titleText = '未配置图表';
+        if (hasChart && card.chartOption.title?.text) titleText = card.chartOption.title.text;
+        else if (hasChart) titleText = '图表卡片';
+        if (titleText.length > 28) titleText = titleText.slice(0,25)+'...';
+        const innerContent = hasChart ? 
+            `<div id="chart-${screenId}-${card.id}" class="chart-container"></div>` :
+            `<div class="chart-placeholder" id="placeholder-${screenId}-${card.id}">
+                <i class="fas fa-chart-line" style="font-size: 24px; opacity:0.6;"></i>
+                <span style="font-size:12px;">暂无数据，请导入 JSON</span>
+                <button class="import-json-btn" data-card-id="${card.id}" data-screen-id="${screenId}"><i class="fas fa-upload"></i> 导入JSON</button>
+            </div>`;
+        return `<div class="grid-stack-item" data-card-id="${card.id}" data-screen-id="${screenId}">
+                    <div class="grid-stack-item-content">
+                        <div class="card-header">
+                            <div class="card-title"><i class="fas fa-chart-line"></i> <span class="card-title-text">${escapeHtml(titleText)}</span></div>
+                            <div class="card-actions">
+                                <button class="edit-json-btn" data-card-id="${card.id}" data-screen-id="${screenId}" title="编辑/导入JSON"><i class="fas fa-code"></i> JSON</button>
+                                <button class="delete-chart-btn" data-card-id="${card.id}" data-screen-id="${screenId}"><i class="fas fa-trash"></i> 删除</button>
+                            </div>
+                        </div>
+                        ${innerContent}
+                    </div>
+                </div>`;
+    }
+
+    // ==================== 优化5: 事件委托，移除 cloneNode 方式 ====================
+    function setupEventDelegation(screenId) {
+        const pane = document.getElementById(`screen-${screenId}`);
+        if (!pane) return;
+        
+        // 使用事件委托处理所有按钮点击
+        pane.removeEventListener('click', pane._eventDelegate);
+        const delegateHandler = (e) => {
+            const target = e.target.closest('button');
+            if (!target) return;
+            
+            // 处理编辑JSON按钮
+            if (target.classList.contains('edit-json-btn')) {
+                e.preventDefault();
+                const cardId = parseInt(target.getAttribute('data-card-id'));
+                const screen = screens.find(s => s.id === screenId);
+                if (screen) {
+                    const card = screen.cards.find(c => c.id === cardId);
+                    if (card) showImportJsonModal(screen, card);
+                }
+            }
+            // 处理删除按钮
+            else if (target.classList.contains('delete-chart-btn')) {
+                e.preventDefault();
+                const cardId = parseInt(target.getAttribute('data-card-id'));
+                const screen = screens.find(s => s.id === screenId);
+                if (!screen) return;
+                const card = screen.cards.find(c => c.id === cardId);
+                if (card && confirm(`确定删除此图表卡片吗？`)) {
+                    const idx = screen.cards.findIndex(c => c.id === cardId);
+                    screen.cards.splice(idx, 1);
+                    const key = `${screen.id}_${cardId}`;
+                    if (chartInstanceMap.has(key)) chartInstanceMap.get(key).dispose();
+                    renderScreenGrid(screen);
+                    saveScreensToLocal();
+                    showTip("卡片已删除", 1000);
+                }
+            }
+            // 处理导入JSON按钮（占位符中的）
+            else if (target.classList.contains('import-json-btn')) {
+                e.preventDefault();
+                const cardId = parseInt(target.getAttribute('data-card-id'));
+                const screen = screens.find(s => s.id === screenId);
+                if (screen) {
+                    const card = screen.cards.find(c => c.id === cardId);
+                    if (card) showImportJsonModal(screen, card);
+                }
+            }
+        };
+        pane.addEventListener('click', delegateHandler);
+        pane._eventDelegate = delegateHandler;
+    }
+    
+    // ==================== 优化10: 清理该屏幕下的旧图表实例 ====================
+    function cleanupScreenCharts(screenId) {
+        for (let [key, chart] of chartInstanceMap.entries()) {
+            if (key.startsWith(`${screenId}_`)) {
+                chart.dispose();
+                chartInstanceMap.delete(key);
+            }
+        }
+    }
+    
+    // ==================== 优化9: 防抖保存 ====================
+    function debouncedSaveScreens() {
+        if (gridSaveDebounceTimer) clearTimeout(gridSaveDebounceTimer);
+        gridSaveDebounceTimer = setTimeout(() => {
+            saveScreensToLocal();
+        }, 300);
+    }
+    
+    function renderScreenGrid(screen) {
+        const containerId = `grid-${screen.id}`;
+        let container = document.getElementById(containerId);
+        if (!container) {
+            const pane = document.getElementById(`screen-${screen.id}`);
+            if (!pane) return;
+            pane.innerHTML = `<div class="grid-stack" id="${containerId}"></div>`;
+            container = document.getElementById(containerId);
+        }
+        
+        // 清理旧图表实例
+        cleanupScreenCharts(screen.id);
+        
+        if (gridStackMap.has(screen.id)) gridStackMap.get(screen.id).destroy(false);
+        const grid = GridStack.init({ column: 12, cellHeight: 70, margin: 10, float: false, draggable: { handle: '.card-header' }, resizable: { handles: 'se' } }, container);
+        grid.removeAll();
+        
+        if (screen.cards?.length) {
+            screen.cards.forEach(card => {
+                const widget = grid.addWidget(buildCardWidgetHtml(card, screen.id), { w: card.w||4, h: card.h||5, x: card.x||0, y: card.y||0, id: `widget-${screen.id}-${card.id}` });
+                widget.setAttribute('data-card-id', card.id);
+                widget.setAttribute('data-screen-id', screen.id);
+            });
+        }
+        
+        // 优化9: 防抖保存
+        grid.on('change', (event, items) => {
+            for (let item of items) {
+                const cardId = parseInt(item.el.getAttribute('data-card-id'));
+                if (!cardId) continue;
+                const scr = screens.find(s => s.id === parseInt(item.el.getAttribute('data-screen-id')));
+                if (scr) {
+                    const card = scr.cards.find(c => c.id === cardId);
+                    if (card) { card.x = item.x; card.y = item.y; card.w = item.w; card.h = item.h; }
+                }
+            }
+            debouncedSaveScreens();
+            for (let item of items) {
+                const key = `${parseInt(item.el.getAttribute('data-screen-id'))}_${parseInt(item.el.getAttribute('data-card-id'))}`;
+                const chart = chartInstanceMap.get(key);
+                if (chart) setTimeout(() => chart.resize(), 30);
+            }
+        });
+        
+        gridStackMap.set(screen.id, grid);
+        
+        if (screen.cards?.length) {
+            screen.cards.forEach(card => {
+                if (card.chartOption) {
+                    const containerDiv = document.getElementById(`chart-${screen.id}-${card.id}`);
+                    if (containerDiv) {
+                        let chart = echarts.init(containerDiv);
+                        const key = `${screen.id}_${card.id}`;
+                        if (chartInstanceMap.has(key)) chartInstanceMap.get(key).dispose();
+                        const enhanced = enhanceChartOption(card.chartOption);
+                        chart.setOption(enhanced, true);
+                        chartInstanceMap.set(key, chart);
+                    }
+                }
+            });
+        }
+        
+        // 设置事件委托
+        setupEventDelegation(screen.id);
+        updateTabCloseButtonState(screen.id);
+    }
+
+    // ==================== 优化3: 优化 refreshCard 的 DOM 替换方式 ====================
+    function refreshCard(screen, card) {
+        const widgetDiv = document.querySelector(`.grid-stack-item[data-card-id='${card.id}'][data-screen-id='${screen.id}']`);
+        if (!widgetDiv) return;
+        
+        let titleText = '未配置图表';
+        if (card.chartOption?.title?.text) titleText = card.chartOption.title.text;
+        const titleSpan = widgetDiv.querySelector('.card-title-text');
+        if (titleSpan) titleSpan.innerText = titleText.length > 28 ? titleText.slice(0,25)+'...' : titleText;
+        
+        const placeholder = widgetDiv.querySelector('.chart-placeholder');
+        const existingChartDiv = widgetDiv.querySelector(`#chart-${screen.id}-${card.id}`);
+        
+        if (card.chartOption) {
+            if (placeholder) {
+                // 替换 placeholder 为图表容器
+                const newContainer = document.createElement('div');
+                newContainer.id = `chart-${screen.id}-${card.id}`;
+                newContainer.className = 'chart-container';
+                placeholder.parentNode.replaceChild(newContainer, placeholder);
+                let chart = echarts.init(newContainer);
+                const enhanced = enhanceChartOption(card.chartOption);
+                chart.setOption(enhanced, true);
+                chartInstanceMap.set(`${screen.id}_${card.id}`, chart);
+            } else if (existingChartDiv) {
+                const key = `${screen.id}_${card.id}`;
+                const chart = chartInstanceMap.get(key);
+                const enhanced = enhanceChartOption(card.chartOption);
+                if (chart) {
+                    chart.setOption(enhanced, true);
+                } else {
+                    let nc = echarts.init(existingChartDiv);
+                    nc.setOption(enhanced, true);
+                    chartInstanceMap.set(key, nc);
+                }
+            }
+        } else {
+            if (existingChartDiv) {
+                const key = `${screen.id}_${card.id}`;
+                if (chartInstanceMap.has(key)) {
+                    chartInstanceMap.get(key).dispose();
+                    chartInstanceMap.delete(key);
+                }
+                // 创建 placeholder
+                const placeholderHtml = `<div class="chart-placeholder" id="placeholder-${screen.id}-${card.id}">
+                    <i class="fas fa-chart-line" style="font-size:24px;opacity:0.6;"></i>
+                    <span>暂无数据，请导入 JSON</span>
+                    <button class="import-json-btn" data-card-id="${card.id}" data-screen-id="${screen.id}">导入JSON</button>
+                </div>`;
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = placeholderHtml.trim();
+                const newPlaceholder = tempDiv.firstChild;
+                existingChartDiv.parentNode.replaceChild(newPlaceholder, existingChartDiv);
+            }
+        }
+    }
+
+    function showImportJsonModal(screen, card) {
+        const modalDiv = document.createElement('div');
+        modalDiv.className = 'modal-mask';
+        modalDiv.innerHTML = `
+            <div class="modal-panel">
+                <h3><i class="fas fa-file-import"></i> 导入图表 JSON</h3>
+                <p style="font-size:12px; color:#8ba0c0; margin:6px 0;">支持标准 ECharts 格式，自动兼容无引号属性名<br>★ 自动应用标题高亮 ★ 图例底部显示（不会覆盖您的图例位置设置）</p>
+                <div><label class="file-upload-label" id="cardFileUploadLabel"><i class="fas fa-folder-open"></i> 上传JSON文件</label><input type="file" id="cardJsonFileInput" accept=".json"></div>
+                <textarea id="jsonEditorTextarea" rows="8" placeholder='粘贴 JSON 配置，例如：\n{\n  xAxis: { type: "category", data: ["Mon","Tue"] },\n  yAxis: { type: "value" },\n  series: [{ data: [820, 932], type: "line" }]\n}'></textarea>
+                <div class="modal-buttons"><button class="btn-secondary" id="cancelModalBtn">取消</button><button class="btn-primary" id="applyJsonBtn">应用配置</button></div>
+            </div>
+        `;
+        document.body.appendChild(modalDiv);
+        const fileInput = modalDiv.querySelector('#cardJsonFileInput');
+        const textarea = modalDiv.querySelector('#jsonEditorTextarea');
+        const uploadLabel = modalDiv.querySelector('#cardFileUploadLabel');
+        uploadLabel.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const json = looseJsonParse(ev.target.result);
+                    textarea.value = JSON.stringify(json, null, 2);
+                    showTip("文件加载成功，点击应用配置", 1000);
+                } catch(err) { alert("解析失败: "+err.message); }
+            };
+            reader.readAsText(file);
+            fileInput.value = '';
+        });
+        const closeModal = () => modalDiv.remove();
+        document.getElementById('cancelModalBtn').addEventListener('click', closeModal);
+        document.getElementById('applyJsonBtn').addEventListener('click', () => {
+            const raw = textarea.value.trim();
+            if (!raw) { alert("请输入 JSON 内容"); return; }
+            try {
+                let option = looseJsonParse(raw);
+                if (!option.series) throw new Error("配置缺少 series 字段");
+                card.chartOption = option;
+                refreshCard(screen, card);
+                saveScreensToLocal();
+                showTip("图表已更新", 1500);
+                closeModal();
+            } catch(e) { alert("配置无效: " + e.message); }
+        });
+    }
+    
+    function addCardToActiveScreen() {
+        if (!activeScreenId) { showTip("请先选择一个标签页", 1000); return; }
+        const screen = screens.find(s => s.id === activeScreenId);
+        if (!screen) return;
+        screen.cards.push(createCardConfig());
+        renderScreenGrid(screen);
+        saveScreensToLocal();
+        showTip("新卡片已添加，点击「JSON」导入图表数据", 2000);
+    }
+    
+    // 导出完整大屏
+    function exportFullDashboard() {
+        if (!activeScreenId) { showTip("请先选择一个标签页", 1000); return; }
+        const screen = screens.find(s => s.id === activeScreenId);
+        if (!screen) return;
+        const exportData = {
+            version: "4.0",
+            screenName: screen.name,
+            cards: screen.cards.map(c => ({
+                id: c.id,
+                w: c.w,
+                h: c.h,
+                x: c.x,
+                y: c.y,
+                chartOption: c.chartOption
+            }))
+        };
+        const jsonStr = JSON.stringify(exportData, null, 2);
+        const blob = new Blob([jsonStr], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `dashboard_${screen.name}_完整备份.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showTip("完整大屏配置已导出", 1500);
+    }
+    
+    // ==================== 优化7: 导入大屏JSON，支持追加或替换 ====================
+    function importDashboardJson() {
+        if (!activeScreenId) { showTip("请先选择一个标签页", 1000); return; }
+        const screen = screens.find(s => s.id === activeScreenId);
+        if (!screen) return;
+        
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.json';
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const imported = JSON.parse(ev.target.result);
+                    if (!imported.cards || !Array.isArray(imported.cards)) throw new Error("无效的大屏备份文件");
+                    
+                    // 询问是替换还是追加
+                    const hasExistingCards = screen.cards && screen.cards.length > 0;
+                    let shouldReplace = false;
+                    let shouldAppend = false;
+                    
+                    if (hasExistingCards) {
+                        const userChoice = confirm("当前大屏已有图表。\n点击「确定」替换所有现有图表，点击「取消」追加到现有图表后面。");
+                        shouldReplace = userChoice;
+                        shouldAppend = !userChoice;
+                    }
+                    
+                    const newCards = [];
+                    for (let oldCard of imported.cards) {
+                        newCards.push({
+                            id: nextCardId++,
+                            w: oldCard.w ?? 4,
+                            h: oldCard.h ?? 5,
+                            x: oldCard.x ?? 0,
+                            y: oldCard.y ?? 0,
+                            chartOption: oldCard.chartOption || null
+                        });
+                    }
+                    
+                    if (shouldReplace) {
+                        // 清理旧图表实例
+                        screen.cards.forEach(card => {
+                            const key = `${screen.id}_${card.id}`;
+                            if (chartInstanceMap.has(key)) chartInstanceMap.get(key).dispose();
+                        });
+                        screen.cards = newCards;
+                    } else if (shouldAppend) {
+                        screen.cards.push(...newCards);
+                    } else {
+                        screen.cards = newCards;
+                    }
+                    
+                    if (imported.screenName && shouldReplace) {
+                        screen.name = imported.screenName;
+                        const tabDiv = document.querySelector(`.tab-item[data-screen-id='${screen.id}']`);
+                        if (tabDiv) {
+                            const nameSpan = tabDiv.querySelector('.tab-name');
+                            if (nameSpan) nameSpan.innerText = screen.name;
+                        }
+                    }
+                    
+                    renderScreenGrid(screen);
+                    saveScreensToLocal();
+                    showTip(`成功导入 ${newCards.length} 个图表${shouldAppend ? '（已追加）' : '（已替换）'}`, 2000);
+                } catch(err) { alert("导入失败: " + err.message); }
+            };
+            reader.readAsText(file);
+        };
+        fileInput.click();
+    }
+    
+    // ==================== 优化8: 为 exportScreenAsPng 增加错误提示优化 ====================
+    async function exportScreenAsPng() {
+        if (!activeScreenId) { showTip("请先选择一个标签页", 1000); return; }
+        const screen = screens.find(s => s.id === activeScreenId);
+        if (!screen) return;
+        const container = document.getElementById(`screen-${screen.id}`);
+        if (!container) { showTip("找不到当前大屏区域", 1000); return; }
+        showTip("正在生成图片，请稍候...", 1500);
+        try {
+            const canvas = await html2canvas(container, {
+                backgroundColor: '#0a0f1f',
+                scale: 2,
+                logging: false,
+                useCORS: false,
+                allowTaint: false
+            });
+            const link = document.createElement('a');
+            link.download = `dashboard_${screen.name}_${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            showTip("大屏截图已导出", 1500);
+        } catch(err) {
+            console.error('截图生成错误:', err);
+            showTip("截图生成失败: " + (err.message || '未知错误'), 3000);
+        }
+    }
+    
+    function setupToolbarHover() {
+        const toolbar = document.getElementById('editToolbar');
+        let timeoutId = null;
+        const showToolbar = () => {
+            if (timeoutId) clearTimeout(timeoutId);
+            toolbar.classList.add('visible');
+        };
+        const hideToolbar = () => {
+            timeoutId = setTimeout(() => {
+                toolbar.classList.remove('visible');
+            }, 300);
+        };
+        toolbar.addEventListener('mouseenter', showToolbar);
+        toolbar.addEventListener('mouseleave', hideToolbar);
+        document.addEventListener('mousemove', (e) => {
+            const rect = toolbar.getBoundingClientRect();
+            const buffer = 40;
+            const near = (e.clientX > rect.left - buffer && e.clientX < rect.right + buffer && e.clientY > rect.top - buffer && e.clientY < rect.bottom + buffer);
+            if (near) showToolbar();
+            else {
+                if (!toolbar.matches(':hover')) hideToolbar();
+            }
+        });
+        setTimeout(() => toolbar.classList.add('visible'), 200);
+        setTimeout(() => { if (!toolbar.matches(':hover')) toolbar.classList.remove('visible'); }, 3000);
+    }
+    
+    // ==================== 优化6: 改进 closeScreen 提示逻辑（增加强制关闭选项） ====================
+    function closeScreen(screenId) {
+        const screen = screens.find(s => s.id === screenId);
+        if (!screen) return;
+        
+        if (screen.cards?.length) {
+            const userChoice = confirm(`标签页「${screen.name}」包含 ${screen.cards.length} 个图表。\n点击「确定」强制关闭（图表将丢失），点击「取消」保留页签。`);
+            if (!userChoice) {
+                showTip("请先手动删除所有图表后再关闭页签，或强制关闭", 2500);
+                return;
+            }
+            // 强制关闭：清理图表实例
+            screen.cards.forEach(c => { 
+                const key = `${screen.id}_${c.id}`; 
+                if(chartInstanceMap.has(key)) chartInstanceMap.get(key).dispose();
+            });
+        }
+        
+        if (screens.length <= 1) { 
+            showTip("至少保留一个大屏页签", 1500); 
+            return; 
+        }
+        
+        if(gridStackMap.has(screenId)) gridStackMap.get(screenId).destroy(false);
+        const idx = screens.findIndex(s => s.id === screenId);
+        screens.splice(idx, 1);
+        document.getElementById(`screen-${screenId}`)?.remove();
+        document.querySelector(`.tab-item[data-screen-id='${screenId}']`)?.remove();
+        if (activeScreenId === screenId) switchToScreen(screens[0].id);
+        saveScreensToLocal();
+        showTip(`已关闭页签「${screen.name}」`, 1500);
+    }
+    
+    function createNewScreen(name = null) {
+        const id = nextScreenId++;
+        const screenName = name || `大屏 ${id}`;
+        screens.push({ id, name: screenName, cards: [] });
+        addScreenTabButton(id, screenName);
+        createScreenPane(id);
+        switchToScreen(id);
+        saveScreensToLocal();
+        showTip(`新建页签: ${screenName}`, 1200);
+    }
+    
+    function createScreenPane(screenId) {
+        let pane = document.getElementById(`screen-${screenId}`);
+        if(pane) pane.remove();
+        pane = document.createElement('div'); pane.className = 'screen-pane'; pane.id = `screen-${screenId}`;
+        document.getElementById('screensContainer').appendChild(pane);
+        const screen = screens.find(s => s.id === screenId);
+        if(screen) { pane.innerHTML = `<div class="grid-stack" id="grid-${screenId}"></div>`; renderScreenGrid(screen); }
+    }
+    
+    function addScreenTabButton(screenId, name) {
+        const header = document.getElementById('tabsHeader');
+        const addBtn = document.getElementById('addTabBtn');
+        const div = document.createElement('div');
+        div.className = 'tab-item';
+        div.setAttribute('data-screen-id', screenId);
+        const nameSpan = document.createElement('span'); nameSpan.className = 'tab-name'; nameSpan.innerText = name;
+        const closeSpan = document.createElement('span'); closeSpan.className = 'close-tab'; closeSpan.innerText = '✕';
+        div.appendChild(nameSpan); div.appendChild(closeSpan);
+        nameSpan.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            const old = nameSpan.innerText;
+            const input = document.createElement('input'); input.value = old;
+            input.style.cssText = 'background:#1f2937;color:white;border:1px solid #3b82f6;border-radius:12px;padding:2px 8px;';
+            nameSpan.style.display = 'none';
+            nameSpan.parentNode.insertBefore(input, nameSpan);
+            input.focus();
+            const save = () => {
+                let newName = input.value.trim() || old;
+                if(newName !== old) { const s = screens.find(s => s.id === screenId); if(s) s.name = newName; nameSpan.innerText = newName; saveScreensToLocal(); }
+                else nameSpan.innerText = old;
+                nameSpan.style.display = 'inline-block'; input.remove();
+            };
+            input.addEventListener('blur', save);
+            input.addEventListener('keypress', e => { if(e.key === 'Enter') save(); });
+        });
+        div.addEventListener('click', (e) => { if(e.target === closeSpan || e.target.parentElement === closeSpan) closeScreen(screenId); else switchToScreen(screenId); });
+        header.insertBefore(div, addBtn);
+        updateTabCloseButtonState(screenId);
+    }
+    
+    function switchToScreen(screenId) {
+        if(activeScreenId === screenId) return;
+        document.querySelectorAll('.screen-pane').forEach(p => p.classList.remove('active-screen'));
+        document.getElementById(`screen-${screenId}`)?.classList.add('active-screen');
+        document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+        document.querySelector(`.tab-item[data-screen-id='${screenId}']`)?.classList.add('active');
+        activeScreenId = screenId;
+        const screen = screens.find(s => s.id === screenId);
+        if(screen) renderScreenGrid(screen);
+        saveScreensToLocal();
+    }
+    
+    function saveScreensToLocal() {
+        localStorage.setItem('drag_dashboards_v9', JSON.stringify(screens.map(s => ({ id: s.id, name: s.name, cards: s.cards.map(c => ({ id: c.id, w: c.w, h: c.h, x: c.x, y: c.y, chartOption: c.chartOption })) }))));
+        localStorage.setItem('nextScreenId_v9', nextScreenId);
+        localStorage.setItem('nextCardId_v9', nextCardId);
+    }
+    
+    function loadFromLocal() {
+        const raw = localStorage.getItem('drag_dashboards_v9');
+        if (!raw) { createNewScreen("我的大屏"); return; }
+        try {
+            const loaded = JSON.parse(raw);
+            screens = loaded.map(s => ({ id: s.id, name: s.name, cards: s.cards.map(c => ({ id: c.id, w: c.w??4, h: c.h??5, x: c.x??0, y: c.y??0, chartOption: c.chartOption })) }));
+            screens.forEach(s => { addScreenTabButton(s.id, s.name); createScreenPane(s.id); });
+            nextScreenId = parseInt(localStorage.getItem('nextScreenId_v9')||(Math.max(...screens.map(s=>s.id),0)+1));
+            nextCardId = parseInt(localStorage.getItem('nextCardId_v9')||(Math.max(...screens.flatMap(s=>s.cards.map(c=>c.id)),99)+1));
+            if(screens.length) switchToScreen(screens[0].id);
+            else createNewScreen("大屏");
+        } catch(e) { createNewScreen("大屏"); }
+    }
+    
+    function updateTabCloseButtonState(screenId) {
+        const screen = screens.find(s => s.id === screenId);
+        const tabDiv = document.querySelector(`.tab-item[data-screen-id='${screenId}']`);
+        if (tabDiv) {
+            const closeSpan = tabDiv.querySelector('.close-tab');
+            if (closeSpan) {
+                const hasCharts = screen?.cards?.length > 0;
+                // 有图表时显示红色警告样式，但仍可点击（因为强制关闭会二次确认）
+                closeSpan.style.opacity = hasCharts ? '0.7' : '1';
+                closeSpan.style.pointerEvents = 'auto';
+                if (hasCharts) {
+                    closeSpan.title = `包含 ${screen.cards.length} 个图表，点击强制关闭`;
+                }
+            }
+        }
+    }
+    
+    function escapeHtml(str) { return String(str).replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
+    
+    document.getElementById('addTabBtn').addEventListener('click', () => createNewScreen());
+    document.getElementById('globalAddChartBtn').addEventListener('click', () => addCardToActiveScreen());
+    document.getElementById('globalExportDashboardBtn').addEventListener('click', () => exportFullDashboard());
+    document.getElementById('globalImportDashboardBtn').addEventListener('click', () => importDashboardJson());
+    document.getElementById('globalExportPngBtn').addEventListener('click', () => exportScreenAsPng());
+    
+    loadFromLocal();
+    setupToolbarHover();
+    window.addEventListener('resize', () => { for(let ch of chartInstanceMap.values()) ch.resize(); });
+</script>
+</body>
+</html>
