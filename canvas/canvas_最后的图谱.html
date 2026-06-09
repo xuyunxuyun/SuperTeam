@@ -26,6 +26,8 @@
         | :----- | :----------- | :----- | :------- | :------- |
         | V0.1.0 | 初稿创建     | 徐昀 | 2026-05-20 | 根据用户需求生成 |
         | V0.1.1 | 样式修复     | 徐昀 | 2026-05-21 | 修复新建顶点/关系样式不一致问题 |
+        | V0.1.2 | 新增状态边框 | 徐昀 | 2026-05-29 | 增加status属性，支持边框颜色映射与管理，鼠标悬停显示所有props属性 |
+        | V0.1.3 | 修复页签重命名 | 徐昀 | 2026-06-02 | 修复双击修改页签名后不立即显示的问题 |
 
     -->
     <meta charset="UTF-8">
@@ -69,10 +71,6 @@
 
         .tabs-header::-webkit-scrollbar {
             height: 4px;
-            background: transparent;
-        }
-
-        .tabs-header::-webkit-scrollbar-track {
             background: transparent;
         }
 
@@ -439,6 +437,59 @@
             background: #2a3452;
             margin: 4px 0;
         }
+
+        /* 悬停提示框样式 */
+        .hover-tooltip {
+            position: fixed;
+            background: rgba(10, 14, 26, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid #4c9aff;
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-size: 12px;
+            color: #e0e0e0;
+            z-index: 2000;
+            pointer-events: none;
+            font-family: 'Segoe UI', monospace;
+            max-width: 400px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            transition: opacity 0.15s ease;
+            line-height: 1.5;
+        }
+
+        .hover-tooltip .tooltip-title {
+            font-weight: bold;
+            color: #4c9aff;
+            margin-bottom: 6px;
+            border-bottom: 1px solid #2a3452;
+            padding-bottom: 4px;
+        }
+
+        .hover-tooltip .tooltip-props {
+            margin-top: 4px;
+        }
+
+        .hover-tooltip .prop-row-tooltip {
+            display: flex;
+            margin: 4px 0;
+            gap: 8px;
+        }
+
+        .hover-tooltip .prop-key-tooltip {
+            color: #9aa9c1;
+            min-width: 70px;
+        }
+
+        .hover-tooltip .prop-val-tooltip {
+            color: #ffffff;
+            word-break: break-word;
+            flex: 1;
+        }
+
+        .hover-tooltip .no-props {
+            color: #888;
+            font-style: italic;
+        }
     </style>
 </head>
 
@@ -500,6 +551,8 @@
         <div class="context-menu-item" id="exportImageBtn">📸 导出图片 (PNG)</div>
     </div>
 
+    <div id="hoverTooltip" class="hover-tooltip" style="display: none;"></div>
+
     <script>
         let tabs = [];
         let activeTabId = null;
@@ -507,20 +560,29 @@
         let currentSelectedElement = null;
         let pendingEdgeSource = null;
 
-        const STORAGE_KEY = 'multitab_graphs_v15_final';
+        const STORAGE_KEY = 'multitab_graphs_v16_statusborder';
 
-        let globalVertexStyles = new Map();
+        // 顶点填充样式映射 (label -> { background, border })
+        let globalVertexFillStyles = new Map();
+        // 顶点状态边框映射 (status -> borderColor)
+        let globalStatusBorderStyles = new Map();
         let globalRelationStyles = new Map();
 
         function initDefaultStyles() {
             const defaultColors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD", "#F4A261", "#2A9D8F", "#E9C46A", "#9B5DE5"];
             defaultColors.forEach((c, idx) => {
-                globalVertexStyles.set(`类型${idx + 1}`, { background: c, border: shadeColor(c, -30) });
+                globalVertexFillStyles.set(`类型${idx + 1}`, { background: c, border: shadeColor(c, -30) });
             });
             const defaultEdgeColors = ["#7F8C8D", "#95A5A6", "#BDC3C7", "#AAB7B8", "#839192", "#F39C12", "#E67E22"];
             defaultEdgeColors.forEach((c, idx) => {
                 globalRelationStyles.set(`关系类型${idx + 1}`, c);
             });
+            // 预置几种状态边框色
+            globalStatusBorderStyles.set("正面", "#2ecc71");
+            globalStatusBorderStyles.set("负面", "#e74c3c");
+            globalStatusBorderStyles.set("中性", "#f39c12");
+            globalStatusBorderStyles.set("示例", "#9b59b6");
+            globalStatusBorderStyles.set("默认", "#95a5a6");
         }
         initDefaultStyles();
 
@@ -535,23 +597,36 @@
             return `rgb(${Math.round(R)}, ${Math.round(G)}, ${Math.round(B)})`;
         }
 
-        function getVertexStyleByType(typeLabel) {
+        // 获取顶点完整样式
+        function getVertexStyleByType(typeLabel, statusValue) {
             if (!typeLabel) typeLabel = "默认";
-            let styleConfig = globalVertexStyles.get(typeLabel);
-            if (!styleConfig) {
+            let fillConfig = globalVertexFillStyles.get(typeLabel);
+            if (!fillConfig) {
                 const hash = Math.abs(typeLabel.split('').reduce((a, b) => a + b.charCodeAt(0), 0));
                 const colors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD", "#F4A261", "#2A9D8F", "#E9C46A", "#9B5DE5"];
                 const bg = colors[hash % colors.length];
-                styleConfig = { background: bg, border: shadeColor(bg, -30) };
-                globalVertexStyles.set(typeLabel, styleConfig);
+                fillConfig = { background: bg, border: shadeColor(bg, -30) };
+                globalVertexFillStyles.set(typeLabel, fillConfig);
+            }
+            let borderColor = fillConfig.border;
+            if (statusValue && statusValue.trim() !== "") {
+                const statusKey = statusValue.trim();
+                let statusBorder = globalStatusBorderStyles.get(statusKey);
+                if (!statusBorder) {
+                    const hashStat = Math.abs(statusKey.split('').reduce((a, b) => a + b.charCodeAt(0), 0));
+                    const candidates = ["#3498db", "#e67e22", "#1abc9c", "#e84393", "#f1c40f", "#2c3e50"];
+                    statusBorder = candidates[hashStat % candidates.length];
+                    globalStatusBorderStyles.set(statusKey, statusBorder);
+                }
+                borderColor = statusBorder;
             }
             return {
                 color: {
-                    background: styleConfig.background,
-                    border: styleConfig.border,
+                    background: fillConfig.background,
+                    border: borderColor,
                     highlight: {
-                        background: shadeColor(styleConfig.background, 20),
-                        border: shadeColor(styleConfig.border, -20)
+                        background: shadeColor(fillConfig.background, 20),
+                        border: borderColor
                     }
                 },
                 shape: 'dot',
@@ -564,9 +639,26 @@
                     strokeWidth: 0.5,
                     align: 'center'
                 },
-                borderWidth: 1.5,
+                borderWidth: 2.5,
                 shadow: true
             };
+        }
+
+        function applyVertexStyleToNode(tab, nodeId) {
+            if (!tab.verticesDataSet) return;
+            const node = tab.verticesDataSet.get(nodeId);
+            if (node) {
+                const style = getVertexStyleByType(node.typeLabel || '默认', node.status);
+                tab.verticesDataSet.update({
+                    id: nodeId,
+                    color: style.color,
+                    font: style.font,
+                    size: style.size,
+                    shape: style.shape,
+                    borderWidth: style.borderWidth,
+                    shadow: style.shadow
+                });
+            }
         }
 
         function getRelationStyleByType(typeLabel) {
@@ -602,132 +694,120 @@
             };
         }
 
-        function hasTabData(tab) {
-            if (!tab.verticesDataSet) return false;
-            return tab.verticesDataSet.length > 0 || tab.relationsDataSet.length > 0;
-        }
-
-        function renameTab(tabId, newName) {
-            const tab = tabs.find(t => t.id === tabId);
-            if (!tab) return;
-            tab.name = newName;
-            const tabElement = document.querySelector(`.tab-item[data-tab-id='${tabId}']`);
-            if (tabElement) {
-                const nameSpan = tabElement.querySelector('.tab-name');
-                if (nameSpan) nameSpan.innerText = newName;
-            }
-            saveAllToLocal();
-            showTip(`页签已改名为: ${newName}`, 1000);
-        }
-
-        function exportCurrentTabData() {
-            const tab = tabs.find(t => t.id === activeTabId);
-            if (!tab || !tab.verticesDataSet) {
-                showTip("没有可导出的数据");
-                return;
-            }
-
-            const vertices = tab.verticesDataSet.get();
-            const relations = tab.relationsDataSet.get();
-
-            const nodes = vertices.map(v => ({
-                id: v.id,
-                name: v.displayName || v.id,
-                label: v.typeLabel || "默认",
-                props: v.props || {}
-            }));
-
-            const edges = relations.map(r => ({
-                from: r.from,
-                to: r.to,
-                label: r.typeLabel || "默认关系",
-                props: r.props || {}
-            }));
-
-            const exportData = { nodes, edges };
-            const jsonStr = JSON.stringify(exportData, null, 2);
-            const blob = new Blob([jsonStr], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `graph_export_${tab.name}_${Date.now()}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            showTip(`已导出 ${nodes.length} 个顶点, ${edges.length} 条关系`);
-        }
-
-        async function exportCurrentCanvasAsImage() {
-            const tab = tabs.find(t => t.id === activeTabId);
-            if (!tab || !tab.container) {
-                showTip("没有可导出的画布");
-                return;
-            }
-
-            const container = tab.container;
-            if (!container) return;
-
-            showTip("正在生成图片...", 1500);
-
-            try {
-                const menu = document.getElementById('accordionMenu');
-                const tip = document.getElementById('statusTip');
-                const originalMenuDisplay = menu.style.display;
-                const originalTipOpacity = tip.style.opacity;
-                menu.style.display = 'none';
-                tip.style.opacity = '0';
-
-                const canvas = await html2canvas(container, {
-                    backgroundColor: '#0a0e1a',
-                    scale: 2,
-                    logging: false,
-                    useCORS: false
+        function applyRelationStyleToEdge(tab, edgeId) {
+            if (!tab.relationsDataSet) return;
+            const edge = tab.relationsDataSet.get(edgeId);
+            if (edge) {
+                const style = getRelationStyleByType(edge.typeLabel || '默认关系');
+                tab.relationsDataSet.update({
+                    id: edgeId,
+                    color: style.color,
+                    width: style.width,
+                    font: style.font,
+                    smooth: style.smooth,
+                    arrows: style.arrows
                 });
-
-                menu.style.display = originalMenuDisplay;
-                tip.style.opacity = originalTipOpacity;
-
-                const link = document.createElement('a');
-                link.download = `graph_screenshot_${tab.name}_${Date.now()}.png`;
-                link.href = canvas.toDataURL();
-                link.click();
-                showTip("图片已导出");
-            } catch (err) {
-                console.error(err);
-                showTip("导出图片失败");
-                const menu = document.getElementById('accordionMenu');
-                if (menu) menu.style.display = '';
             }
         }
 
-        document.addEventListener('contextmenu', function (e) {
-            e.preventDefault();
-            const menu = document.getElementById('contextMenu');
-            menu.style.display = 'block';
-            menu.style.left = e.clientX + 'px';
-            menu.style.top = e.clientY + 'px';
-            const closeMenu = () => {
-                menu.style.display = 'none';
-                document.removeEventListener('click', closeMenu);
-            };
-            setTimeout(() => { document.addEventListener('click', closeMenu); }, 10);
-        });
+        // 获取节点显示名称
+        function getNodeDisplayName(tab, nodeId) {
+            if (!tab.verticesDataSet) return nodeId;
+            const node = tab.verticesDataSet.get(nodeId);
+            if (node && node.displayName) return node.displayName;
+            return nodeId;
+        }
 
-        document.getElementById('exportDataBtn').addEventListener('click', () => {
-            exportCurrentTabData();
-            document.getElementById('contextMenu').style.display = 'none';
-        });
+        // 生成悬停提示内容 - 顶点
+        function getVertexTooltipContent(vertex, tab) {
+            let title = `📍 ${vertex.displayName || vertex.id}`;
+            if (vertex.typeLabel && vertex.typeLabel !== '默认') {
+                title += ` [${vertex.typeLabel}]`;
+            }
+            if (vertex.status) {
+                title += ` (${vertex.status})`;
+            }
+            
+            let propsHtml = '';
+            const propsObj = vertex.props || {};
+            const propEntries = Object.entries(propsObj);
+            if (propEntries.length === 0) {
+                propsHtml = '<div class="no-props">📭 无属性数据</div>';
+            } else {
+                propsHtml = '<div class="tooltip-props">';
+                for (const [key, val] of propEntries) {
+                    propsHtml += `<div class="prop-row-tooltip">
+                        <span class="prop-key-tooltip">${escapeHtml(key)}:</span>
+                        <span class="prop-val-tooltip">${escapeHtml(String(val))}</span>
+                    </div>`;
+                }
+                propsHtml += '</div>';
+            }
+            
+            return `<div class="tooltip-title">${title}</div>${propsHtml}`;
+        }
 
-        document.getElementById('exportImageBtn').addEventListener('click', () => {
-            exportCurrentCanvasAsImage();
-            document.getElementById('contextMenu').style.display = 'none';
-        });
+        // 生成悬停提示内容 - 关系（格式：起点 -> [关系类型] -> 终点）
+        function getEdgeTooltipContent(edge, tab) {
+            const fromName = getNodeDisplayName(tab, edge.from);
+            const toName = getNodeDisplayName(tab, edge.to);
+            const relationType = (edge.typeLabel && edge.typeLabel !== '默认关系') ? edge.typeLabel : '';
+            
+            let title;
+            if (relationType) {
+                title = `${fromName} → [${relationType}] → ${toName}`;
+            } else {
+                title = `${fromName} → ${toName}`;
+            }
+            
+            let propsHtml = '';
+            const propsObj = edge.props || {};
+            const propEntries = Object.entries(propsObj);
+            if (propEntries.length === 0) {
+                propsHtml = '<div class="no-props">📭 无属性数据</div>';
+            } else {
+                propsHtml = '<div class="tooltip-props">';
+                for (const [key, val] of propEntries) {
+                    propsHtml += `<div class="prop-row-tooltip">
+                        <span class="prop-key-tooltip">${escapeHtml(key)}:</span>
+                        <span class="prop-val-tooltip">${escapeHtml(String(val))}</span>
+                    </div>`;
+                }
+                propsHtml += '</div>';
+            }
+            
+            return `<div class="tooltip-title">${title}</div>${propsHtml}`;
+        }
+
+        // 显示悬停提示
+        function showHoverTooltip(content, mouseX, mouseY) {
+            const tooltip = document.getElementById('hoverTooltip');
+            tooltip.innerHTML = content;
+            tooltip.style.display = 'block';
+            
+            // 计算位置，避免超出边界
+            let left = mouseX + 15;
+            let top = mouseY + 15;
+            const rect = tooltip.getBoundingClientRect();
+            if (left + rect.width > window.innerWidth) {
+                left = mouseX - rect.width - 15;
+            }
+            if (top + rect.height > window.innerHeight) {
+                top = mouseY - rect.height - 15;
+            }
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+        }
+
+        function hideHoverTooltip() {
+            const tooltip = document.getElementById('hoverTooltip');
+            tooltip.style.display = 'none';
+            tooltip.innerHTML = '';
+        }
 
         function refreshStylePanel() {
             const container = document.getElementById('stylePanelContent');
             if (!container) return;
-
             const activeTab = tabs.find(t => t.id === activeTabId);
             if (!activeTab || !activeTab.verticesDataSet) {
                 container.innerHTML = '<div class="no-styles">暂无类型数据</div>';
@@ -735,37 +815,49 @@
             }
 
             const vertexTypes = new Set();
-            const relationTypes = new Set();
-
+            const statusTypes = new Set();
             activeTab.verticesDataSet.get().forEach(v => {
                 const type = v.typeLabel || '默认';
                 vertexTypes.add(type);
+                if (v.status && v.status.trim() !== "") {
+                    statusTypes.add(v.status.trim());
+                }
             });
-            activeTab.relationsDataSet.get().forEach(r => {
-                const type = r.typeLabel || '默认关系';
-                relationTypes.add(type);
-            });
-
-            if (vertexTypes.size === 0 && relationTypes.size === 0) {
-                container.innerHTML = '<div class="no-styles">暂无类型 (添加顶点后出现)</div>';
-                return;
+            for (let st of globalStatusBorderStyles.keys()) {
+                if (st && st.trim() !== "") statusTypes.add(st);
             }
 
             let html = '';
             if (vertexTypes.size > 0) {
-                html += `<div class="section-title">顶点类型 (${vertexTypes.size})</div><div class="style-list">`;
+                html += `<div class="section-title">🎨 顶点填充颜色 (Label)</div><div class="style-list">`;
                 for (let type of vertexTypes) {
-                    const config = globalVertexStyles.get(type) || { background: '#888888' };
-                    html += `<div class="style-item" data-style-type="vertex" data-style-name="${escapeHtml(type)}">
+                    const config = globalVertexFillStyles.get(type) || { background: '#888888', border: '#666666' };
+                    html += `<div class="style-item" data-style-type="vertex_fill" data-style-name="${escapeHtml(type)}">
                             <span class="style-label" title="${escapeHtml(type)}">${escapeHtml(type.length > 12 ? type.slice(0, 10) + '...' : type)}</span>
-                            <input type="color" class="style-color-input" value="${config.background}" data-style-type="vertex" data-style-name="${escapeHtml(type)}">
+                            <input type="color" class="style-color-input" value="${config.background}" data-style-type="vertex_fill" data-style-name="${escapeHtml(type)}">
                          </div>`;
                 }
                 html += `</div>`;
             }
-            if (relationTypes.size > 0) {
+            if (statusTypes.size > 0) {
                 if (vertexTypes.size > 0) html += `<div style="height:12px;"></div>`;
-                html += `<div class="section-title">关系类型 (${relationTypes.size})</div><div class="style-list">`;
+                html += `<div class="section-title">🖌️ 状态边框颜色 (Status)</div><div class="style-list">`;
+                for (let stat of statusTypes) {
+                    const borderColor = globalStatusBorderStyles.get(stat) || "#cccccc";
+                    html += `<div class="style-item" data-style-type="status_border" data-style-name="${escapeHtml(stat)}">
+                            <span class="style-label" title="${escapeHtml(stat)}">${escapeHtml(stat.length > 12 ? stat.slice(0, 10) + '...' : stat)}</span>
+                            <input type="color" class="style-color-input" value="${borderColor}" data-style-type="status_border" data-style-name="${escapeHtml(stat)}">
+                         </div>`;
+                }
+                html += `</div>`;
+            }
+            const relationTypes = new Set();
+            activeTab.relationsDataSet.get().forEach(r => {
+                const type = r.typeLabel || '默认关系';
+                relationTypes.add(type);
+            });
+            if (relationTypes.size > 0) {
+                html += `<div style="height:12px;"></div><div class="section-title">🔗 关系类型颜色</div><div class="style-list">`;
                 for (let type of relationTypes) {
                     const color = globalRelationStyles.get(type) || '#95a5a6';
                     html += `<div class="style-item" data-style-type="relation" data-style-name="${escapeHtml(type)}">
@@ -775,6 +867,7 @@
                 }
                 html += `</div>`;
             }
+            if (html === '') html = '<div class="no-styles">暂无类型数据</div>';
             container.innerHTML = html;
 
             container.querySelectorAll('.style-color-input').forEach(input => {
@@ -782,20 +875,24 @@
                     const styleType = input.dataset.styleType;
                     const styleName = input.dataset.styleName;
                     const newColor = input.value;
-
-                    if (styleType === 'vertex') {
-                        let config = globalVertexStyles.get(styleName);
+                    if (styleType === 'vertex_fill') {
+                        let config = globalVertexFillStyles.get(styleName);
                         if (!config) config = { background: newColor, border: shadeColor(newColor, -30) };
                         else config.background = newColor;
                         config.border = shadeColor(newColor, -30);
-                        globalVertexStyles.set(styleName, config);
+                        globalVertexFillStyles.set(styleName, config);
                         tabs.forEach(tab => {
                             if (tab.verticesDataSet) {
                                 const toUpdate = tab.verticesDataSet.get().filter(v => (v.typeLabel || '默认') === styleName);
-                                toUpdate.forEach(v => {
-                                    const style = getVertexStyleByType(styleName);
-                                    tab.verticesDataSet.update({ id: v.id, color: style.color });
-                                });
+                                toUpdate.forEach(v => applyVertexStyleToNode(tab, v.id));
+                            }
+                        });
+                    } else if (styleType === 'status_border') {
+                        globalStatusBorderStyles.set(styleName, newColor);
+                        tabs.forEach(tab => {
+                            if (tab.verticesDataSet) {
+                                const toUpdate = tab.verticesDataSet.get().filter(v => v.status === styleName);
+                                toUpdate.forEach(v => applyVertexStyleToNode(tab, v.id));
                             }
                         });
                     } else if (styleType === 'relation') {
@@ -803,38 +900,26 @@
                         tabs.forEach(tab => {
                             if (tab.relationsDataSet) {
                                 const toUpdate = tab.relationsDataSet.get().filter(r => (r.typeLabel || '默认关系') === styleName);
-                                toUpdate.forEach(r => {
-                                    const style = getRelationStyleByType(styleName);
-                                    tab.relationsDataSet.update({ id: r.id, color: style.color });
-                                });
+                                toUpdate.forEach(r => applyRelationStyleToEdge(tab, r.id));
                             }
                         });
                     }
                     saveAllToLocal();
-                    showTip(`类型 "${styleName}" 颜色已更新`, 1000);
+                    showTip(`样式 "${styleName}" 已更新`, 1000);
                 });
             });
         }
 
-        function openPropsPanelAndShowEditor(htmlContent) {
-            const propsContent = document.getElementById('contentProps');
-            const editorContainer = document.getElementById('propsEditorContainer');
-            if (!propsContent || !editorContainer) return;
-            if (!propsContent.classList.contains('open')) {
-                propsContent.classList.add('open');
-            }
-            editorContainer.innerHTML = htmlContent;
-        }
-
+        // 顶点编辑器
         function showVertexEditor(tab, vertex) {
             let html = `<div class="prop-editor">
                         <div class="prop-group"><div class="section-title" style="margin-bottom:8px;">基础属性</div>
                             <div class="prop-row"><div class="prop-key">ID</div><input class="prop-value" value="${escapeHtml(vertex.id)}" readonly></div>
                             <div class="prop-row"><div class="prop-key">名称</div><input class="prop-value" id="editDisplayName" value="${escapeHtml(vertex.displayName || vertex.id)}"></div>
-                            <div class="prop-row"><div class="prop-key">类型</div><input class="prop-value" id="editTypeLabel" value="${escapeHtml(vertex.typeLabel || '默认')}"></div>
+                            <div class="prop-row"><div class="prop-key">类型(label)</div><input class="prop-value" id="editTypeLabel" value="${escapeHtml(vertex.typeLabel || '默认')}"></div>
+                            <div class="prop-row"><div class="prop-key">状态(status)</div><input class="prop-value" id="editStatus" value="${escapeHtml(vertex.status || '默认')}"></div>
                         </div>
                         <div class="prop-group"><div class="section-title" style="margin-bottom:8px;">属性 <button class="add-prop-btn" id="addPropBtn">+ 添加</button></div>`;
-
             const propsObj = vertex.props || {};
             for (const [k, v] of Object.entries(propsObj)) {
                 html += `<div class="prop-row" data-prop-key="${k}">
@@ -846,15 +931,13 @@
             html += `</div>
                  <button class="delete-vertex-btn" id="deleteVertexBtn" style="width:100%; margin-top:8px;">🗑️ 删除此顶点及所有关联关系</button>
                  </div>`;
-
             openPropsPanelAndShowEditor(html);
 
             document.getElementById('editDisplayName')?.addEventListener('change', (e) => {
                 const newName = e.target.value.trim();
                 if (newName) {
                     tab.verticesDataSet.update({ id: vertex.id, displayName: newName, label: newName });
-                    saveAllToLocal();
-                    refreshStylePanel();
+                    saveAllToLocal(); refreshStylePanel();
                     const updated = tab.verticesDataSet.get(vertex.id);
                     if (updated) showVertexEditor(tab, updated);
                 }
@@ -863,20 +946,24 @@
                 const newType = e.target.value.trim();
                 if (newType) {
                     tab.verticesDataSet.update({ id: vertex.id, typeLabel: newType });
-                    const style = getVertexStyleByType(newType);
-                    tab.verticesDataSet.update({ id: vertex.id, color: style.color, font: style.font });
-                    saveAllToLocal();
-                    refreshStylePanel();
+                    applyVertexStyleToNode(tab, vertex.id);
+                    saveAllToLocal(); refreshStylePanel();
                     const updated = tab.verticesDataSet.get(vertex.id);
                     if (updated) showVertexEditor(tab, updated);
                 }
             });
-            document.getElementById('deleteVertexBtn')?.addEventListener('click', () => {
-                if (confirm(`确定要删除顶点 "${vertex.displayName || vertex.id}" 及其所有关联关系吗？`)) {
-                    deleteVertexAndRelations(tab, vertex.id);
-                }
+            document.getElementById('editStatus')?.addEventListener('change', (e) => {
+                const newStatus = e.target.value.trim();
+                const update = { id: vertex.id, status: newStatus === "" ? undefined : newStatus };
+                tab.verticesDataSet.update(update);
+                applyVertexStyleToNode(tab, vertex.id);
+                saveAllToLocal(); refreshStylePanel();
+                const updated = tab.verticesDataSet.get(vertex.id);
+                if (updated) showVertexEditor(tab, updated);
             });
-
+            document.getElementById('deleteVertexBtn')?.addEventListener('click', () => {
+                if (confirm(`确定要删除顶点 "${vertex.displayName || vertex.id}" 及其所有关联关系吗？`)) deleteVertexAndRelations(tab, vertex.id);
+            });
             const addBtn = document.getElementById('addPropBtn');
             if (addBtn) addBtn.onclick = () => {
                 const currentProps = { ...(tab.verticesDataSet.get(vertex.id).props || {}) };
@@ -889,14 +976,15 @@
         }
 
         function showRelationEditor(tab, relation) {
+            const fromName = getNodeDisplayName(tab, relation.from);
+            const toName = getNodeDisplayName(tab, relation.to);
             let html = `<div class="prop-editor">
                         <div class="prop-group"><div class="section-title" style="margin-bottom:8px;">关系基础</div>
-                            <div class="prop-row"><div class="prop-key">起点</div><input class="prop-value" value="${escapeHtml(relation.from)}" readonly></div>
-                            <div class="prop-row"><div class="prop-key">终点</div><input class="prop-value" value="${escapeHtml(relation.to)}" readonly></div>
+                            <div class="prop-row"><div class="prop-key">起点</div><input class="prop-value" value="${escapeHtml(fromName)}" readonly></div>
+                            <div class="prop-row"><div class="prop-key">终点</div><input class="prop-value" value="${escapeHtml(toName)}" readonly></div>
                             <div class="prop-row"><div class="prop-key">类型</div><input class="prop-value" id="editRelationType" value="${escapeHtml(relation.typeLabel || '默认关系')}"></div>
                         </div>
                         <div class="prop-group"><div class="section-title" style="margin-bottom:8px;">属性 <button class="add-prop-btn" id="addPropBtn">+ 添加</button></div>`;
-
             const propsObj = relation.props || {};
             for (const [k, v] of Object.entries(propsObj)) {
                 html += `<div class="prop-row" data-prop-key="${k}">
@@ -908,27 +996,20 @@
             html += `</div>
                  <button class="delete-relation-btn" id="deleteRelationBtn" style="width:100%; margin-top:8px;">🗑️ 删除此关系</button>
                  </div>`;
-
             openPropsPanelAndShowEditor(html);
-
             document.getElementById('editRelationType')?.addEventListener('change', (e) => {
                 const newType = e.target.value.trim();
                 if (newType) {
                     tab.relationsDataSet.update({ id: relation.id, typeLabel: newType, label: newType === '默认关系' ? '' : newType });
-                    const style = getRelationStyleByType(newType);
-                    tab.relationsDataSet.update({ id: relation.id, color: style.color, width: style.width });
-                    saveAllToLocal();
-                    refreshStylePanel();
+                    applyRelationStyleToEdge(tab, relation.id);
+                    saveAllToLocal(); refreshStylePanel();
                     const updated = tab.relationsDataSet.get(relation.id);
                     if (updated) showRelationEditor(tab, updated);
                 }
             });
             document.getElementById('deleteRelationBtn')?.addEventListener('click', () => {
-                if (confirm("确定要删除此关系吗？")) {
-                    deleteRelation(tab, relation.id);
-                }
+                if (confirm("确定要删除此关系吗？")) deleteRelation(tab, relation.id);
             });
-
             const addBtn = document.getElementById('addPropBtn');
             if (addBtn) addBtn.onclick = () => {
                 const currentProps = { ...(tab.relationsDataSet.get(relation.id).props || {}) };
@@ -990,91 +1071,21 @@
             });
         }
 
-        function showTip(msg, duration = 2000) {
-            const tip = document.getElementById('statusTip');
-            tip.innerText = msg;
-            tip.style.display = 'block';
-            setTimeout(() => { tip.style.display = 'none'; }, duration);
-        }
-
-        function deleteVertexAndRelations(tab, vertexId) {
-            if (!tab.verticesDataSet) return;
-            const related = tab.relationsDataSet.get().filter(r => r.from === vertexId || r.to === vertexId);
-            if (related.length) {
-                tab.relationsDataSet.remove(related.map(r => r.id));
-            }
-            tab.verticesDataSet.remove(vertexId);
-            saveAllToLocal();
-            refreshStylePanel();
-            if (currentSelectedElement && currentSelectedElement.id === vertexId) {
-                currentSelectedElement = null;
-                openPropsPanelAndShowEditor('<div class="no-selection">点击顶点或关系以编辑属性</div>');
-            }
-            showTip(`已删除顶点及 ${related.length} 条关联关系`);
-        }
-
-        function deleteRelation(tab, relationId) {
-            if (!tab.relationsDataSet) return;
-            tab.relationsDataSet.remove(relationId);
-            saveAllToLocal();
-            refreshStylePanel();
-            if (currentSelectedElement && currentSelectedElement.id === relationId) {
-                currentSelectedElement = null;
-                openPropsPanelAndShowEditor('<div class="no-selection">点击顶点或关系以编辑属性</div>');
-            }
-            showTip("已删除关系");
-        }
-
-        // 应用顶点样式到DataSet中的指定顶点
-        function applyVertexStyleToNode(tab, nodeId) {
-            if (!tab.verticesDataSet) return;
-            const node = tab.verticesDataSet.get(nodeId);
-            if (node) {
-                const style = getVertexStyleByType(node.typeLabel || '默认');
-                tab.verticesDataSet.update({
-                    id: nodeId,
-                    color: style.color,
-                    font: style.font,
-                    size: style.size,
-                    shape: style.shape,
-                    borderWidth: style.borderWidth,
-                    shadow: style.shadow
-                });
-            }
-        }
-
-        // 应用关系样式到DataSet中的指定关系
-        function applyRelationStyleToEdge(tab, edgeId) {
-            if (!tab.relationsDataSet) return;
-            const edge = tab.relationsDataSet.get(edgeId);
-            if (edge) {
-                const style = getRelationStyleByType(edge.typeLabel || '默认关系');
-                tab.relationsDataSet.update({
-                    id: edgeId,
-                    color: style.color,
-                    width: style.width,
-                    font: style.font,
-                    smooth: style.smooth,
-                    arrows: style.arrows
-                });
-            }
-        }
-
         function createVertexAtPosition(tab, x, y) {
             if (!tab.verticesDataSet) return null;
             const baseId = `顶点_${Date.now().toString().slice(-6)}_${Math.random().toString(36).substr(2, 4)}`;
             const baseName = baseId;
             const typeLabel = "默认";
-            const style = getVertexStyleByType(typeLabel);
+            const style = getVertexStyleByType(typeLabel, "");
             const newVertex = {
                 id: baseId,
                 label: baseName,
                 displayName: baseName,
                 originalName: baseId,
                 typeLabel: typeLabel,
+                status: undefined,
                 props: {},
-                x: x,
-                y: y,
+                x: x, y: y,
                 color: style.color,
                 font: style.font,
                 size: style.size,
@@ -1083,16 +1094,9 @@
                 shadow: style.shadow
             };
             tab.verticesDataSet.add(newVertex);
-            saveAllToLocal();
-            refreshStylePanel();
+            saveAllToLocal(); refreshStylePanel();
             showTip(`已创建顶点: ${baseName}`);
-            setTimeout(() => {
-                const v = tab.verticesDataSet.get(baseId);
-                if (v) {
-                    currentSelectedElement = { type: 'vertex', id: baseId, tabId: tab.id };
-                    showVertexEditor(tab, v);
-                }
-            }, 50);
+            setTimeout(() => { const v = tab.verticesDataSet.get(baseId); if (v) showVertexEditor(tab, v); }, 50);
             return baseId;
         }
 
@@ -1125,7 +1129,9 @@
             tab.relationsDataSet.add(newRelation);
             saveAllToLocal();
             refreshStylePanel();
-            showTip(`已创建关系: ${fromId} → ${toId}`);
+            const fromName = getNodeDisplayName(tab, fromId);
+            const toName = getNodeDisplayName(tab, toId);
+            showTip(`已创建关系: ${fromName} → ${toName}`);
             setTimeout(() => {
                 const r = tab.relationsDataSet.get(relId);
                 if (r) {
@@ -1228,44 +1234,15 @@
             const network = new vis.Network(container, { nodes: verticesDs, edges: relationsDs }, options);
 
             // 应用现有顶点样式
-            verticesDs.get().forEach(v => {
-                const style = getVertexStyleByType(v.typeLabel || '默认');
-                verticesDs.update({
-                    id: v.id,
-                    color: style.color,
-                    font: style.font,
-                    size: style.size,
-                    shape: style.shape,
-                    borderWidth: style.borderWidth,
-                    shadow: style.shadow
-                });
-            });
+            verticesDs.get().forEach(v => applyVertexStyleToNode(tab, v.id));
+            relationsDs.get().forEach(r => applyRelationStyleToEdge(tab, r.id));
 
-            // 应用现有关系样式
-            relationsDs.get().forEach(r => {
-                const style = getRelationStyleByType(r.typeLabel || '默认关系');
-                relationsDs.update({
-                    id: r.id,
-                    color: style.color,
-                    width: style.width,
-                    font: style.font,
-                    smooth: style.smooth,
-                    arrows: style.arrows
-                });
+            // 监听添加事件
+            verticesDs.on('add', (event, properties) => {
+                properties.items.forEach(nodeId => applyVertexStyleToNode(tab, nodeId));
             });
-
-            // 监听顶点添加事件，自动应用样式
-            verticesDs.on('add', function (event, properties) {
-                properties.items.forEach(nodeId => {
-                    applyVertexStyleToNode(tab, nodeId);
-                });
-            });
-
-            // 监听关系添加事件，自动应用样式
-            relationsDs.on('add', function (event, properties) {
-                properties.items.forEach(edgeId => {
-                    applyRelationStyleToEdge(tab, edgeId);
-                });
+            relationsDs.on('add', (event, properties) => {
+                properties.items.forEach(edgeId => applyRelationStyleToEdge(tab, edgeId));
             });
 
             network.on("dragEnd", () => {
@@ -1277,36 +1254,57 @@
                 saveAllToLocal();
             });
 
-            // 合并的双击事件处理
+            // 悬停显示属性 - 顶点
+            network.on("hoverNode", (params) => {
+                const node = verticesDs.get(params.node);
+                if (node) {
+                    const content = getVertexTooltipContent(node, tab);
+                    showHoverTooltip(content, params.event.clientX, params.event.clientY);
+                }
+            });
+            
+            // 悬停显示属性 - 边（显示节点名称）
+            network.on("hoverEdge", (params) => {
+                const edge = relationsDs.get(params.edge);
+                if (edge) {
+                    const content = getEdgeTooltipContent(edge, tab);
+                    showHoverTooltip(content, params.event.clientX, params.event.clientY);
+                }
+            });
+            
+            // 离开顶点时隐藏提示
+            network.on("blurNode", () => {
+                hideHoverTooltip();
+            });
+            
+            // 离开边时隐藏提示
+            network.on("blurEdge", () => {
+                hideHoverTooltip();
+            });
+
+            // 双击事件
             network.on("doubleClick", (params) => {
-                // 创建关系模式（点击已有顶点）
-                if (params.nodes.length > 0 && pendingEdgeSource === null) {
-                    pendingEdgeSource = params.nodes[0];
-                    document.body.style.cursor = 'crosshair';
-                    showTip(`请点击目标顶点，创建从 "${params.nodes[0]}" 出发的关系`, 3000);
-                    return;
-                }
-
-                // 取消关系创建模式（双击空白）
-                if (pendingEdgeSource !== null) {
-                    pendingEdgeSource = null;
-                    document.body.style.cursor = 'default';
-                    showTip("已取消关系创建", 1000);
-                    return;
-                }
-
-                // 创建顶点（空白处双击）
                 if (params.nodes.length === 0 && params.edges.length === 0) {
                     const pointer = params.pointer.canvas;
                     createVertexAtPosition(tab, pointer.x, pointer.y);
+                    return;
+                }
+                if (params.nodes.length > 0 && pendingEdgeSource === null) {
+                    pendingEdgeSource = params.nodes[0];
+                    document.body.style.cursor = 'crosshair';
+                    const nodeName = tab.verticesDataSet.get(pendingEdgeSource)?.displayName || pendingEdgeSource;
+                    showTip(`🔗 已选中「${nodeName}」，请单击目标顶点创建关系 (按ESC取消)`, 3000);
                 }
             });
 
+            // 单击事件
             network.on("click", (params) => {
                 if (pendingEdgeSource !== null && params.nodes.length > 0) {
                     const targetId = params.nodes[0];
                     if (targetId !== pendingEdgeSource) {
                         createRelation(tab, pendingEdgeSource, targetId);
+                    } else {
+                        showTip("不能创建指向自己的关系", 1500);
                     }
                     pendingEdgeSource = null;
                     document.body.style.cursor = 'default';
@@ -1330,37 +1328,23 @@
                 }
             });
 
+            // ESC取消关系创建
+            const escHandler = (e) => {
+                if (e.key === 'Escape' && pendingEdgeSource !== null) {
+                    pendingEdgeSource = null;
+                    document.body.style.cursor = 'default';
+                    showTip("已取消关系创建", 1000);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+
             tab.verticesDataSet = verticesDs;
             tab.relationsDataSet = relationsDs;
             tab.network = network;
             return network;
         }
 
-        function switchTab(tabId) {
-            if (activeTabId === tabId) return;
-            pendingEdgeSource = null;
-            document.body.style.cursor = 'default';
-            const old = tabs.find(t => t.id === activeTabId);
-            if (old && old.network) saveVertexPositions(old);
-            tabs.forEach(t => {
-                if (t.container) t.container.style.display = 'none';
-            });
-            const target = tabs.find(t => t.id === tabId);
-            if (target) {
-                target.container.style.display = 'block';
-                activeTabId = tabId;
-                document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
-                const tabBtn = document.querySelector(`.tab-item[data-tab-id='${tabId}']`);
-                if (tabBtn) tabBtn.classList.add('active');
-                if (target.network) setTimeout(() => target.network.fit({ animation: true, duration: 200 }), 100);
-                currentSelectedElement = null;
-                openPropsPanelAndShowEditor('<div class="no-selection">点击顶点或关系以编辑属性</div>');
-                refreshStylePanel();
-                saveAllToLocal();
-            }
-        }
-
-        async function appendJSON(tab, jsonData, fileName) {
+        function appendJSON(tab, jsonData, fileName) {
             if (!tab.verticesDataSet) return;
             const newVertices = jsonData.nodes || [];
             const newRelations = jsonData.edges || [];
@@ -1371,16 +1355,17 @@
                 if (!vid || existNames.has(vid)) continue;
                 const displayName = raw.name || vid;
                 const typeLabel = raw.label || '默认';
-                const style = getVertexStyleByType(typeLabel);
+                const statusVal = raw.status && raw.status.trim() !== "" ? raw.status.trim() : undefined;
+                const style = getVertexStyleByType(typeLabel, statusVal);
                 verticesToAdd.push({
                     id: vid,
                     label: displayName,
                     displayName: displayName,
                     originalName: vid,
                     typeLabel: typeLabel,
+                    status: statusVal,
                     props: raw.props || {},
-                    x: undefined,
-                    y: undefined,
+                    x: undefined, y: undefined,
                     color: style.color,
                     font: style.font,
                     size: style.size,
@@ -1401,26 +1386,47 @@
                 const style = getRelationStyleByType(relType);
                 relationsToAdd.push({
                     id: `${raw.from}->${raw.to}_${Date.now()}_${Math.random()}`,
-                    from: raw.from,
-                    to: raw.to,
+                    from: raw.from, to: raw.to,
                     typeLabel: relType,
                     label: relType === '默认关系' ? '' : relType,
                     props: raw.props || {},
-                    color: style.color,
-                    width: style.width,
-                    font: style.font,
-                    smooth: style.smooth,
-                    arrows: style.arrows
+                    color: style.color, width: style.width, font: style.font, smooth: style.smooth, arrows: style.arrows
                 });
                 existRels.add(key);
             }
             if (verticesToAdd.length) tab.verticesDataSet.add(verticesToAdd);
             if (relationsToAdd.length) tab.relationsDataSet.add(relationsToAdd);
             if (tab.network) setTimeout(() => tab.network.fit({ animation: true }), 200);
-            document.getElementById('statusMsg').innerHTML = `✅ 追加 ${verticesToAdd.length}顶点,${relationsToAdd.length}关系`;
+            document.getElementById('statusMsg').innerHTML = `✅ 追加 ${verticesToAdd.length}顶点,${relationsToAdd.length}关系 (支持status边框)`;
             document.getElementById('fileName').innerText = fileName;
             saveAllToLocal();
             refreshStylePanel();
+        }
+
+        function deleteVertexAndRelations(tab, vertexId) {
+            if (!tab.verticesDataSet) return;
+            const related = tab.relationsDataSet.get().filter(r => r.from === vertexId || r.to === vertexId);
+            if (related.length) tab.relationsDataSet.remove(related.map(r => r.id));
+            tab.verticesDataSet.remove(vertexId);
+            saveAllToLocal();
+            refreshStylePanel();
+            if (currentSelectedElement && currentSelectedElement.id === vertexId) {
+                currentSelectedElement = null;
+                openPropsPanelAndShowEditor('<div class="no-selection">点击顶点或关系以编辑属性</div>');
+            }
+            showTip(`已删除顶点及 ${related.length} 条关联关系`);
+        }
+
+        function deleteRelation(tab, relationId) {
+            if (!tab.relationsDataSet) return;
+            tab.relationsDataSet.remove(relationId);
+            saveAllToLocal();
+            refreshStylePanel();
+            if (currentSelectedElement && currentSelectedElement.id === relationId) {
+                currentSelectedElement = null;
+                openPropsPanelAndShowEditor('<div class="no-selection">点击顶点或关系以编辑属性</div>');
+            }
+            showTip("已删除关系");
         }
 
         function clearTab(tab) {
@@ -1435,6 +1441,31 @@
             openPropsPanelAndShowEditor('<div class="no-selection">点击顶点或关系以编辑属性</div>');
             refreshStylePanel();
             showTip("已清空当前图谱");
+        }
+
+        function switchTab(tabId) {
+            if (activeTabId === tabId) return;
+            pendingEdgeSource = null;
+            document.body.style.cursor = 'default';
+            hideHoverTooltip();
+            const old = tabs.find(t => t.id === activeTabId);
+            if (old && old.network) saveVertexPositions(old);
+            tabs.forEach(t => {
+                if (t.container) t.container.style.display = 'none';
+            });
+            const target = tabs.find(t => t.id === tabId);
+            if (target) {
+                target.container.style.display = 'block';
+                activeTabId = tabId;
+                document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
+                const tabBtn = document.querySelector(`.tab-item[data-tab-id='${tabId}']`);
+                if (tabBtn) tabBtn.classList.add('active');
+                if (target.network) setTimeout(() => target.network.fit({ animation: true, duration: 200 }), 100);
+                currentSelectedElement = null;
+                openPropsPanelAndShowEditor('<div class="no-selection">点击顶点或关系以编辑属性</div>');
+                refreshStylePanel();
+                saveAllToLocal();
+            }
         }
 
         function createNewTab(name = null) {
@@ -1470,6 +1501,7 @@
             div.appendChild(nameSpan);
             div.appendChild(closeSpan);
 
+            // 修复：双击编辑页签名 - 修复不立即显示的问题
             nameSpan.addEventListener('dblclick', (e) => {
                 e.stopPropagation();
                 const oldName = nameSpan.innerText;
@@ -1477,6 +1509,8 @@
                 input.type = 'text';
                 input.value = oldName;
                 input.className = 'tab-name-input';
+                
+                // 隐藏原文字，显示输入框
                 nameSpan.style.display = 'none';
                 nameSpan.parentNode.insertBefore(input, nameSpan);
                 input.focus();
@@ -1487,13 +1521,18 @@
                     if (newName !== oldName) {
                         renameTab(tabId, newName);
                     } else {
+                        // 名称没变，恢复原文字
                         nameSpan.innerText = oldName;
-                        nameSpan.style.display = 'inline-block';
                     }
+                    // 确保显示文字，移除输入框
+                    nameSpan.style.display = 'inline-block';
                     input.remove();
                 };
+                
                 input.addEventListener('blur', saveRename);
-                input.addEventListener('keypress', (e) => { if (e.key === 'Enter') saveRename(); });
+                input.addEventListener('keypress', (e) => { 
+                    if (e.key === 'Enter') saveRename(); 
+                });
             });
 
             div.addEventListener('click', (e) => {
@@ -1511,7 +1550,7 @@
             const tab = tabs.find(t => t.id === tabId);
             if (!tab) return;
 
-            if (hasTabData(tab)) {
+            if (tab.verticesDataSet && (tab.verticesDataSet.length > 0 || tab.relationsDataSet.length > 0)) {
                 showTip(`页签 "${tab.name}" 包含数据，请先清空后再关闭`, 2500);
                 return;
             }
@@ -1528,14 +1567,6 @@
                 tab.network.destroy();
                 tab.network = null;
             }
-            if (tab.verticesDataSet) {
-                tab.verticesDataSet.clear();
-                tab.verticesDataSet = null;
-            }
-            if (tab.relationsDataSet) {
-                tab.relationsDataSet.clear();
-                tab.relationsDataSet = null;
-            }
             if (tab.container) tab.container.remove();
             tabs.splice(idx, 1);
             document.querySelector(`.tab-item[data-tab-id='${tabId}']`).remove();
@@ -1545,13 +1576,29 @@
             showTip(`页签 "${tab.name}" 已关闭`, 1000);
         }
 
+        function renameTab(tabId, newName) {
+            const tab = tabs.find(t => t.id === tabId);
+            if (!tab) return;
+            tab.name = newName;
+            const tabElement = document.querySelector(`.tab-item[data-tab-id='${tabId}'] .tab-name`);
+            if (tabElement) {
+                tabElement.innerText = newName;
+            }
+            saveAllToLocal();
+            showTip(`页签已改名为: ${newName}`, 1000);
+        }
+
         function saveAllToLocal() {
             const data = tabs.map(tab => {
                 const vertices = tab.verticesDataSet ? tab.verticesDataSet.get() : [];
                 const relations = tab.relationsDataSet ? tab.relationsDataSet.get() : [];
                 return { id: tab.id, name: tab.name, vertices, relations };
             });
-            const styleData = { vertexStyles: Array.from(globalVertexStyles.entries()), relationStyles: Array.from(globalRelationStyles.entries()) };
+            const styleData = {
+                vertexFillStyles: Array.from(globalVertexFillStyles.entries()),
+                statusBorderStyles: Array.from(globalStatusBorderStyles.entries()),
+                relationStyles: Array.from(globalRelationStyles.entries())
+            };
             localStorage.setItem(STORAGE_KEY, JSON.stringify({ tabs: data, styles: styleData, activeTabId }));
         }
 
@@ -1561,9 +1608,11 @@
             try {
                 const saved = JSON.parse(raw);
                 if (saved.styles) {
-                    globalVertexStyles.clear();
+                    globalVertexFillStyles.clear();
+                    globalStatusBorderStyles.clear();
                     globalRelationStyles.clear();
-                    saved.styles.vertexStyles?.forEach(([k, v]) => globalVertexStyles.set(k, v));
+                    saved.styles.vertexFillStyles?.forEach(([k, v]) => globalVertexFillStyles.set(k, v));
+                    saved.styles.statusBorderStyles?.forEach(([k, v]) => globalStatusBorderStyles.set(k, v));
                     saved.styles.relationStyles?.forEach(([k, v]) => globalRelationStyles.set(k, v));
                 }
                 const savedTabs = saved.tabs || [];
@@ -1584,6 +1633,79 @@
                 else if (tabs.length) switchTab(tabs[0].id);
                 refreshStylePanel();
             } catch (e) { createNewTab("恢复图谱"); refreshStylePanel(); }
+        }
+
+        function exportCurrentTabData() {
+            const tab = tabs.find(t => t.id === activeTabId);
+            if (!tab || !tab.verticesDataSet) {
+                showTip("没有可导出的数据");
+                return;
+            }
+            const vertices = tab.verticesDataSet.get().map(v => ({
+                id: v.id,
+                name: v.displayName || v.id,
+                label: v.typeLabel || "默认",
+                status: v.status || "",
+                props: v.props || {}
+            }));
+            const edges = tab.relationsDataSet.get().map(r => ({
+                from: r.from, to: r.to, label: r.typeLabel || "默认关系", props: r.props || {}
+            }));
+            const jsonStr = JSON.stringify({ nodes: vertices, edges }, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `graph_export_${tab.name}_${Date.now()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showTip(`已导出 ${vertices.length} 个顶点, ${edges.length} 条关系 (含status字段)`);
+        }
+
+        async function exportCurrentCanvasAsImage() {
+            const tab = tabs.find(t => t.id === activeTabId);
+            if (!tab || !tab.container) {
+                showTip("没有可导出的画布");
+                return;
+            }
+            const menu = document.getElementById('accordionMenu');
+            const tip = document.getElementById('statusTip');
+            const originalMenuDisplay = menu.style.display;
+            const originalTipOpacity = tip.style.opacity;
+            menu.style.display = 'none';
+            tip.style.opacity = '0';
+            try {
+                const canvas = await html2canvas(tab.container, { backgroundColor: '#0a0e1a', scale: 2 });
+                const link = document.createElement('a');
+                link.download = `graph_screenshot_${tab.name}_${Date.now()}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+                showTip("图片已导出");
+            } catch (err) {
+                showTip("导出图片失败");
+            } finally {
+                menu.style.display = originalMenuDisplay;
+                tip.style.opacity = originalTipOpacity;
+            }
+        }
+
+        function openPropsPanelAndShowEditor(htmlContent) {
+            const propsContent = document.getElementById('contentProps');
+            const editorContainer = document.getElementById('propsEditorContainer');
+            if (!propsContent || !editorContainer) return;
+            if (!propsContent.classList.contains('open')) {
+                propsContent.classList.add('open');
+            }
+            editorContainer.innerHTML = htmlContent;
+        }
+
+        function showTip(msg, duration = 2000) {
+            const tip = document.getElementById('statusTip');
+            tip.innerText = msg;
+            tip.style.display = 'block';
+            setTimeout(() => { tip.style.display = 'none'; }, duration);
         }
 
         function escapeHtml(str) { return String(str).replace(/[&<>]/g, function (m) { if (m === '&') return '&amp;'; if (m === '<') return '&lt;'; return '&gt;'; }); }
@@ -1627,6 +1749,26 @@
             }
         });
         document.getElementById('addTabBtn').addEventListener('click', () => createNewTab(`图谱${tabs.length + 1}`));
+        document.getElementById('exportDataBtn').addEventListener('click', () => {
+            exportCurrentTabData();
+            document.getElementById('contextMenu').style.display = 'none';
+        });
+        document.getElementById('exportImageBtn').addEventListener('click', () => {
+            exportCurrentCanvasAsImage();
+            document.getElementById('contextMenu').style.display = 'none';
+        });
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            const menu = document.getElementById('contextMenu');
+            menu.style.display = 'block';
+            menu.style.left = e.clientX + 'px';
+            menu.style.top = e.clientY + 'px';
+            const closeMenu = () => {
+                menu.style.display = 'none';
+                document.removeEventListener('click', closeMenu);
+            };
+            setTimeout(() => { document.addEventListener('click', closeMenu); }, 10);
+        });
 
         initAccordion();
         loadFromLocal();

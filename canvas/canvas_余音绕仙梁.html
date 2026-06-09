@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+        <!--
+
+        SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
+        本文件是"汉末废柴堆 · 超级团队组建系统"的一部分。
+
+        完整项目受 CC BY-NC-SA 4.0 许可证保护，详见根目录 LICENSE 文件。
+
+        本项目核心设计思想、架构方案、方法论受 NOTICE 文件独立保护。
+
+        个人可免费使用，严禁用于商业目的。
+
+        商业授权请联系：xxuuyyuunn@sina.com
+
+    -->
+
+    <!--
+        **版本历史**
+        | 版本号 | 过程节点说明 | 修订人 | 修订日期 | 修订内容 |
+        | :----- | :----------- | :----- | :------- | :------- |
+        | V0.1.0 | 初稿创建     | 徐昀 | 2026-06-02 | 根据用户需求生成 |
+    -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>余音绕仙梁</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            max-width: 750px;
+            margin: 30px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #1e2a5e 0%, #2a3f7e 100%);
+            min-height: 100vh;
+        }
+
+        .card {
+            background: white;
+            border-radius: 28px;
+            padding: 30px 26px;
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.25);
+            transition: all 0.2s ease;
+        }
+
+        h2 {
+            margin: 0 0 8px 0;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .subtitle {
+            color: #475569;
+            font-size: 14px;
+            margin-bottom: 25px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 12px;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 20px;
+            font-family: inherit;
+            resize: vertical;
+            transition: 0.2s;
+            background: #fefefe;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #5b6cbe;
+            box-shadow: 0 0 0 3px rgba(91, 108, 190, 0.2);
+        }
+
+        select {
+            width: 100%;
+            padding: 14px;
+            margin: 16px 0 12px 0;
+            font-size: 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 20px;
+            background: white;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .voice-preview {
+            font-size: 13px;
+            color: #4b5563;
+            background: #f1f5f9;
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 40px;
+            margin-bottom: 18px;
+        }
+
+        .speed-control {
+            margin: 15px 0 20px 0;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            background: #f8fafc;
+            padding: 10px 15px;
+            border-radius: 40px;
+        }
+
+        .speed-control label {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .speed-control input {
+            flex: 2;
+            min-width: 180px;
+        }
+
+        .speed-value {
+            background: #5b6cbe;
+            color: white;
+            padding: 4px 14px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .mode-buttons {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 14px 8px;
+            font-size: 15px;
+            font-weight: 600;
+            border: 2px solid transparent;
+            border-radius: 60px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: #f1f5f9;
+            color: #334155;
+        }
+
+        .mode-btn.download {
+            background: #eef2ff;
+            border-color: #cbd5e1;
+        }
+
+        .mode-btn.download.active {
+            background: linear-gradient(105deg, #4f46e5, #7c3aed);
+            color: white;
+            border-color: #4f46e5;
+            box-shadow: 0 8px 18px rgba(79, 70, 229, 0.3);
+        }
+
+        .mode-btn.loop {
+            background: #fff1f2;
+            border-color: #fecdd3;
+        }
+
+        .mode-btn.loop.active {
+            background: linear-gradient(105deg, #e11d48, #f43f5e);
+            color: white;
+            border-color: #e11d48;
+            box-shadow: 0 8px 18px rgba(225, 29, 72, 0.25);
+        }
+
+        .control-btn {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: 700;
+            border: none;
+            border-radius: 60px;
+            cursor: pointer;
+            background: #4f46e5;
+            color: white;
+            transition: 0.2s;
+            margin-top: 6px;
+        }
+
+        .control-btn.stop {
+            background: #dc2626;
+            margin-top: 12px;
+        }
+
+        .control-btn.stop:hover {
+            background: #b91c1c;
+            transform: scale(0.98);
+        }
+
+        .control-btn:hover {
+            transform: translateY(-2px);
+            filter: brightness(0.96);
+        }
+
+        .status {
+            margin-top: 24px;
+            padding: 14px 18px;
+            border-radius: 24px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: 0.2s;
+        }
+
+        .status.info {
+            background: #e0f2fe;
+            color: #0c4a6e;
+            border-left: 5px solid #0ea5e9;
+        }
+
+        .status.success {
+            background: #dcfce7;
+            color: #14532d;
+            border-left: 5px solid #22c55e;
+        }
+
+        .status.warning {
+            background: #fef9c3;
+            color: #854d0e;
+            border-left: 5px solid #facc15;
+        }
+
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 5px solid #ef4444;
+        }
+
+        .tip-box {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 24px;
+            font-size: 13px;
+            line-height: 1.55;
+            transition: 0.2s;
+        }
+
+        .tip-box.download-mode {
+            background: #f0f4ff;
+            border-left: 5px solid #4f46e5;
+        }
+
+        .tip-box.loop-mode {
+            background: #fff0f3;
+            border-left: 5px solid #e11d48;
+        }
+
+        .loop-indicator {
+            animation: gentlePulse 1.2s infinite;
+            font-weight: 600;
+        }
+
+        @keyframes gentlePulse {
+            0% { opacity: 0.7; text-shadow: 0 0 0px #f43f5e; }
+            100% { opacity: 1; text-shadow: 0 0 2px #f43f5e; }
+        }
+
+        .voice-quality-note {
+            font-size: 12px;
+            margin-top: -6px;
+            margin-bottom: 8px;
+            color: #2c3e66;
+        }
+    </style>
+    <!-- 动态加载 lamejs (MP3转换) -->
+    <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.all.js"></script>
+</head>
+<body>
+<div class="card" id="mainCard">
+    <h2>
+        🎧 余音绕仙梁
+        <span id="loopIndicator" style="font-size: 13px;"></span>
+    </h2>
+    <div class="subtitle">系统真实语音 · 动态识别 · 语速可调 · 下载/循环双模式</div>
+
+    <textarea id="text" rows="4" placeholder="输入要朗读的文字...">余音袅袅，不绝如缕。这是系统真实语音的合成效果，无论下载MP3还是循环聆听，皆随心而动。</textarea>
+
+    <!-- 语音下拉框：动态填充所有系统可用语音 -->
+    <select id="voiceSelect"></select>
+    <div class="voice-quality-note" id="voiceQualityNote">✨ 下拉菜单已动态读取系统所有语音，可自由选择</div>
+
+    <!-- 语速调节 -->
+    <div class="speed-control">
+        <label>⚡ 播放速率</label>
+        <input type="range" id="speedSlider" min="0.5" max="2.0" step="0.05" value="1.0">
+        <span class="speed-value" id="speedValue">1.0x</span>
+    </div>
+
+    <div class="mode-buttons">
+        <button class="mode-btn download" id="downloadModeBtn">
+            <span>📥</span> 下载 MP3 模式
+        </button>
+        <button class="mode-btn loop" id="loopModeBtn">
+            <span>🔁</span> 循环播放模式
+        </button>
+    </div>
+
+    <div id="actionArea">
+        <button class="control-btn" id="actionBtn">▶️ 开始生成/播放</button>
+        <button class="control-btn stop" id="stopBtn">⏹️ 停止所有</button>
+    </div>
+
+    <div id="status" class="status info">💡 先选择语音模式，然后点击开始</div>
+
+    <div class="tip-box" id="tipBox">
+        <strong>📌 新特性：</strong><br>
+        • 🧠 语音列表完全基于您系统真实安装的语音引擎，不会失效。<br>
+        • 🎙️ 每个选项对应不同音色/语言，可随意切换测试。<br>
+        • 🔁 循环模式：自动无限重播，适合背景音或反复磨耳朵。<br>
+        • 📥 下载模式：需麦克风权限，朗读后自动生成MP3文件保存。<br>
+        • 🚀 语速0.5x~2.0x，实时生效。
+    </div>
+</div>
+
+<script>
+    (function() {
+        // ---------- DOM 元素 ----------
+        const textarea = document.getElementById('text');
+        const voiceSelect = document.getElementById('voiceSelect');
+        const voiceQualityNote = document.getElementById('voiceQualityNote');
+        const downloadModeBtn = document.getElementById('downloadModeBtn');
+        const loopModeBtn = document.getElementById('loopModeBtn');
+        const actionBtn = document.getElementById('actionBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const statusDiv = document.getElementById('status');
+        const tipBox = document.getElementById('tipBox');
+        const loopIndicatorSpan = document.getElementById('loopIndicator');
+        const speedSlider = document.getElementById('speedSlider');
+        const speedValueSpan = document.getElementById('speedValue');
+        const mainCard = document.getElementById('mainCard');
+
+        // ---------- 全局变量 ----------
+        let currentMode = 'download';          // 'download' 或 'loop'
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let currentUtterance = null;           // 当前 speechSynthesis 实例
+        let availableVoices = [];               // 存储最新语音列表 (SpeechSynthesisVoice[])
+        let isLoopingActive = false;            // 循环标志
+        let loopTimeoutId = null;
+        let isCancelling = false;
+        let mediaStreamTrack = null;
+        
+        // 当前语速
+        let currentSpeed = 1.0;
+        
+        // 防抖刷新语音列表 (某些浏览器需要延迟重新获取)
+        let voiceRefreshTimer = null;
+        
+        // ----- 辅助函数 -----
+        function setStatus(message, type = 'info') {
+            statusDiv.innerHTML = message;
+            statusDiv.className = `status ${type}`;
+        }
+        
+        // 动态更新界面模式样式 + 提示框内容 + 按钮文本
+        function updateModeVisuals() {
+            if (currentMode === 'download') {
+                downloadModeBtn.classList.add('active');
+                loopModeBtn.classList.remove('active');
+                actionBtn.innerHTML = '📥 开始生成 MP3 文件';
+                mainCard.classList.add('download-mode-active');
+                mainCard.classList.remove('loop-mode-active');
+                tipBox.className = 'tip-box download-mode';
+                tipBox.innerHTML = `
+                    <strong>📥 下载 MP3 模式指引：</strong><br>
+                    • 🎧 请确保【已断开耳机】或外放声音，便于录音采集<br>
+                    • 🎙️ 系统会朗读文字并自动通过麦克风录音<br>
+                    • 💾 朗读完毕后自动转换为 MP3 并下载到设备<br>
+                    • ⚠️ 需要允许麦克风权限，请按浏览器提示授权<br>
+                    • 🌟 录制时保持环境安静效果更佳
+                `;
+            } else {
+                loopModeBtn.classList.add('active');
+                downloadModeBtn.classList.remove('active');
+                actionBtn.innerHTML = '🔁 开始循环播放 (无限)';
+                mainCard.classList.add('loop-mode-active');
+                mainCard.classList.remove('download-mode-active');
+                tipBox.className = 'tip-box loop-mode';
+                tipBox.innerHTML = `
+                    <strong>🔁 循环播放模式说明：</strong><br>
+                    • ▶️ 点击开始，语音将无限循环播放<br>
+                    • ⏹️ 点击停止按钮即可完全结束循环<br>
+                    • 🎚️ 播放期间也可以实时调整语速 (滑块)<br>
+                    • 📢 无需麦克风，直接调用系统语音引擎<br>
+                    • 💡 适合背景音、语言学习反复跟读
+                `;
+            }
+        }
+        
+        // 停止所有音频 (循环, utterance, 录音, 媒体流)
+        function hardStopAll() {
+            isCancelling = true;
+            
+            // 停止循环
+            if (isLoopingActive) {
+                isLoopingActive = false;
+                if (loopTimeoutId) {
+                    clearTimeout(loopTimeoutId);
+                    loopTimeoutId = null;
+                }
+                loopIndicatorSpan.innerHTML = '';
+            }
+            
+            // 停止语音合成
+            if (currentUtterance) {
+                try {
+                    window.speechSynthesis.cancel();
+                } catch(e) { /* ignore */ }
+                currentUtterance = null;
+            }
+            
+            // 停止录音器
+            if (mediaRecorder && (mediaRecorder.state === 'recording')) {
+                try {
+                    mediaRecorder.stop();
+                } catch(e) {}
+            }
+            
+            // 关闭音频流
+            if (mediaStreamTrack) {
+                try {
+                    mediaStreamTrack.getTracks().forEach(track => track.stop());
+                } catch(e) {}
+                mediaStreamTrack = null;
+            }
+            
+            setTimeout(() => {
+                isCancelling = false;
+            }, 80);
+            setStatus('⏹️ 已停止所有播放/录音', 'info');
+        }
+        
+        // 获取当前选中的语音对象 (根据下拉框真实的语音实例)
+        function getSelectedVoiceObject() {
+            const selectedVoiceName = voiceSelect.value;
+            if (!selectedVoiceName || !availableVoices.length) return null;
+            // 按名称精确匹配, 确保返回的是 SpeechSynthesisVoice 实例
+            return availableVoices.find(voice => voice.name === selectedVoiceName) || null;
+        }
+        
+        // 核心语音朗读函数 (返回 Promise，朗读结束或出错时resolve/reject)
+        function speakTextPromise(text, voiceObj) {
+            return new Promise((resolve, reject) => {
+                if (!window.speechSynthesis) {
+                    reject(new Error("浏览器不支持语音合成"));
+                    return;
+                }
+                // 确保任何之前的utterance被清理干净
+                if (currentUtterance) {
+                    window.speechSynthesis.cancel();
+                }
+                const utterance = new SpeechSynthesisUtterance(text);
+                if (voiceObj) {
+                    utterance.voice = voiceObj;
+                }
+                utterance.rate = currentSpeed;
+                utterance.pitch = 1.0;
+                utterance.volume = 1;
+                
+                utterance.onend = () => {
+                    currentUtterance = null;
+                    if (!isCancelling) resolve();
+                    else resolve(); // 取消场景也视为完成
+                };
+                utterance.onerror = (event) => {
+                    currentUtterance = null;
+                    console.warn("语音错误:", event);
+                    if (!isCancelling) reject(new Error(`语音出错: ${event.error || 'unknown'}`));
+                    else resolve();
+                };
+                
+                currentUtterance = utterance;
+                window.speechSynthesis.speak(utterance);
+            });
+        }
+        
+        // ----- 动态刷新语音列表（核心修复：完全基于系统真实可用voices）-----
+        function refreshVoiceList() {
+            // 获取最新 voices (speechSynthesis.getVoices 会实时反映系统语音)
+            let voices = window.speechSynthesis.getVoices();
+            if (!voices || voices.length === 0) {
+                // 部分浏览器异步加载，延迟重试
+                setTimeout(refreshVoiceList, 100);
+                return;
+            }
+            
+            // 去重（按 name+lang 避免重复项，但保留原始顺序）
+            const uniqueMap = new Map();
+            voices.forEach(voice => {
+                const key = `${voice.name}|${voice.lang}`;
+                if (!uniqueMap.has(key)) {
+                    uniqueMap.set(key, voice);
+                }
+            });
+            let uniqueVoices = Array.from(uniqueMap.values());
+            
+            // 重要：将语音按照常用优先级排序：中文在前 -> 英文/其他本地语音
+            const chineseVoices = uniqueVoices.filter(v => v.lang.toLowerCase().includes('zh') || v.lang.toLowerCase().includes('cn'));
+            const otherVoices = uniqueVoices.filter(v => !v.lang.toLowerCase().includes('zh') && !v.lang.toLowerCase().includes('cn'));
+            const sortedVoices = [...chineseVoices, ...otherVoices];
+            
+            if (sortedVoices.length === 0) {
+                setStatus('⚠️ 未检测到任何系统语音，请检查浏览器或操作系统设置', 'warning');
+                voiceSelect.innerHTML = '<option disabled>无可用语音</option>';
+                availableVoices = [];
+                return;
+            }
+            
+            availableVoices = sortedVoices;
+            
+            // 保存当前选中的语音名称（如果之前有选中，尽量保留）
+            const previousSelected = voiceSelect.value;
+            // 重构下拉框
+            voiceSelect.innerHTML = '';
+            for (let i = 0; i < availableVoices.length; i++) {
+                const voice = availableVoices[i];
+                const option = document.createElement('option');
+                option.value = voice.name;
+                // 展示格式：名称 (语言) [本地/在线]
+                const isLocal = voice.localService ? '本地' : '网络';
+                option.textContent = `${voice.name} (${voice.lang}) ${isLocal}`;
+                voiceSelect.appendChild(option);
+            }
+            
+            // 恢复之前的选中或默认选中第一个中文语音
+            let reselectIndex = -1;
+            if (previousSelected && availableVoices.some(v => v.name === previousSelected)) {
+                reselectIndex = availableVoices.findIndex(v => v.name === previousSelected);
+            } else {
+                // 优先选中第一个中文语音，若无则选第一个
+                const firstChineseIndex = availableVoices.findIndex(v => v.lang.toLowerCase().includes('zh'));
+                reselectIndex = firstChineseIndex !== -1 ? firstChineseIndex : 0;
+            }
+            if (reselectIndex >= 0) {
+                voiceSelect.selectedIndex = reselectIndex;
+            }
+            
+            const selectedVoice = getSelectedVoiceObject();
+            voiceQualityNote.innerHTML = `🎙️ 已加载 ${availableVoices.length} 个系统语音 · 当前: ${selectedVoice ? selectedVoice.name : '未选择'}`;
+            setStatus(`✅ 动态获取语音成功，共 ${availableVoices.length} 个可选`, 'success');
+        }
+        
+        // 监听voiceschanged事件 (大多数浏览器在语音列表变化时触发)
+        if (window.speechSynthesis) {
+            window.speechSynthesis.onvoiceschanged = () => {
+                refreshVoiceList();
+            };
+            // 立即调用一次，但是getVoices可能为空，等待异步填充
+            setTimeout(() => {
+                if (window.speechSynthesis.getVoices().length === 0) {
+                    // 尝试多次加载直到有声音
+                    let attempts = 0;
+                    const interval = setInterval(() => {
+                        if (window.speechSynthesis.getVoices().length > 0 || attempts > 20) {
+                            clearInterval(interval);
+                            refreshVoiceList();
+                        }
+                        attempts++;
+                    }, 100);
+                } else {
+                    refreshVoiceList();
+                }
+            }, 50);
+        } else {
+            setStatus('❌ 浏览器不支持 Web Speech API', 'error');
+        }
+        
+        // 当手动切换语音时，更新提示行
+        voiceSelect.addEventListener('change', () => {
+            const voiceObj = getSelectedVoiceObject();
+            if (voiceObj) {
+                voiceQualityNote.innerHTML = `🎙️ 当前语音: ${voiceObj.name} (${voiceObj.lang}) · ${voiceObj.localService ? '本地引擎' : '在线引擎'}`;
+                setStatus(`已切换至语音: ${voiceObj.name}`, 'info');
+            } else {
+                voiceQualityNote.innerHTML = `⚠️ 未选取有效语音，请重新选择`;
+            }
+        });
+        
+        // 语速滑块
+        speedSlider.addEventListener('input', (e) => {
+            currentSpeed = parseFloat(e.target.value);
+            speedValueSpan.innerText = currentSpeed.toFixed(2) + 'x';
+            if (!isLoopingActive && currentUtterance && window.speechSynthesis) {
+                // 如果单独调整语速时如果有正在播放且非循环主动模式 (为了体验，新播放才会生效)
+                // 不对当前朗读做动态更新，避免卡顿，但新循环或新下载会采用新语速
+            }
+        });
+        
+        // ---------- 循环模式核心 ----------
+        async function startLoopMode() {
+            const text = textarea.value.trim();
+            if (!text) {
+                setStatus('❌ 请输入文字内容', 'error');
+                return;
+            }
+            hardStopAll();
+            await new Promise(r => setTimeout(r, 120));
+            isCancelling = false;
+            isLoopingActive = true;
+            loopIndicatorSpan.innerHTML = '<span class="loop-indicator">🔁 循环播放中 (无限) 🔊</span>';
+            setStatus(`🔁 循环模式启动 | 当前语速 ${currentSpeed.toFixed(2)}x，点击停止可结束`, 'success');
+            
+            const voiceObj = getSelectedVoiceObject();
+            if (!voiceObj) {
+                setStatus('⚠️ 没有可用语音，请稍后刷新页面或重新选择语音', 'warning');
+                isLoopingActive = false;
+                loopIndicatorSpan.innerHTML = '';
+                return;
+            }
+            
+            // 循环递归函数
+            const playCycle = async () => {
+                if (!isLoopingActive || isCancelling) return;
+                try {
+                    await speakTextPromise(text, voiceObj);
+                    if (isLoopingActive && !isCancelling) {
+                        // 两次循环之间稍微延迟300ms，避免过于频繁
+                        loopTimeoutId = setTimeout(() => {
+                            playCycle();
+                        }, 280);
+                    }
+                } catch (err) {
+                    console.error('循环播放出错:', err);
+                    if (isLoopingActive && !isCancelling) {
+                        setStatus(`❌ 语音出错: ${err.message}，停止循环`, 'error');
+                        isLoopingActive = false;
+                        loopIndicatorSpan.innerHTML = '';
+                    }
+                }
+            };
+            playCycle();
+        }
+        
+        // ---------- 下载 MP3 模式 (修复录音与语音同步, 确保生成真实MP3) ----------
+        async function startDownloadMode() {
+            const text = textarea.value.trim();
+            if (!text) {
+                setStatus('❌ 请输入文字', 'error');
+                return;
+            }
+            // 友好提醒外放
+            const userConfirm = confirm(
+                '🎙️ 下载MP3前准备：\n\n' +
+                '1. 请断开耳机，确保系统声音外放（便于麦克风捕捉）\n' +
+                '2. 选择安静环境，减少杂音录入\n' +
+                '3. 需要麦克风权限用于内录系统声音\n' +
+                '4. 点击确定后自动朗读文字并录制，结束后下载 MP3\n\n' +
+                '是否继续？'
+            );
+            if (!userConfirm) {
+                setStatus('已取消下载生成', 'info');
+                return;
+            }
+            
+            hardStopAll();
+            await new Promise(r => setTimeout(r, 100));
+            isCancelling = false;
+            audioChunks = [];
+            setStatus('🎤 正在请求麦克风权限 (用于录制系统输出音频)...', 'info');
+            
+            try {
+                // 获取用户媒体 (麦克风)
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaStreamTrack = stream;
+                // 检查支持的mime类型
+                let mimeType = 'audio/webm';
+                if (MediaRecorder.isTypeSupported('audio/webm')) mimeType = 'audio/webm';
+                else if (MediaRecorder.isTypeSupported('audio/mp4')) mimeType = 'audio/mp4';
+                
+                mediaRecorder = new MediaRecorder(stream, { mimeType });
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data && event.data.size > 0) audioChunks.push(event.data);
+                };
+                
+                // 录音停止后处理转换
+                mediaRecorder.onstop = async () => {
+                    if (audioChunks.length === 0) {
+                        setStatus('⚠️ 未录制到音频数据，请检查麦克风', 'warning');
+                        if (mediaStreamTrack) {
+                            mediaStreamTrack.getTracks().forEach(t => t.stop());
+                            mediaStreamTrack = null;
+                        }
+                        return;
+                    }
+                    setStatus('🔄 正在编码 MP3，请稍等...', 'info');
+                    const webmBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    try {
+                        // 确保 lamejs 已加载 (上面已全局引入)
+                        if (typeof lamejs === 'undefined') {
+                            throw new Error('lamejs库未加载，请检查网络');
+                        }
+                        const mp3Blob = await convertWebmToMp3(webmBlob);
+                        const url = URL.createObjectURL(mp3Blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `余音绕仙梁_${Date.now()}.mp3`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        setStatus('✅ MP3 下载完成！已保存到下载文件夹', 'success');
+                    } catch (convErr) {
+                        console.error("MP3转换失败，保底webm下载", convErr);
+                        const fallbackUrl = URL.createObjectURL(webmBlob);
+                        const fallbackA = document.createElement('a');
+                        fallbackA.href = fallbackUrl;
+                        fallbackA.download = `tts_backup_${Date.now()}.webm`;
+                        fallbackA.click();
+                        URL.revokeObjectURL(fallbackUrl);
+                        setStatus('⚠️ MP3转换失败，已保存为WebM格式，可用播放器播放', 'warning');
+                    } finally {
+                        if (mediaStreamTrack) {
+                            mediaStreamTrack.getTracks().forEach(t => t.stop());
+                            mediaStreamTrack = null;
+                        }
+                    }
+                };
+                
+                mediaRecorder.start(200);
+                setStatus(`🗣️ 朗读开始 (语速 ${currentSpeed.toFixed(2)}x)，请保持环境安静...`, 'info');
+                
+                const voiceObj = getSelectedVoiceObject();
+                if (!voiceObj) {
+                    setStatus('❌ 没有可用语音，无法朗读', 'error');
+                    if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+                    return;
+                }
+                // 朗读文字
+                await speakTextPromise(text, voiceObj);
+                
+                // 朗读结束后延迟停止录音确保完整捕获
+                setStatus('📼 朗读结束，正在封装音频...', 'info');
+                setTimeout(() => {
+                    if (mediaRecorder && mediaRecorder.state === 'recording') {
+                        mediaRecorder.stop();
+                    } else if (mediaStreamTrack) {
+                        mediaStreamTrack.getTracks().forEach(t => t.stop());
+                        mediaStreamTrack = null;
+                    }
+                }, 500);
+            } catch (err) {
+                console.error("麦克风错误:", err);
+                let errMsg = '❌ 无法获取麦克风权限或录音失败。';
+                if (err.name === 'NotAllowedError') errMsg = '❌ 麦克风权限被拒绝。请点击地址栏锁图标允许麦克风后刷新重试。';
+                else if (err.name === 'NotFoundError') errMsg = '❌ 未检测到麦克风设备，请检查硬件连接。';
+                setStatus(errMsg, 'error');
+                if (mediaStreamTrack) {
+                    mediaStreamTrack.getTracks().forEach(t => t.stop());
+                    mediaStreamTrack = null;
+                }
+            }
+        }
+        
+        // WebM 转 MP3 (基于 lamejs)
+        async function convertWebmToMp3(webmBlob) {
+            return new Promise(async (resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = async function(ev) {
+                    const arrayBuffer = ev.target.result;
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    try {
+                        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                        const channelData = audioBuffer.getChannelData(0);
+                        const sampleRate = audioBuffer.sampleRate;
+                        const pcmData = new Int16Array(channelData.length);
+                        for (let i = 0; i < channelData.length; i++) {
+                            const s = Math.max(-1, Math.min(1, channelData[i]));
+                            pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                        }
+                        const mp3Encoder = new lamejs.Mp3Encoder(1, sampleRate, 128);
+                        const mp3Chunks = [];
+                        const blockSize = 1152;
+                        for (let i = 0; i < pcmData.length; i += blockSize) {
+                            const end = Math.min(i + blockSize, pcmData.length);
+                            const chunk = pcmData.subarray(i, end);
+                            const mp3Buf = mp3Encoder.encodeBuffer(chunk);
+                            if (mp3Buf.length > 0) mp3Chunks.push(mp3Buf);
+                        }
+                        const finalBuf = mp3Encoder.flush();
+                        if (finalBuf.length > 0) mp3Chunks.push(finalBuf);
+                        const mp3Blob = new Blob(mp3Chunks, { type: 'audio/mp3' });
+                        resolve(mp3Blob);
+                    } catch (err) {
+                        reject(err);
+                    } finally {
+                        await audioCtx.close();
+                    }
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(webmBlob);
+            });
+        }
+        
+        // ---------- 主控入口 ----------
+        function onMainAction() {
+            if (currentMode === 'download') {
+                startDownloadMode();
+            } else {
+                startLoopMode();
+            }
+        }
+        
+        function setMode(mode) {
+            if (mode === currentMode) return;
+            hardStopAll();
+            currentMode = mode;
+            updateModeVisuals();
+            setStatus(`✨ 已切换到 ${mode === 'download' ? '下载MP3模式' : '循环播放模式'}`, 'info');
+        }
+        
+        // 绑定UI事件
+        downloadModeBtn.onclick = () => setMode('download');
+        loopModeBtn.onclick = () => setMode('loop');
+        actionBtn.onclick = onMainAction;
+        stopBtn.onclick = hardStopAll;
+        
+        // 设定初始界面
+        currentMode = 'download';
+        updateModeVisuals();
+        setStatus('🎉 语音列表已动态加载，选择喜欢的音色，开始体验', 'success');
+        
+        // 额外保险：每10秒尝试重新同步语音列表（部分浏览器懒加载）
+        setInterval(() => {
+            if (window.speechSynthesis && window.speechSynthesis.getVoices().length !== availableVoices.length) {
+                refreshVoiceList();
+            }
+        }, 8000);
+    })();
+</script>
+</body>
+</html>

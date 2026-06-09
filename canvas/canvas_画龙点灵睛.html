@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <!--
+
+        SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
+        本文件是"汉末废柴堆 · 超级团队组建系统"的一部分。
+
+        完整项目受 CC BY-NC-SA 4.0 许可证保护，详见根目录 LICENSE 文件。
+
+        本项目核心设计思想、架构方案、方法论受 NOTICE 文件独立保护。
+
+        个人可免费使用，严禁用于商业目的。
+
+        商业授权请联系：xxuuyyuunn@sina.com
+
+    -->
+
+    <!--
+
+        **版本历史**
+        | 版本号 | 过程节点说明 | 修订人 | 修订日期 | 修订内容 |
+        | :----- | :----------- | :----- | :------- | :------- |
+        | V0.1.0 | 初稿创建     | 徐昀 | 2026-05-28 | 根据用户需求生成 |
+
+    -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>画龙点灵睛</title>
+    <!-- lucide 图标库 -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-app: #f5f7fb;
+            --card-white: #ffffff;
+            --primary-accent: #2c6e9e;
+            --primary-dark: #1a4b6e;
+            --border-light: #e4e9f2;
+            --text-main: #1f2a3e;
+            --shadow-card: 0 20px 35px -12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.02);
+            --modal-bg: rgba(0, 0, 0, 0.5);
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+            background: var(--bg-app);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+            background: var(--bg-app);
+        }
+
+        .toolbar-glass {
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-light);
+            padding: 12px 20px;
+            z-index: 50;
+        }
+
+        .toolbar-flex {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px 16px;
+            align-items: center;
+        }
+
+        .tool-capsule {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+            background: #f8fafc;
+            padding: 4px 10px;
+            border-radius: 48px;
+            border: 1px solid var(--border-light);
+        }
+
+        .tool-icon {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 32px;
+            transition: all 0.2s;
+            color: var(--text-main);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .tool-icon i { width: 18px; height: 18px; display: inline-block; }
+        .tool-icon:hover { background: #e4edf5; transform: translateY(-1px); color: var(--primary-accent); }
+
+        .btn-file { background: var(--primary-accent); color: white; padding: 8px 18px; border-radius: 40px; }
+        .btn-file:hover { background: var(--primary-dark); }
+        .btn-export { background: #1f2a3e; color: white; }
+        .btn-clear { background: #fef3f2; color: #b45309; border: 1px solid #ffddd6; }
+        .btn-source { background: #4a5568; color: white; }
+
+        .editor-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 28px 32px;
+        }
+
+        .editor-paper {
+            max-width: 1280px;
+            margin: 0 auto;
+            background: var(--card-white);
+            border-radius: 28px;
+            box-shadow: var(--shadow-card);
+            overflow: hidden;
+        }
+
+        .nova-editor {
+            min-height: 70vh;
+            padding: 40px 48px;
+            outline: none;
+            font-size: 1rem;
+            line-height: 1.65;
+            color: var(--text-main);
+            background: var(--card-white);
+            font-family: 'Inter', system-ui;
+        }
+        .nova-editor:empty:before {
+            content: attr(placeholder);
+            color: #a6bbcf;
+            pointer-events: none;
+        }
+
+        .nova-editor h1 { font-size: 1.9rem; font-weight: 600; margin: 1rem 0 0.5rem; border-left: 3px solid var(--primary-accent); padding-left: 16px; }
+        .nova-editor h2 { font-size: 1.5rem; font-weight: 600; margin: 0.8rem 0 0.4rem; }
+        .nova-editor h3 { font-size: 1.25rem; font-weight: 600; margin: 0.6rem 0; }
+        .nova-editor p { margin: 0.75rem 0; line-height: 1.6; }
+        .nova-editor ul, .nova-editor ol { margin: 0.5rem 0 1rem 2rem; }
+        .nova-editor blockquote {
+            border-left: 4px solid var(--primary-accent);
+            background: #f7fafd;
+            margin: 1rem 0;
+            padding: 0.5rem 1.2rem;
+            border-radius: 14px;
+            color: #2c577a;
+        }
+        .nova-editor pre {
+            background: #1e2a3a;
+            color: #e2f0ff;
+            padding: 1rem;
+            border-radius: 16px;
+            overflow-x: auto;
+            font-family: monospace;
+        }
+        .nova-editor code {
+            background: #eef3fc;
+            padding: 0.2rem 0.4rem;
+            border-radius: 8px;
+            font-family: monospace;
+        }
+        .nova-editor img { max-width: 100%; border-radius: 12px; margin: 10px 0; }
+        .nova-editor a { color: var(--primary-accent); text-decoration: none; border-bottom: 1px solid #c9dfef; }
+        .nova-editor table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        .nova-editor th, .nova-editor td {
+            border: 1px solid var(--border-light);
+            padding: 8px 12px;
+        }
+        .nova-editor th {
+            background: #f4f9fe;
+        }
+
+        /* 源码编辑模态框 */
+        .source-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--modal-bg);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        .source-modal-content {
+            background: white;
+            border-radius: 32px;
+            width: 80%;
+            max-width: 1000px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            border: 1px solid var(--border-light);
+        }
+        .source-modal-header {
+            padding: 18px 24px;
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            font-size: 1.1rem;
+            background: #f8fafc;
+            border-radius: 32px 32px 0 0;
+        }
+        .source-modal-header button {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #718096;
+            padding: 0 8px;
+        }
+        .source-modal-header button:hover { color: #e53e3e; }
+        .source-textarea {
+            flex: 1;
+            padding: 20px 24px;
+        }
+        .source-textarea textarea {
+            width: 100%;
+            height: 400px;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            padding: 16px;
+            border: 1px solid var(--border-light);
+            border-radius: 20px;
+            resize: vertical;
+            outline: none;
+            background: #fefefe;
+        }
+        .source-modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border-light);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+        .source-modal-footer button {
+            padding: 8px 20px;
+            border-radius: 40px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: 0.2s;
+        }
+        .btn-apply {
+            background: var(--primary-accent);
+            color: white;
+        }
+        .btn-apply:hover { background: var(--primary-dark); }
+        .btn-cancel {
+            background: #e2e8f0;
+            color: #1f2a3e;
+        }
+        .btn-cancel:hover { background: #cbd5e0; }
+
+        .status-spacer { flex-shrink: 0; height: 0; visibility: hidden; }
+        input[type="file"] { display: none; }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="toolbar-glass">
+        <div class="toolbar-flex">
+            <!-- 基础文本样式组 -->
+            <div class="tool-capsule">
+                <button class="tool-icon" data-cmd="bold" title="加粗 (Ctrl+B)"><i data-lucide="bold"></i></button>
+                <button class="tool-icon" data-cmd="italic" title="斜体 (Ctrl+I)"><i data-lucide="italic"></i></button>
+                <button class="tool-icon" data-cmd="underline" title="下划线 (Ctrl+U)"><i data-lucide="underline"></i></button>
+            </div>
+
+            <!-- 标题/段落组 -->
+            <div class="tool-capsule">
+                <button class="tool-icon" data-cmd="formatBlock" data-value="h1" title="一级标题">H1</button>
+                <button class="tool-icon" data-cmd="formatBlock" data-value="h2" title="二级标题">H2</button>
+                <button class="tool-icon" data-cmd="formatBlock" data-value="h3" title="三级标题">H3</button>
+                <button class="tool-icon" data-cmd="formatBlock" data-value="p" title="正文段落">P</button>
+                <button class="tool-icon" data-cmd="formatBlock" data-value="pre" title="代码块"><i data-lucide="code-2"></i></button>
+                <button class="tool-icon" data-cmd="formatBlock" data-value="blockquote" title="引用块"><i data-lucide="quote"></i></button>
+            </div>
+
+            <!-- 列表 & 对齐 -->
+            <div class="tool-capsule">
+                <button class="tool-icon" data-cmd="insertUnorderedList" title="无序列表"><i data-lucide="list"></i></button>
+                <button class="tool-icon" data-cmd="insertOrderedList" title="有序列表"><i data-lucide="list-ordered"></i></button>
+                <button class="tool-icon" data-cmd="justifyLeft" title="左对齐"><i data-lucide="align-left"></i></button>
+                <button class="tool-icon" data-cmd="justifyCenter" title="居中对齐"><i data-lucide="align-center"></i></button>
+                <button class="tool-icon" data-cmd="justifyRight" title="右对齐"><i data-lucide="align-right"></i></button>
+            </div>
+
+            <!-- 插入元素 -->
+            <div class="tool-capsule">
+                <button class="tool-icon" id="linkAction" title="插入超链接"><i data-lucide="link-2"></i></button>
+                <button class="tool-icon" id="imageAction" title="插入图片"><i data-lucide="image"></i></button>
+                <button class="tool-icon" id="tableAction" title="插入表格"><i data-lucide="table"></i></button>
+                <button class="tool-icon" id="hrAction" title="水平分割线"><i data-lucide="minus"></i></button>
+            </div>
+
+            <!-- 编辑辅助组 (已移除清除格式按钮) -->
+            <div class="tool-capsule">
+                <button class="tool-icon" data-cmd="undo" title="撤销 (Ctrl+Z)"><i data-lucide="undo-2"></i></button>
+                <button class="tool-icon" data-cmd="redo" title="重做 (Ctrl+Y)"><i data-lucide="redo-2"></i></button>
+                <button class="tool-icon" id="indentBtn" title="增加缩进"><i data-lucide="indent-increase"></i></button>
+                <button class="tool-icon" id="outdentBtn" title="减少缩进"><i data-lucide="indent-decrease"></i></button>
+            </div>
+
+            <!-- 文件操作组 -->
+            <div class="tool-capsule">
+                <label class="tool-icon btn-file" style="background:#2c6e9e; color:white;" title="上传HTML文件，安全过滤">
+                    <i data-lucide="upload"></i> 上传HTML
+                    <input type="file" id="htmlUpload" accept=".html,.htm,text/html">
+                </label>
+                <button class="tool-icon btn-export" id="exportHtmlBtn" title="导出为HTML文件"><i data-lucide="download"></i> 导出</button>
+                <button class="tool-icon btn-source" id="sourceCodeBtn" title="查看/粘贴HTML源码 (自动过滤偏移样式)"><i data-lucide="code"></i> 源码</button>
+                <button class="tool-icon btn-clear" id="clearEditorBtn" title="清空所有内容"><i data-lucide="trash-2"></i> 清空</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="editor-scroll">
+        <div class="editor-paper">
+            <div id="novaEditor" class="nova-editor" contenteditable="true" placeholder="此编辑器仅作HTML文档微调功能，更多功能，请使用专业编辑器。"></div>
+        </div>
+    </div>
+    <div class="status-spacer"></div>
+</div>
+
+<script>
+    (function() {
+        const editor = document.getElementById('novaEditor');
+        const fileInput = document.getElementById('htmlUpload');
+        const exportBtn = document.getElementById('exportHtmlBtn');
+        const clearBtn = document.getElementById('clearEditorBtn');
+        const sourceBtn = document.getElementById('sourceCodeBtn');
+        
+        editor.innerHTML = '';
+        editor.setAttribute('placeholder', '此编辑器仅作HTML文档微调功能，更多功能，请使用专业编辑器。');
+
+        function exec(cmd, val = null) {
+            editor.focus();
+            try {
+                if (val !== null && val !== undefined) {
+                    document.execCommand(cmd, false, val);
+                } else {
+                    document.execCommand(cmd, false, null);
+                }
+                editor.dispatchEvent(new Event('input'));
+            } catch(e) { console.warn(cmd, e); }
+        }
+        
+        // ========== 核心安全过滤器：提取body内容 + 移除危险样式 ==========
+        function sanitizeHtmlContent(rawHtml) {
+            if (!rawHtml || rawHtml.trim() === '') return '';
+            
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(rawHtml, 'text/html');
+            
+            const styleNodes = doc.querySelectorAll('style');
+            const safeStyles = [];
+            styleNodes.forEach(style => {
+                let cssText = style.innerHTML;
+                const dangerousProps = /(position\s*:\s*(absolute|fixed|sticky)|margin\s*:\s*[^;]*;?|top\s*:\s*[^;]*|left\s*:\s*[^;]*|transform\s*:\s*[^;]*|overflow\s*:\s*hidden|height\s*:\s*100[vh%]?)/gi;
+                let filteredCss = cssText.replace(/(body|html)\s*\{([^}]*)\}/gi, (match, selector, props) => {
+                    let safeProps = props.replace(dangerousProps, '/* 已过滤偏移样式 */');
+                    if (safeProps.trim() === '') return '';
+                    return `${selector} { ${safeProps} }`;
+                });
+                filteredCss = filteredCss.replace(/\*\{([^}]*?)\}/gi, (match, props) => {
+                    let cleaned = props.replace(/(margin|padding)\s*:\s*[^;]+;?/gi, '/* 已清理 */');
+                    if (cleaned.trim() === '') return '';
+                    return `* { ${cleaned} }`;
+                });
+                if (filteredCss.trim()) {
+                    const newStyle = document.createElement('style');
+                    newStyle.textContent = filteredCss;
+                    safeStyles.push(newStyle);
+                }
+            });
+            
+            const bodyContent = doc.body;
+            const contentFragment = document.createDocumentFragment();
+            if (bodyContent) {
+                while (bodyContent.firstChild) {
+                    contentFragment.appendChild(bodyContent.firstChild);
+                }
+            }
+            
+            const walker = document.createTreeWalker(contentFragment, NodeFilter.SHOW_ELEMENT, null);
+            while (walker.nextNode()) {
+                const el = walker.currentNode;
+                if (el.nodeType === 1 && el.hasAttribute('style')) {
+                    let styleAttr = el.getAttribute('style');
+                    if (styleAttr) {
+                        let cleanedStyle = styleAttr.replace(/(position|margin|top|left|bottom|right|transform)\s*:\s*[^;]+;?/gi, '');
+                        if (cleanedStyle.trim() === '') el.removeAttribute('style');
+                        else el.setAttribute('style', cleanedStyle);
+                    }
+                }
+            }
+            
+            const tempContainer = document.createElement('div');
+            safeStyles.forEach(style => tempContainer.appendChild(style.cloneNode(true)));
+            while (contentFragment.firstChild) {
+                tempContainer.appendChild(contentFragment.firstChild);
+            }
+            return tempContainer.innerHTML;
+        }
+        
+        function loadHtmlSmart(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const safeContent = sanitizeHtmlContent(e.target.result);
+                    editor.innerHTML = safeContent || '';
+                } catch(err) {
+                    console.error(err);
+                    editor.innerHTML = '<p>⚠️ 解析异常</p>';
+                }
+                editor.focus();
+            };
+            reader.onerror = () => alert('文件读取失败');
+            reader.readAsText(file, 'UTF-8');
+        }
+        
+        function fullClear() {
+            if (confirm('清空所有内容？不可撤销。')) {
+                editor.innerHTML = '';
+                editor.focus();
+            }
+        }
+        
+        function exportSafeHtml() {
+            let inner = editor.innerHTML;
+            if (!inner.trim() && !confirm('当前为空，确定导出空白文档吗？')) return;
+            const finalDoc = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>商务文档导出</title>
+<style>
+    body { max-width: 1100px; margin: 2rem auto; padding: 2rem; background: #fff; font-family: system-ui; line-height: 1.5; }
+    img { max-width: 100%; border-radius: 12px; }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+    th, td { border: 1px solid #ddd; padding: 8px; }
+    pre { background: #f4f4f4; padding: 1rem; border-radius: 12px; overflow-x: auto; }
+    blockquote { border-left: 4px solid #2c6e9e; background: #f9f9fc; padding: 0.5rem 1rem; margin: 1rem 0; }
+</style>
+</head>
+<body>${inner}</body>
+</html>`;
+            const blob = new Blob([finalDoc], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.download = `document_${Date.now()}.html`;
+            a.href = url;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        // ========== 源码编辑弹窗 ==========
+        function showSourceEditor() {
+            const currentHtml = editor.innerHTML;
+            const modal = document.createElement('div');
+            modal.className = 'source-modal';
+            modal.innerHTML = `
+                <div class="source-modal-content">
+                    <div class="source-modal-header">
+                        <span>✏️ 编辑 HTML 源码 (粘贴后自动过滤偏移样式)</span>
+                        <button class="close-modal-btn">&times;</button>
+                    </div>
+                    <div class="source-textarea">
+                        <textarea id="sourceRawHtml" placeholder="在此粘贴或编辑 HTML 源码...&#10;提示：完整的网页内容会被自动提取 body 并过滤危险样式。">${escapeHtml(currentHtml)}</textarea>
+                    </div>
+                    <div class="source-modal-footer">
+                        <button class="btn-cancel" id="cancelSourceBtn">取消</button>
+                        <button class="btn-apply" id="applySourceBtn">安全应用（自动过滤）</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            const textarea = modal.querySelector('#sourceRawHtml');
+            const closeBtn = modal.querySelector('.close-modal-btn');
+            const cancelBtn = modal.querySelector('#cancelSourceBtn');
+            const applyBtn = modal.querySelector('#applySourceBtn');
+            
+            const closeModal = () => modal.remove();
+            
+            closeBtn.addEventListener('click', closeModal);
+            cancelBtn.addEventListener('click', closeModal);
+            applyBtn.addEventListener('click', () => {
+                const rawHtml = textarea.value;
+                if (!rawHtml.trim()) {
+                    editor.innerHTML = '';
+                } else {
+                    const safeContent = sanitizeHtmlContent(rawHtml);
+                    editor.innerHTML = safeContent || '';
+                }
+                editor.focus();
+                closeModal();
+            });
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+            });
+            textarea.focus();
+        }
+        
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+        
+        function insertLink() {
+            let url = prompt('链接地址:', 'https://');
+            if (url) exec('createLink', url.startsWith('http') ? url : 'https://' + url);
+        }
+        function insertImage() {
+            let url = prompt('图片URL:', 'https://picsum.photos/600/400');
+            if (url) exec('insertImage', url);
+        }
+        function insertTable() {
+            let r = prompt('行数', '3'), c = prompt('列数', '3');
+            if(!r||!c) return;
+            let rows = parseInt(r), cols = parseInt(c);
+            let html = `<table border="1" style="border-collapse:collapse; width:100%; margin:0.8rem 0;"><tbody>`;
+            for(let i=0;i<rows;i++) {
+                html += '<tr>';
+                for(let j=0;j<cols;j++) {
+                    if(i===0) html += `<th style="padding:8px; background:#f4f7fc;">标题${j+1}</th>`;
+                    else html += `<td style="padding:8px;">数据${j+1}</td>`;
+                }
+                html += '</table>';
+            }
+            html += `</tbody></table>`;
+            exec('insertHTML', html);
+        }
+        function insertHr() { exec('insertHorizontalRule'); }
+        function indent() { exec('indent'); }
+        function outdent() { exec('outdent'); }
+        
+        function bindDataButtons() {
+            document.querySelectorAll('.tool-icon[data-cmd]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    let cmd = btn.getAttribute('data-cmd');
+                    let val = btn.getAttribute('data-value');
+                    if (cmd === 'formatBlock') {
+                        if (val === 'pre') exec('formatBlock', '<pre>');
+                        else exec('formatBlock', `<${val}>`);
+                    } else {
+                        exec(cmd, val);
+                    }
+                });
+            });
+        }
+        
+        function bindSpecialUI() {
+            document.getElementById('linkAction')?.addEventListener('click', insertLink);
+            document.getElementById('imageAction')?.addEventListener('click', insertImage);
+            document.getElementById('tableAction')?.addEventListener('click', insertTable);
+            document.getElementById('hrAction')?.addEventListener('click', insertHr);
+            document.getElementById('indentBtn')?.addEventListener('click', indent);
+            document.getElementById('outdentBtn')?.addEventListener('click', outdent);
+            document.getElementById('sourceCodeBtn')?.addEventListener('click', showSourceEditor);
+            exportBtn.addEventListener('click', exportSafeHtml);
+            clearBtn.addEventListener('click', fullClear);
+            fileInput.addEventListener('change', (e) => {
+                if(e.target.files[0]) loadHtmlSmart(e.target.files[0]);
+                fileInput.value = '';
+            });
+        }
+        
+        function initShortcuts() {
+            editor.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 'b') { e.preventDefault(); exec('bold'); }
+                else if (e.ctrlKey && e.key === 'i') { e.preventDefault(); exec('italic'); }
+                else if (e.ctrlKey && e.key === 'u') { e.preventDefault(); exec('underline'); }
+                else if (e.ctrlKey && e.key === 'z') { e.preventDefault(); exec('undo'); }
+                else if (e.ctrlKey && e.key === 'y') { e.preventDefault(); exec('redo'); }
+                else if (e.ctrlKey && e.key === ']') { e.preventDefault(); exec('indent'); }
+                else if (e.ctrlKey && e.key === '[') { e.preventDefault(); exec('outdent'); }
+            });
+        }
+        
+        function renderIcons() { 
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            else setTimeout(renderIcons, 100);
+        }
+        
+        function init() {
+            bindDataButtons();
+            bindSpecialUI();
+            initShortcuts();
+            renderIcons();
+            editor.focus();
+        }
+        init();
+    })();
+</script>
+</body>
+</html>
