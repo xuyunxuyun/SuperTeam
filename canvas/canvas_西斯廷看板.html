@@ -25,15 +25,19 @@
         | V0.1.0 | 初稿创建     | 徐昀 | 2026-05-26 | 根据用户需求生成 |
         | V0.1.1 | 功能增强     | 徐昀 | 2026-05-28 | 图表JSON持久显示，增加导出JSON功能 |
         | V0.1.2 | 右键菜单升级 | 徐昀 | 2026-05-29 | 右键菜单分别导出JSON和PNG |
+        | V0.1.3 | 主菜单调整   | 徐昀 | 2026-08-10 | 主菜单水平居中，不妨碍图表操作 |
     -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>西斯廷看板</title>
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js">
+    </script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack.min.css" />
-    <script src="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack-all.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack-all.js">
+    </script>
     <!-- html2canvas 用于导出PNG -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js">
+    </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         * {
@@ -267,11 +271,13 @@
             background: #2563eb;
         }
 
-        /* 右下角主按钮区域 - 悬浮才显示，离开后自动隐藏 */
+        /* 右下角主按钮区域 - 改为底部居中，略微上移 */
         .edit-toolbar {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
+            bottom: 40px;
+            /* 从20px改为40px，往上移动一点 */
+            left: 50%;
+            transform: translateX(-50%);
             background: #111827e6;
             backdrop-filter: blur(12px);
             border-radius: 40px;
@@ -283,13 +289,14 @@
             transition: opacity 0.2s, transform 0.2s;
             opacity: 0;
             pointer-events: none;
-            transform: translateY(10px);
+            transform: translateX(-50%) translateY(10px);
+            /* 保留垂直微调 */
         }
 
         .edit-toolbar.visible {
             opacity: 1;
             pointer-events: auto;
-            transform: translateY(0);
+            transform: translateX(-50%) translateY(0);
         }
 
         .edit-toolbar button {
@@ -615,8 +622,7 @@
                         const card = screen.cards.find(c => c.id === cardId);
                         if (card) showJsonEditorModal(screen, card);
                     }
-                }
-                else if (target.classList.contains('delete-chart-btn')) {
+                } else if (target.classList.contains('delete-chart-btn')) {
                     e.preventDefault();
                     const cardId = parseInt(target.getAttribute('data-card-id'));
                     const screen = screens.find(s => s.id === screenId);
@@ -670,8 +676,8 @@
             // 但卡片高度 w/h 也会变，这样用户调整时可以更精细。同时设置 margin 缩小为原来的1/4。
             const grid = GridStack.init({
                 column: 12,
-                cellHeight: 17.5,      // 原70px，现17.5px —— 吸附间距缩小为原来的1/4
-                margin: 2.5,           // 原10px，现2.5px (1/4)
+                cellHeight: 17.5, // 原70px，现17.5px —— 吸附间距缩小为原来的1/4
+                margin: 2.5, // 原10px，现2.5px (1/4)
                 float: false,
                 draggable: { handle: '.card-header' },
                 resizable: { handles: 'se' }
@@ -738,7 +744,8 @@
                 }
                 debouncedSaveScreens();
                 for (let item of items) {
-                    const key = `${parseInt(item.el.getAttribute('data-screen-id'))}_${parseInt(item.el.getAttribute('data-card-id'))}`;
+                    const key =
+                        `${parseInt(item.el.getAttribute('data-screen-id'))}_${parseInt(item.el.getAttribute('data-card-id'))}`;
                     const chart = chartInstanceMap.get(key);
                     if (chart) setTimeout(() => chart.resize(), 30);
                 }
@@ -765,7 +772,8 @@
         }
 
         function updateCardTitle(screen, card) {
-            const widgetDiv = document.querySelector(`.grid-stack-item[data-card-id='${card.id}'][data-screen-id='${screen.id}']`);
+            const widgetDiv = document.querySelector(
+                `.grid-stack-item[data-card-id='${card.id}'][data-screen-id='${screen.id}']`);
             if (widgetDiv) {
                 let titleText = '未配置图表';
                 if (card.chartOption?.title?.text) titleText = card.chartOption.title.text;
@@ -848,14 +856,16 @@
             const fileInput = modalDiv.querySelector('#modalJsonFileInput');
             const uploadLabel = modalDiv.querySelector('#modalUploadLabel');
             const exportBtn = modalDiv.querySelector('#modalExportJsonBtn');
-            uploadLabel.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
+            uploadLabel.addEventListener('click', (e) => { e.preventDefault();
+                fileInput.click(); });
             fileInput.addEventListener('change', (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
                 const reader = new FileReader();
                 reader.onload = (ev) => {
-                    try { const jsonObj = looseJsonParse(ev.target.result); textarea.value = JSON.stringify(jsonObj, null, 2); showTip("文件已加载", 1200); }
-                    catch (err) { alert("解析失败: " + err.message); }
+                    try { const jsonObj = looseJsonParse(ev.target.result);
+                        textarea.value = JSON.stringify(jsonObj, null, 2);
+                        showTip("文件已加载", 1200); } catch (err) { alert("解析失败: " + err.message); }
                 };
                 reader.readAsText(file);
                 fileInput.value = '';
@@ -888,7 +898,8 @@
             });
         }
 
-        function escapeTextarea(str) { if (!str) return ''; return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+        function escapeTextarea(str) { if (!str) return ''; return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(
+                />/g, '&gt;'); }
 
         // 核心修改: 新增图表放置在最后 (不放在最上面)
         function addCardToActiveScreen() {
@@ -912,11 +923,14 @@
         function exportFullDashboard() {
             if (!activeScreenId) return showTip("请先选择一个标签页");
             const screen = screens.find(s => s.id === activeScreenId);
-            const exportData = { version: "4.0", screenName: screen.name, cards: screen.cards.map(c => ({ id: c.id, w: c.w, h: c.h, x: c.x, y: c.y, chartOption: c.chartOption })) };
+            const exportData = { version: "4.0", screenName: screen.name, cards: screen.cards.map(c => ({ id: c.id, w: c.w,
+                    h: c.h, x: c.x, y: c.y, chartOption: c.chartOption })) };
             const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url; a.download = `dashboard_${screen.name}_备份.json`; a.click();
+            a.href = url;
+            a.download = `dashboard_${screen.name}_备份.json`;
+            a.click();
             URL.revokeObjectURL(url);
             showTip("大屏配置已导出", 1500);
         }
@@ -924,7 +938,9 @@
         function importDashboardJson() { /* 保留完整逻辑，与原一致略缩减 */
             if (!activeScreenId) return showTip("请先选择一个标签页");
             const screen = screens.find(s => s.id === activeScreenId);
-            const fileInput = document.createElement('input'); fileInput.type = 'file'; fileInput.accept = '.json';
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.json';
             fileInput.onchange = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -933,12 +949,17 @@
                     try {
                         const imported = JSON.parse(ev.target.result);
                         if (!imported.cards) throw new Error("无效备份");
-                        const newCards = imported.cards.map(old => ({ id: nextCardId++, w: old.w ?? 4, h: old.h ?? 5, x: old.x ?? 0, y: old.y ?? 0, chartOption: old.chartOption || null }));
+                        const newCards = imported.cards.map(old => ({ id: nextCardId++, w: old.w ?? 4, h: old.h ?? 5,
+                            x: old.x ?? 0, y: old.y ?? 0, chartOption: old.chartOption || null }));
                         if (confirm("替换现有所有图表?")) {
-                            screen.cards.forEach(c => { const key = `${screen.id}_${c.id}`; if (chartInstanceMap.has(key)) chartInstanceMap.get(key).dispose(); });
+                            screen.cards.forEach(c => { const key = `${screen.id}_${c.id}`; if (chartInstanceMap
+                                    .has(key)) chartInstanceMap.get(key).dispose(); });
                             screen.cards = newCards;
                         } else screen.cards.push(...newCards);
-                        if (imported.screenName && confirm("是否同时修改页签名?")) { screen.name = imported.screenName; const tabDiv = document.querySelector(`.tab-item[data-screen-id='${screen.id}'] .tab-name`); if (tabDiv) tabDiv.innerText = screen.name; }
+                        if (imported.screenName && confirm("是否同时修改页签名?")) { screen.name = imported.screenName;
+                            const tabDiv = document.querySelector(
+                                `.tab-item[data-screen-id='${screen.id}'] .tab-name`); if (tabDiv) tabDiv
+                                .innerText = screen.name; }
                         renderScreenGrid(screen);
                         saveScreensToLocal();
                         showTip(`导入 ${newCards.length} 个图表`, 2000);
@@ -968,13 +989,15 @@
         function setupToolbarHover() {
             const toolbar = document.getElementById('editToolbar');
             let timeoutId = null;
-            const showToolbar = () => { if (timeoutId) clearTimeout(timeoutId); toolbar.classList.add('visible'); };
+            const showToolbar = () => { if (timeoutId) clearTimeout(timeoutId);
+                toolbar.classList.add('visible'); };
             const hideToolbar = () => { timeoutId = setTimeout(() => toolbar.classList.remove('visible'), 300); };
             toolbar.addEventListener('mouseenter', showToolbar);
             toolbar.addEventListener('mouseleave', hideToolbar);
             document.addEventListener('mousemove', (e) => {
                 const rect = toolbar.getBoundingClientRect();
-                if (e.clientX > rect.left - 40 && e.clientX < rect.right + 40 && e.clientY > rect.top - 40 && e.clientY < rect.bottom + 40) showToolbar();
+                if (e.clientX > rect.left - 40 && e.clientX < rect.right + 40 && e.clientY > rect.top - 40 && e
+                    .clientY < rect.bottom + 40) showToolbar();
                 else if (!toolbar.matches(':hover')) hideToolbar();
             });
             setTimeout(() => toolbar.classList.add('visible'), 200);
@@ -986,7 +1009,8 @@
             if (screen.cards?.length && !confirm(`页签「${screen.name}」包含 ${screen.cards.length} 个图表，确定关闭？`)) return;
             if (screens.length <= 1) { showTip("至少保留一个大屏页签", 1500); return; }
             if (gridStackMap.has(screenId)) gridStackMap.get(screenId).destroy(false);
-            screen.cards.forEach(c => { const key = `${screen.id}_${c.id}`; if (chartInstanceMap.has(key)) chartInstanceMap.get(key).dispose(); });
+            screen.cards.forEach(c => { const key = `${screen.id}_${c.id}`; if (chartInstanceMap.has(key)) chartInstanceMap
+                    .get(key).dispose(); });
             const idx = screens.findIndex(s => s.id === screenId);
             screens.splice(idx, 1);
             document.getElementById(`screen-${screenId}`)?.remove();
@@ -1008,27 +1032,51 @@
         function createScreenPane(screenId) {
             let pane = document.getElementById(`screen-${screenId}`);
             if (pane) pane.remove();
-            pane = document.createElement('div'); pane.className = 'screen-pane'; pane.id = `screen-${screenId}`;
+            pane = document.createElement('div');
+            pane.className = 'screen-pane';
+            pane.id = `screen-${screenId}`;
             document.getElementById('screensContainer').appendChild(pane);
             const screen = screens.find(s => s.id === screenId);
-            if (screen) { pane.innerHTML = `<div class="grid-stack" id="grid-${screenId}"></div>`; renderScreenGrid(screen); }
+            if (screen) { pane.innerHTML = `<div class="grid-stack" id="grid-${screenId}"></div>`; renderScreenGrid(
+                screen); }
         }
 
         function addScreenTabButton(screenId, name) {
             const header = document.getElementById('tabsHeader');
             const addBtn = document.getElementById('addTabBtn');
-            const div = document.createElement('div'); div.className = 'tab-item'; div.setAttribute('data-screen-id', screenId);
-            const nameSpan = document.createElement('span'); nameSpan.className = 'tab-name'; nameSpan.innerText = name;
-            const closeSpan = document.createElement('span'); closeSpan.className = 'close-tab'; closeSpan.innerText = '✕';
-            div.appendChild(nameSpan); div.appendChild(closeSpan);
+            const div = document.createElement('div');
+            div.className = 'tab-item';
+            div.setAttribute('data-screen-id', screenId);
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'tab-name';
+            nameSpan.innerText = name;
+            const closeSpan = document.createElement('span');
+            closeSpan.className = 'close-tab';
+            closeSpan.innerText = '✕';
+            div.appendChild(nameSpan);
+            div.appendChild(closeSpan);
             nameSpan.addEventListener('dblclick', (e) => { /* 重命名逻辑 */
-                e.stopPropagation(); const old = nameSpan.innerText; const input = document.createElement('input'); input.value = old;
-                input.style.cssText = 'background:#1f2937;color:white;border:1px solid #3b82f6;border-radius:12px;padding:2px 8px;';
-                nameSpan.style.display = 'none'; nameSpan.parentNode.insertBefore(input, nameSpan); input.focus();
-                const save = () => { let newName = input.value.trim() || old; if (newName !== old) { const s = screens.find(s => s.id === screenId); if (s) s.name = newName; nameSpan.innerText = newName; saveScreensToLocal(); } else nameSpan.innerText = old; nameSpan.style.display = 'inline-block'; input.remove(); };
-                input.addEventListener('blur', save); input.addEventListener('keypress', e => { if (e.key === 'Enter') save(); });
+                e.stopPropagation();
+                const old = nameSpan.innerText;
+                const input = document.createElement('input');
+                input.value = old;
+                input.style.cssText =
+                    'background:#1f2937;color:white;border:1px solid #3b82f6;border-radius:12px;padding:2px 8px;';
+                nameSpan.style.display = 'none';
+                nameSpan.parentNode.insertBefore(input, nameSpan);
+                input.focus();
+                const save = () => { let newName = input.value.trim() || old; if (newName !== old) { const s =
+                        screens.find(s => s.id === screenId); if (s) s.name = newName;
+                        nameSpan.innerText = newName;
+                        saveScreensToLocal(); } else nameSpan.innerText = old;
+                    nameSpan.style.display = 'inline-block';
+                    input.remove(); };
+                input.addEventListener('blur', save);
+                input.addEventListener('keypress', e => { if (e.key === 'Enter') save(); });
             });
-            div.addEventListener('click', (e) => { if (e.target === closeSpan || e.target.parentElement === closeSpan) closeScreen(screenId); else switchToScreen(screenId); });
+            div.addEventListener('click', (e) => { if (e.target === closeSpan || e.target.parentElement === closeSpan)
+                    closeScreen(screenId);
+                else switchToScreen(screenId); });
             header.insertBefore(div, addBtn);
             updateTabCloseButtonState(screenId);
         }
@@ -1046,7 +1094,9 @@
         }
 
         function saveScreensToLocal() {
-            localStorage.setItem('drag_dashboards_v9', JSON.stringify(screens.map(s => ({ id: s.id, name: s.name, cards: s.cards.map(c => ({ id: c.id, w: c.w, h: c.h, x: c.x, y: c.y, chartOption: c.chartOption })) }))));
+            localStorage.setItem('drag_dashboards_v9', JSON.stringify(screens.map(s => ({ id: s.id, name: s.name,
+                cards: s.cards.map(c => ({ id: c.id, w: c.w, h: c.h, x: c.x, y: c.y, chartOption: c
+                        .chartOption })) }))));
             localStorage.setItem('nextScreenId_v9', nextScreenId);
             localStorage.setItem('nextCardId_v9', nextCardId);
         }
@@ -1056,10 +1106,14 @@
             if (!raw) { createNewScreen("我的大屏"); return; }
             try {
                 const loaded = JSON.parse(raw);
-                screens = loaded.map(s => ({ id: s.id, name: s.name, cards: s.cards.map(c => ({ id: c.id, w: c.w ?? 4, h: c.h ?? 5, x: c.x ?? 0, y: c.y ?? 0, chartOption: c.chartOption })) }));
-                screens.forEach(s => { addScreenTabButton(s.id, s.name); createScreenPane(s.id); });
-                nextScreenId = parseInt(localStorage.getItem('nextScreenId_v9') || (Math.max(...screens.map(s => s.id), 0) + 1));
-                nextCardId = parseInt(localStorage.getItem('nextCardId_v9') || (Math.max(...screens.flatMap(s => s.cards.map(c => c.id)), 99) + 1));
+                screens = loaded.map(s => ({ id: s.id, name: s.name, cards: s.cards.map(c => ({ id: c.id, w: c.w ?? 4,
+                        h: c.h ?? 5, x: c.x ?? 0, y: c.y ?? 0, chartOption: c.chartOption })) }));
+                screens.forEach(s => { addScreenTabButton(s.id, s.name);
+                    createScreenPane(s.id); });
+                nextScreenId = parseInt(localStorage.getItem('nextScreenId_v9') || (Math.max(...screens.map(s => s.id),
+                    0) + 1));
+                nextCardId = parseInt(localStorage.getItem('nextCardId_v9') || (Math.max(...screens.flatMap(s => s.cards
+                    .map(c => c.id)), 99) + 1));
                 if (screens.length) switchToScreen(screens[0].id);
                 else createNewScreen("大屏");
             } catch (e) { createNewScreen("大屏"); }
@@ -1074,7 +1128,9 @@
             }
         }
 
-        function escapeHtml(str) { return String(str).replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m])); }
+        function escapeHtml(str) { return String(str).replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' } [
+                m
+            ])); }
 
         function initContextMenu() {
             const menu = document.getElementById('contextMenu');
@@ -1083,11 +1139,14 @@
                 menu.style.display = 'block';
                 menu.style.left = e.clientX + 'px';
                 menu.style.top = e.clientY + 'px';
-                const closeMenu = () => { menu.style.display = 'none'; document.removeEventListener('click', closeMenu); };
+                const closeMenu = () => { menu.style.display = 'none';
+                    document.removeEventListener('click', closeMenu); };
                 setTimeout(() => { document.addEventListener('click', closeMenu); }, 10);
             });
-            document.getElementById('ctxExportJson').addEventListener('click', () => { exportFullDashboard(); menu.style.display = 'none'; });
-            document.getElementById('ctxExportPng').addEventListener('click', () => { exportScreenAsPng(); menu.style.display = 'none'; });
+            document.getElementById('ctxExportJson').addEventListener('click', () => { exportFullDashboard();
+                menu.style.display = 'none'; });
+            document.getElementById('ctxExportPng').addEventListener('click', () => { exportScreenAsPng();
+                menu.style.display = 'none'; });
         }
 
         document.getElementById('addTabBtn').addEventListener('click', () => createNewScreen());

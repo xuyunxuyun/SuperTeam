@@ -1,19 +1,19 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-        <!--
+    <!--
 
-        SPDX-License-Identifier: CC-BY-NC-SA-4.0
+    SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
-        本文件是"汉末废柴堆 · 超级团队组建系统"的一部分。
+    本文件是"汉末废柴堆 · 超级团队组建系统"的一部分。
 
-        完整项目受 CC BY-NC-SA 4.0 许可证保护，详见根目录 LICENSE 文件。
+    完整项目受 CC BY-NC-SA 4.0 许可证保护，详见根目录 LICENSE 文件。
 
-        本项目核心设计思想、架构方案、方法论受 NOTICE 文件独立保护。
+    本项目核心设计思想、架构方案、方法论受 NOTICE 文件独立保护。
 
-        个人可免费使用，严禁用于商业目的。
+    个人可免费使用，严禁用于商业目的。
 
-        商业授权请联系：xxuuyyuunn@sina.com
+    商业授权请联系：xxuuyyuunn@sina.com
 
     -->
 
@@ -23,6 +23,7 @@
         | 版本号 | 过程节点说明 | 修订人 | 修订日期 | 修订内容 |
         | :----- | :----------- | :----- | :------- | :------- |
         | V0.1.0 | 初稿创建     | 徐昀 | 2026-06-11 | 根据用户需求生成 |
+        | V0.1.1 | 修复初始视图  | 徐昀 | 2026-08-14 | 首启以当天月份为准 |
 
     -->
     <meta charset="UTF-8">
@@ -594,7 +595,7 @@
         let todosDB = {};
         let labelsDB = {};
         
-        let currentYear = 2026, currentMonth = 5;
+        let currentYear, currentMonth;
         let selectedDate = null;
         let currentView = 'month';
         
@@ -626,19 +627,35 @@
             localStorage.setItem('calendar_view_state',JSON.stringify({ year:currentYear, month:currentMonth, selectedDate, theme:document.body.classList.contains('dark')?'dark':'light' }));
         }
         function loadViewState(){
+            const today = getTodayObject();
+            let initialYear = today.year;
+            let initialMonth = today.month;
+            let initialSelectedDate = { year: today.year, month: today.month, day: today.day };
+            let initialTheme = 'light';
+
             const s=localStorage.getItem('calendar_view_state');
             if(s){
                 try{
                     const data=JSON.parse(s);
-                    if(typeof data.year==='number' && typeof data.month==='number'){ currentYear=data.year; currentMonth=data.month; }
-                    if(data.selectedDate) selectedDate=data.selectedDate;
-                    if(data.theme==='dark'){ document.body.classList.add('dark'); updateThemeActive('dark');}
-                    else{ document.body.classList.remove('dark'); updateThemeActive('light');}
+                    if(typeof data.year==='number' && typeof data.month==='number'){ 
+                        initialYear = data.year; 
+                        initialMonth = data.month; 
+                    }
+                    if(data.selectedDate) initialSelectedDate = data.selectedDate;
+                    if(data.theme==='dark') initialTheme = 'dark';
                 }catch(e){}
             }
-            if(!selectedDate){ const t=getTodayObject(); selectedDate={ year:t.year, month:t.month, day:t.day }; }
+            
+            currentYear = initialYear;
+            currentMonth = initialMonth;
+            selectedDate = initialSelectedDate;
+            
             if(currentMonth<0){ currentMonth=0; currentYear--; }
             if(currentMonth>11){ currentMonth=11; currentYear++; }
+            
+            if(initialTheme === 'dark'){ document.body.classList.add('dark'); updateThemeActive('dark');}
+            else{ document.body.classList.remove('dark'); updateThemeActive('light');}
+            
             datePickerJump.value = formatDateKey(selectedDate.year, selectedDate.month, selectedDate.day);
         }
         function updateThemeActive(theme){
@@ -741,7 +758,6 @@
                 }
                 cellDiv.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    // 点击日期格子时关闭右键菜单
                     contextMenu.style.display = 'none';
                     selectedDate = { year: cell.year, month: cell.month, day: cell.day };
                     renderMonthView();
@@ -948,25 +964,19 @@
         
         // 自定义右键菜单 - 左键点击或点击日期格都可关闭菜单
         function initContextMenu(){
-            // 屏蔽默认右键
             document.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
-                // 关闭已有菜单
                 contextMenu.style.display = 'none';
-                // 显示新菜单
                 contextMenu.style.display = 'block';
                 contextMenu.style.left = e.clientX + 'px';
                 contextMenu.style.top = e.clientY + 'px';
             });
             
-            // 全局关闭菜单的函数（供点击事件调用）
             const closeMenu = () => {
                 contextMenu.style.display = 'none';
             };
-            // 点击页面任意位置关闭菜单
             document.addEventListener('click', closeMenu);
             
-            // 菜单项点击时也要关闭，并执行功能（阻止冒泡避免被全局关闭立即触发）
             document.getElementById('ctxExportJson').addEventListener('click', (e) => {
                 e.stopPropagation();
                 exportCurrentMonth();
@@ -978,7 +988,6 @@
                 contextMenu.style.display = 'none';
             });
             
-            // 阻止菜单内部点击冒泡导致立即关闭
             contextMenu.addEventListener('click', (e) => {
                 e.stopPropagation();
             });

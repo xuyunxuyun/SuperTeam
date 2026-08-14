@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <!--
+
+        SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
+        本文件是"汉末废柴堆 · 超级团队组建系统"的一部分。
+
+        完整项目受 CC BY-NC-SA 4.0 许可证保护，详见根目录 LICENSE 文件。
+
+        本项目核心设计思想、架构方案、方法论受 NOTICE 文件独立保护。
+
+        个人可免费使用，严禁用于商业目的。
+
+        商业授权请联系：xxuuyyuunn@sina.com
+
+    -->
+
+    <!--
+
+        **版本历史**
+        | 版本号 | 过程节点说明 | 修订人 | 修订日期 | 修订内容 |
+        | :----- | :----------- | :----- | :------- | :------- |
+        | V0.1.0 | 初稿创建     | 徐昀 | 2026-08-10 | 根据用户需求生成 |
+        | V0.1.1 | 修复BUG     | 徐昀 | 2026-08-14 | 修复导入导出BUG |
+    -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>答了也白答</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #0a0f1c;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            color: #e0e0e0;
+        }
+        .app-card {
+            width: 100%;
+            max-width: 1300px;
+            background: #111827;
+            border-radius: 32px;
+            border: 1px solid #2a3452;
+            box-shadow: 0 20px 40px -12px rgba(0,0,0,0.6);
+            padding: 32px 36px;
+        }
+        .header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 18px;
+            margin-bottom: 12px;
+        }
+        .header h1 {
+            font-size: 26px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #e0f2fe, #60a5fa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subhead {
+            color: #9aa9c1;
+            font-size: 14px;
+            border-bottom: 1px solid #2a3452;
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+        }
+        .import-zone {
+            background: #1a1f2e;
+            border-radius: 60px;
+            padding: 14px 24px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            border: 1px dashed #2a3452;
+            margin-bottom: 28px;
+        }
+        .import-zone .hint { font-size: 14px; color: #9aa9c1; }
+        .file-btn-wrap { position: relative; display: inline-block; }
+        .file-btn-wrap input[type="file"] {
+            position: absolute;
+            left: 0; top: 0;
+            width: 100%; height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+        .btn {
+            border: none;
+            padding: 8px 24px;
+            border-radius: 60px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.15s;
+            background: #2a3452;
+            color: #e0e0e0;
+        }
+        .btn-primary { background: linear-gradient(135deg, #4c9aff, #3b82f6); color: white; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(76,154,255,0.3); }
+        .btn-outline { background: transparent; border: 1px solid #2a3452; }
+        .btn-outline:hover { background: #2a3452; }
+        .btn-success { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+        .btn-success:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(16,185,129,0.3); }
+        .btn-warning { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; }
+        .btn-warning:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(245,158,11,0.3); }
+        .btn-danger { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+        .btn-danger:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(239,68,68,0.3); }
+        .questions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 18px;
+            margin: 18px 0 28px;
+            min-height: 120px;
+        }
+        .q-card {
+            background: #1a1f2e;
+            border-radius: 20px;
+            padding: 18px 20px 20px;
+            border: 1px solid #2a3452;
+            transition: 0.15s;
+            display: flex;
+            flex-direction: column;
+        }
+        .q-card:hover { border-color: #4c9aff; }
+        .q-card.answered { border-left: 6px solid #4c9aff; background: #1e243b; }
+        .q-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .q-number {
+            background: #2a3452;
+            color: #b9d0ff;
+            font-weight: 600;
+            font-size: 12px;
+            padding: 2px 14px;
+            border-radius: 30px;
+        }
+        .q-type {
+            font-size: 11px;
+            color: #9aa9c1;
+            background: #1a1f2e;
+            padding: 0 12px;
+            border-radius: 30px;
+            line-height: 22px;
+            border: 1px solid #2a3452;
+        }
+        .q-title {
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 1.5;
+            margin-bottom: 14px;
+            color: #e8edf5;
+        }
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin: 4px 0 2px;
+        }
+        .option-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 12px;
+            background: #0f1422;
+            border-radius: 14px;
+            border: 1px solid #2a3452;
+            cursor: pointer;
+            transition: 0.08s;
+        }
+        .option-item:hover { background: #1a1f2e; border-color: #4c9aff; }
+        .option-item.selected { background: #1e2a4a; border-color: #4c9aff; box-shadow: 0 0 0 1px #4c9aff; }
+        .option-item input[type="radio"],
+        .option-item input[type="checkbox"] {
+            width: 16px; height: 16px;
+            accent-color: #4c9aff;
+            flex-shrink: 0;
+            pointer-events: none;
+        }
+        .option-item label {
+            flex: 1;
+            font-size: 13px;
+            cursor: pointer;
+            color: #d0d8e5;
+            pointer-events: none;
+        }
+        .text-answer textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 16px;
+            border: 1px solid #2a3452;
+            background: #0f1422;
+            color: #e0e0e0;
+            font-family: inherit;
+            font-size: 13px;
+            resize: vertical;
+            min-height: 56px;
+            transition: 0.1s;
+        }
+        .text-answer textarea:focus {
+            outline: none;
+            border-color: #4c9aff;
+            box-shadow: 0 0 0 3px rgba(76,154,255,0.15);
+        }
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 50px 20px;
+            color: #6b7a8f;
+            font-size: 15px;
+            background: #111827;
+            border-radius: 28px;
+            border: 1px dashed #2a3452;
+        }
+        .progress-float {
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            background: rgba(17,24,39,0.92);
+            backdrop-filter: blur(12px);
+            border: 1px solid #4c9aff;
+            border-radius: 60px;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            z-index: 999;
+            box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+            font-size: 14px;
+            color: #e0e0e0;
+        }
+        .progress-float .badge {
+            background: #2a3452;
+            padding: 2px 14px;
+            border-radius: 40px;
+            color: #b9d0ff;
+            font-weight: 600;
+        }
+        .progress-float .num {
+            background: linear-gradient(135deg, #4c9aff, #3b82f6);
+            color: white;
+            padding: 2px 16px;
+            border-radius: 40px;
+            font-weight: 700;
+            font-size: 13px;
+        }
+        .export-area {
+            background: #1a1f2e;
+            border-radius: 24px;
+            padding: 20px 28px;
+            margin-top: 8px;
+            border: 1px solid #2a3452;
+        }
+        .export-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 16px 24px;
+        }
+        .export-actions .radio-group {
+            display: flex;
+            gap: 18px;
+            align-items: center;
+            background: #0f1422;
+            padding: 4px 18px;
+            border-radius: 40px;
+            border: 1px solid #2a3452;
+        }
+        .export-actions .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #b9d0ff;
+            cursor: pointer;
+        }
+        .export-actions .radio-group input[type="radio"] {
+            width: 16px; height: 16px;
+            accent-color: #4c9aff;
+            cursor: pointer;
+        }
+        .export-preview {
+            background: #0f1422;
+            border-radius: 16px;
+            padding: 14px 18px;
+            margin-top: 16px;
+            font-size: 13px;
+            max-height: 180px;
+            overflow: auto;
+            border: 1px solid #2a3452;
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: #c8d0dc;
+            font-family: monospace;
+            line-height: 1.5;
+        }
+        .export-preview::-webkit-scrollbar { width: 4px; }
+        .export-preview::-webkit-scrollbar-track { background: #0f1422; }
+        .export-preview::-webkit-scrollbar-thumb { background: #4c9aff; border-radius: 8px; }
+        .footnote {
+            margin-top: 18px;
+            font-size: 12px;
+            color: #6b7a8f;
+            text-align: right;
+            border-top: 1px solid #2a3452;
+            padding-top: 14px;
+        }
+        .custom-modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(6px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 20px;
+        }
+        .custom-modal {
+            background: #1a1f2e;
+            border: 1px solid #4c9aff;
+            border-radius: 32px;
+            max-width: 460px;
+            width: 100%;
+            padding: 28px 32px;
+            box-shadow: 0 24px 48px rgba(0,0,0,0.6);
+            color: #e8edf5;
+        }
+        .custom-modal h3 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        .custom-modal .modal-body {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #c8d0dc;
+            margin-bottom: 24px;
+            max-height: 200px;
+            overflow-y: auto;
+            background: #0f1422;
+            padding: 12px 16px;
+            border-radius: 16px;
+            border: 1px solid #2a3452;
+        }
+        .custom-modal .modal-actions {
+            display: flex;
+            gap: 16px;
+            justify-content: flex-end;
+        }
+        .custom-modal .modal-actions .btn { min-width: 80px; text-align: center; }
+        .custom-modal .modal-body .warning-icon { font-size: 28px; text-align: center; margin-bottom: 8px; }
+        @media (max-width: 700px) {
+            .app-card { padding: 20px 16px; }
+            .import-zone { flex-direction: column; align-items: stretch; border-radius: 28px; }
+            .questions-grid { grid-template-columns: 1fr; }
+            .progress-float { bottom: 16px; right: 16px; padding: 10px 18px; font-size: 12px; gap: 12px; flex-wrap: wrap; }
+            .export-actions { flex-direction: column; align-items: stretch; }
+            .radio-group { justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-card">
+    <div class="header">
+        <h1>📋 问卷作答</h1>
+        <span style="font-size:13px; color:#6b7a8f; background:#1a1f2e; padding:4px 16px; border-radius:40px; border:1px solid #2a3452;">⚡ 导入JSON后作答</span>
+    </div>
+    <div class="subhead" id="descSub">请导入问卷 JSON 文件</div>
+    <div class="import-zone">
+        <span class="hint">📂 选择问卷 JSON 文件</span>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <div class="file-btn-wrap">
+                <button class="btn btn-primary">📎 选择 JSON</button>
+                <input type="file" id="fileInput" accept=".json">
+            </div>
+            <button class="btn btn-outline" id="resetBtn">↺ 重置作答</button>
+        </div>
+    </div>
+    <div id="questionsGrid" class="questions-grid">
+        <div class="empty-state">暂无问卷题目，请导入有效的 JSON 文件</div>
+    </div>
+    <div class="export-area">
+        <div class="export-actions">
+            <button class="btn btn-success" id="exportBtn">📥 导出作答</button>
+            <div class="radio-group">
+                <label><input type="radio" name="exportMode" value="include" checked> 包含题目</label>
+                <label><input type="radio" name="exportMode" value="only"> 仅答案</label>
+            </div>
+            <span style="font-size:12px; color:#6b7a8f; margin-left:auto;">导出 TXT</span>
+        </div>
+        <div class="export-preview" id="exportPreview">点击导出查看结果预览</div>
+    </div>
+    <div class="footnote">问卷共 <span id="totalCountDisplay">0</span> 题 · 浮动进度框显示完成情况</div>
+</div>
+
+<div class="progress-float" id="progressFloat">
+    <span>📌 进度</span>
+    <span class="badge" id="answeredCount">0</span>
+    <span>/</span>
+    <span class="badge" id="totalCount">0</span>
+    <span class="num" id="percentBadge">0%</span>
+</div>
+
+<script>
+(function() {
+    // ---------- 核心状态 ----------
+    let currentQuestions = [];
+    let answers = {};
+
+    const grid = document.getElementById('questionsGrid');
+    const answeredSpan = document.getElementById('answeredCount');
+    const totalSpan = document.getElementById('totalCount');
+    const percentBadge = document.getElementById('percentBadge');
+    const totalCountDisplay = document.getElementById('totalCountDisplay');
+    const descSub = document.getElementById('descSub');
+    const fileInput = document.getElementById('fileInput');
+
+    // ---------- 工具函数 ----------
+    function getQuestionType(q) {
+        // 兼容：如果类型字段缺失或未知，统一当作“简答”处理，避免崩溃
+        const t = (q.类型 || '').trim();
+        if (t.includes('多选')) return '多选';
+        if (t.includes('单选')) return '单选';
+        return '简答';  // 兜底
+    }
+
+    function isQuestionAnswered(q) {
+        const id = String(q.题号);
+        const val = answers[id];
+        const type = getQuestionType(q);
+        if (type === '简答') return val && val.trim().length > 0;
+        if (type === '多选') return Array.isArray(val) && val.length > 0;
+        if (type === '单选') return val !== undefined && val !== null && val !== '';
+        return false;
+    }
+
+    function getUnansweredDescriptions() {
+        const list = [];
+        for (const q of currentQuestions) {
+            if (!isQuestionAnswered(q)) {
+                list.push(`Q${q.题号} 【${getQuestionType(q)}】 ${q.题目}`);
+            }
+        }
+        return list;
+    }
+
+    function hasAnyAnswer() {
+        for (const q of currentQuestions) {
+            if (isQuestionAnswered(q)) return true;
+        }
+        return false;
+    }
+
+    // ---------- 更新进度 ----------
+    function updateProgressAndStatus() {
+        let answered = 0;
+        for (const q of currentQuestions) {
+            if (isQuestionAnswered(q)) answered++;
+        }
+        const total = currentQuestions.length;
+        answeredSpan.textContent = answered;
+        totalSpan.textContent = total;
+        totalCountDisplay.textContent = total;
+        const pct = total === 0 ? 0 : Math.round((answered / total) * 100);
+        percentBadge.textContent = pct + '%';
+        document.querySelectorAll('.q-card').forEach(card => {
+            const qid = card.dataset.qid;
+            const q = currentQuestions.find(q => String(q.题号) === qid);
+            if (q) {
+                card.classList.toggle('answered', isQuestionAnswered(q));
+            }
+        });
+    }
+
+    // ---------- 渲染问卷 ----------
+    function renderQuestions() {
+        if (!currentQuestions.length) {
+            grid.innerHTML = `<div class="empty-state">暂无问卷题目，请导入有效的 JSON 文件</div>`;
+            updateProgressAndStatus();
+            return;
+        }
+        let html = '';
+        for (const q of currentQuestions) {
+            const id = String(q.题号);
+            const answer = answers[id];
+            const type = getQuestionType(q);
+            const answered = isQuestionAnswered(q);
+            const cardClass = answered ? 'q-card answered' : 'q-card';
+            html += `<div class="${cardClass}" data-qid="${id}">`;
+            html += `<div class="q-header"><span class="q-number">Q${q.题号}</span><span class="q-type">${type}</span></div>`;
+            html += `<div class="q-title">${q.题目 || '(未提供题目)'}</div>`;
+
+            if (type === '简答') {
+                html += `<div class="text-answer"><textarea placeholder="请输入..." data-qid="${id}" rows="2">${answer || ''}</textarea></div>`;
+            } else if (type === '多选') {
+                html += `<div class="options" data-qid="${id}" data-type="多选">`;
+                const selected = Array.isArray(answer) ? answer : [];
+                const opts = Array.isArray(q.选项) ? q.选项 : [];
+                for (const opt of opts) {
+                    const checked = selected.includes(opt) ? 'checked' : '';
+                    const escaped = opt.replace(/"/g, '&quot;');
+                    html += `<div class="option-item ${checked ? 'selected' : ''}" data-value="${escaped}">`;
+                    html += `<input type="checkbox" value="${escaped}" ${checked} data-qid="${id}">`;
+                    html += `<label>${opt}</label></div>`;
+                }
+                html += `</div>`;
+            } else if (type === '单选') {
+                html += `<div class="options" data-qid="${id}" data-type="单选">`;
+                const opts = Array.isArray(q.选项) ? q.选项 : [];
+                for (const opt of opts) {
+                    const checked = (answer === opt) ? 'checked' : '';
+                    const escaped = opt.replace(/"/g, '&quot;');
+                    html += `<div class="option-item ${checked ? 'selected' : ''}" data-value="${escaped}">`;
+                    html += `<input type="radio" name="radio_${id}" value="${escaped}" ${checked} data-qid="${id}">`;
+                    html += `<label>${opt}</label></div>`;
+                }
+                html += `</div>`;
+            } else {
+                // fallback: 未知类型当作简答
+                html += `<div class="text-answer"><textarea placeholder="请输入..." data-qid="${id}" rows="2">${answer || ''}</textarea></div>`;
+            }
+            html += `</div>`;
+        }
+        grid.innerHTML = html;
+        updateProgressAndStatus();
+
+        // ---------- 绑定事件 ----------
+        // 多选
+        grid.querySelectorAll('.options[data-type="多选"]').forEach(div => {
+            const qid = div.dataset.qid;
+            const items = div.querySelectorAll('.option-item');
+            items.forEach(item => {
+                const cb = item.querySelector('input[type="checkbox"]');
+                if (!cb) return;
+                item.addEventListener('click', function(e) {
+                    if (e.target.tagName === 'INPUT') return;
+                    cb.checked = !cb.checked;
+                    cb.dispatchEvent(new Event('change'));
+                });
+                cb.addEventListener('change', function() {
+                    const checkedBoxes = div.querySelectorAll('input[type="checkbox"]:checked');
+                    const selected = Array.from(checkedBoxes).map(c => c.value);
+                    answers[qid] = selected;
+                    items.forEach(it => {
+                        const inp = it.querySelector('input[type="checkbox"]');
+                        it.classList.toggle('selected', inp && inp.checked);
+                    });
+                    updateProgressAndStatus();
+                    const card = div.closest('.q-card');
+                    if (card) {
+                        const q = currentQuestions.find(q => String(q.题号) === qid);
+                        if (q) card.classList.toggle('answered', isQuestionAnswered(q));
+                    }
+                });
+            });
+        });
+
+        // 单选
+        grid.querySelectorAll('.options[data-type="单选"]').forEach(div => {
+            const qid = div.dataset.qid;
+            const items = div.querySelectorAll('.option-item');
+            items.forEach(item => {
+                const rb = item.querySelector('input[type="radio"]');
+                if (!rb) return;
+                item.addEventListener('click', function(e) {
+                    if (e.target.tagName === 'INPUT') return;
+                    rb.checked = true;
+                    rb.dispatchEvent(new Event('change'));
+                });
+                rb.addEventListener('change', function() {
+                    if (this.checked) {
+                        answers[qid] = this.value;
+                        items.forEach(it => {
+                            const inp = it.querySelector('input[type="radio"]');
+                            it.classList.toggle('selected', inp && inp.checked);
+                        });
+                        updateProgressAndStatus();
+                        const card = div.closest('.q-card');
+                        if (card) {
+                            const q = currentQuestions.find(q => String(q.题号) === qid);
+                            if (q) card.classList.toggle('answered', isQuestionAnswered(q));
+                        }
+                    }
+                });
+            });
+            items.forEach(item => {
+                const inp = item.querySelector('input[type="radio"]');
+                if (inp && inp.checked) item.classList.add('selected');
+            });
+        });
+
+        // 简答
+        grid.querySelectorAll('.text-answer textarea').forEach(ta => {
+            ta.addEventListener('input', function() {
+                const qid = this.dataset.qid;
+                answers[qid] = this.value;
+                updateProgressAndStatus();
+                const card = this.closest('.q-card');
+                if (card) {
+                    const q = currentQuestions.find(q => String(q.题号) === qid);
+                    if (q) card.classList.toggle('answered', isQuestionAnswered(q));
+                }
+            });
+        });
+    }
+
+    // ---------- 加载问卷 ----------
+    function loadQuestions(qList, meta, title) {
+        currentQuestions = qList.slice();
+        answers = {};
+        for (const q of currentQuestions) {
+            const id = String(q.题号);
+            const type = getQuestionType(q);
+            if (type === '多选') answers[id] = [];
+            else if (type === '简答') answers[id] = '';
+            else answers[id] = null;
+        }
+        if (meta && meta.设计说明) {
+            descSub.textContent = meta.设计说明;
+        } else {
+            descSub.textContent = '已导入问卷，请开始作答';
+        }
+        if (title) {
+            document.querySelector('.header h1').textContent = '📋 ' + title;
+        } else {
+            document.querySelector('.header h1').textContent = '📋 问卷作答';
+        }
+        renderQuestions();
+        updatePreview();
+    }
+
+    // ---------- 重置作答 ----------
+    function resetAnswers() {
+        for (const q of currentQuestions) {
+            const id = String(q.题号);
+            const type = getQuestionType(q);
+            if (type === '多选') answers[id] = [];
+            else if (type === '简答') answers[id] = '';
+            else answers[id] = null;
+        }
+        renderQuestions();
+        updatePreview();
+    }
+
+    // ---------- 弹窗组件 ----------
+    function showModal(title, bodyHTML, confirmText, confirmCallback, cancelText) {
+        const overlay = document.createElement('div');
+        overlay.className = 'custom-modal-overlay';
+        overlay.innerHTML = `
+            <div class="custom-modal">
+                <h3>${title}</h3>
+                <div class="modal-body">${bodyHTML}</div>
+                <div class="modal-actions">
+                    <button class="btn btn-outline" id="modalCancelBtn">${cancelText || '取消'}</button>
+                    <button class="btn btn-danger" id="modalConfirmBtn">${confirmText || '确认'}</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const cancelBtn = document.getElementById('modalCancelBtn');
+        const confirmBtn = document.getElementById('modalConfirmBtn');
+
+        const cleanup = () => {
+            if (overlay.parentNode) document.body.removeChild(overlay);
+        };
+
+        cancelBtn.addEventListener('click', cleanup);
+        confirmBtn.addEventListener('click', function() {
+            cleanup();
+            if (confirmCallback) confirmCallback();
+        });
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) cleanup();
+        });
+    }
+
+    // ---------- 导出逻辑 ----------
+    function buildExport(mode) {
+        if (!currentQuestions.length) return '无问卷数据';
+        const onlyAnswers = (mode === 'only');
+        let lines = [];
+        for (const q of currentQuestions) {
+            const id = String(q.题号);
+            const val = answers[id];
+            const type = getQuestionType(q);
+            let display = '';
+            if (type === '简答') display = val || '';
+            else if (type === '多选') display = (Array.isArray(val) && val.length) ? val.join('；') : '（未选）';
+            else if (type === '单选') display = val || '（未选）';
+            else display = val || '（未答）';
+
+            if (onlyAnswers) {
+                lines.push(`Q${q.题号}：${display}`);
+            } else {
+                lines.push(`Q${q.题号} 【${type}】 ${q.题目 || ''}\n  答案：${display}`);
+            }
+        }
+        return lines.join('\n');
+    }
+
+    function updatePreview() {
+        const mode = document.querySelector('input[name="exportMode"]:checked')?.value || 'include';
+        const preview = document.getElementById('exportPreview');
+        const txt = buildExport(mode);
+        preview.textContent = txt || '（暂无作答）';
+    }
+
+    function handleExport() {
+        if (!currentQuestions.length) {
+            alert('暂无问卷数据，请先导入JSON');
+            return;
+        }
+        const mode = document.querySelector('input[name="exportMode"]:checked')?.value || 'include';
+        const txt = buildExport(mode);
+        const unans = getUnansweredDescriptions();
+
+        const doDownload = () => {
+            const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `问卷作答_${new Date().toISOString().slice(0,10)}.txt`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            updatePreview();
+        };
+
+        if (unans.length === 0) {
+            doDownload();
+        } else {
+            const listHtml = unans.map(s => '• ' + s).join('<br>');
+            showModal(
+                '⚠️ 有题目未作答',
+                `${listHtml}<div style="margin-top:12px; color:#f59e0b;">确定要导出未完成的作答吗？</div>`,
+                '继续导出',
+                doDownload,
+                '取消'
+            );
+        }
+    }
+
+    // ---------- 导入新问卷（带确认） ----------
+    function handleFileImport(file) {
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            try {
+                const json = JSON.parse(ev.target.result);
+                if (json && json.题目列表 && Array.isArray(json.题目列表)) {
+                    const meta = { 设计说明: json.设计说明 || '' };
+                    const title = json.问卷标题 || '';
+
+                    // 如果当前有问卷且有作答，询问是否覆盖
+                    if (currentQuestions.length > 0 && hasAnyAnswer()) {
+                        showModal(
+                            '⚠️ 覆盖当前作答',
+                            '导入新问卷将清空当前所有作答内容，确定继续吗？',
+                            '确认导入',
+                            function() {
+                                loadQuestions(json.题目列表, meta, title);
+                            },
+                            '取消'
+                        );
+                    } else {
+                        loadQuestions(json.题目列表, meta, title);
+                    }
+                } else {
+                    alert('无效的问卷格式：缺少 "题目列表" 数组');
+                }
+            } catch(err) {
+                alert('解析JSON失败：' + err.message);
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    // ---------- 重置（带确认） ----------
+    function handleReset() {
+        if (!currentQuestions.length) {
+            alert('当前没有问卷数据，无需重置');
+            return;
+        }
+        if (!hasAnyAnswer()) {
+            resetAnswers();
+            updatePreview();
+            return;
+        }
+        showModal(
+            '⚠️ 确认重置',
+            '<div class="warning-icon">🧹</div><p>确定要清空所有题目的作答内容吗？</p><p style="color:#ef4444; font-weight:500; margin-top:8px;">此操作不可撤销。</p>',
+            '确认重置',
+            function() {
+                resetAnswers();
+                updatePreview();
+            },
+            '取消'
+        );
+    }
+
+    // ---------- 初始化 ----------
+    function init() {
+        renderQuestions();
+
+        // 文件导入
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            handleFileImport(file);
+            // ★ 关键修复：重置 input 值，允许重新选择同一文件
+            fileInput.value = '';
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', handleReset);
+
+        document.getElementById('exportBtn').addEventListener('click', handleExport);
+
+        document.querySelectorAll('input[name="exportMode"]').forEach(rb => {
+            rb.addEventListener('change', updatePreview);
+        });
+
+        setTimeout(updatePreview, 100);
+    }
+
+    init();
+})();
+</script>
+</body>
+</html>

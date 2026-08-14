@@ -6,7 +6,7 @@
 
         SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
-        本文件是“汉末废柴堆 · 超级团队组建系统”的一部分。
+        本文件是"汉末废柴堆 · 超级团队组建系统"的一部分。
 
         完整项目受 CC BY-NC-SA 4.0 许可证保护，详见根目录 LICENSE 文件。
 
@@ -28,15 +28,17 @@
         | V0.1.1 | 样式修复     | 徐昀 | 2026-05-21 | 修复新建顶点/关系样式不一致问题 |
         | V0.1.2 | 新增状态边框 | 徐昀 | 2026-05-29 | 增加status属性，支持边框颜色映射与管理，鼠标悬停显示所有props属性 |
         | V0.1.3 | 修复页签重命名 | 徐昀 | 2026-06-02 | 修复双击修改页签名后不立即显示的问题 |
-
+        | V0.1.4 | 主菜单自动隐藏 | 徐昀 | 2026-08-10 | 主菜单自动隐藏，不占用页面空间 |
     -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>最后的图谱</title>
     <script type="text/javascript"
-        src="https://cdn.jsdelivr.net/npm/vis-network@9.1.2/dist/vis-network.min.js"></script>
+        src="https://cdn.jsdelivr.net/npm/vis-network@9.1.2/dist/vis-network.min.js">
+    </script>
     <script type="text/javascript"
-        src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+        src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js">
+    </script>
     <style>
         * {
             box-sizing: border-box;
@@ -152,18 +154,74 @@
             width: 100px;
         }
 
-        .accordion-menu {
+        /* 菜单容器 - 完全滑出，鼠标在左边缘100px内显示 */
+        .accordion-menu-wrapper {
             position: fixed;
-            left: 20px;
-            top: 80px;
+            left: 0;
+            top: 70px;
+            z-index: 100;
+            height: calc(100vh - 90px);
+            display: flex;
+            align-items: flex-start;
+            transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+            transform: translateX(-100%);
+            /* 完全滑出视野 */;
+        }
+
+        .accordion-menu-wrapper.menu-visible {
+            transform: translateX(0);
+        }
+
+        /* 感应区域 - 鼠标在左边缘100px内触发显示 */
+        .menu-trigger-zone {
+            position: fixed;
+            left: 0;
+            top: 70px;
+            width: 100px;
+            height: calc(100vh - 90px);
+            z-index: 99;
+            background: transparent;
+            pointer-events: none;
+            /* 默认不拦截事件，但hover检测需要 */
+        }
+
+        .menu-trigger-zone.active {
+            pointer-events: none;
+        }
+
+        .accordion-menu {
             width: 300px;
             background: rgba(20, 26, 44, 0.95);
             backdrop-filter: blur(16px);
-            border-radius: 20px;
+            border-radius: 0 20px 20px 0;
             border: 1px solid rgba(76, 154, 255, 0.4);
-            z-index: 100;
+            border-left: none;
             overflow: hidden;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        /* 菜单内部滚动 */
+        .accordion-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 12px;
+        }
+
+        .accordion-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .accordion-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .accordion-scroll::-webkit-scrollbar-thumb {
+            background: #4c9aff;
+            border-radius: 8px;
         }
 
         .accordion-item {
@@ -396,7 +454,8 @@
         .status-tip {
             position: fixed;
             bottom: 20px;
-            left: 340px;
+            left: 50%;
+            transform: translateX(-50%);
             background: #4c9affcc;
             padding: 4px 12px;
             border-radius: 16px;
@@ -490,6 +549,11 @@
             color: #888;
             font-style: italic;
         }
+
+        /* 显示/隐藏动画 */
+        .accordion-menu-wrapper {
+            transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+        }
     </style>
 </head>
 
@@ -499,46 +563,54 @@
     </div>
     <div id="globalGraphContainer" class="graph-container"></div>
 
-    <div class="accordion-menu" id="accordionMenu">
-        <div class="accordion-item" id="accordionMain">
-            <div class="accordion-header" data-target="main">
-                <span>📁 主菜单</span>
-                <span class="accordion-icon">▼</span>
-            </div>
-            <div class="accordion-content" id="contentMain">
-                <div class="menu-inner">
-                    <div>
-                        <label class="custom-file-label" for="jsonInput">📎 追加JSON (当前页签)</label>
-                        <input type="file" id="jsonInput" accept=".json">
-                        <div id="fileName">未选择文件</div>
+    <!-- 菜单感应区 - 鼠标进入左边缘100px触发显示 -->
+    <div class="menu-trigger-zone" id="menuTriggerZone"></div>
+
+    <!-- 菜单外层包裹 -->
+    <div class="accordion-menu-wrapper" id="accordionMenuWrapper">
+        <div class="accordion-menu" id="accordionMenu">
+            <div class="accordion-scroll">
+                <div class="accordion-item" id="accordionMain">
+                    <div class="accordion-header" data-target="main">
+                        <span>📁 主菜单</span>
+                        <span class="accordion-icon">▼</span>
                     </div>
-                    <div id="statusMsg" class="status-box">等待操作</div>
-                    <button id="resetViewBtn">🔄 重置视图</button>
-                    <button id="clearGraphBtn" style="background:#7a3e3e;">🗑️ 清空当前图谱</button>
-                </div>
-            </div>
-        </div>
-        <div class="accordion-item" id="accordionStyles">
-            <div class="accordion-header" data-target="styles">
-                <span>🎨 类型管理器</span>
-                <span class="accordion-icon">▼</span>
-            </div>
-            <div class="accordion-content" id="contentStyles">
-                <div class="menu-inner">
-                    <div id="stylePanelContent" style="max-height: 300px; overflow-y: auto;">
-                        <div class="no-styles">暂无类型数据</div>
+                    <div class="accordion-content" id="contentMain">
+                        <div class="menu-inner">
+                            <div>
+                                <label class="custom-file-label" for="jsonInput">📎 追加JSON (当前页签)</label>
+                                <input type="file" id="jsonInput" accept=".json">
+                                <div id="fileName">未选择文件</div>
+                            </div>
+                            <div id="statusMsg" class="status-box">等待操作</div>
+                            <button id="resetViewBtn">🔄 重置视图</button>
+                            <button id="clearGraphBtn" style="background:#7a3e3e;">🗑️ 清空当前图谱</button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
-        <div class="accordion-item" id="accordionProps">
-            <div class="accordion-header" data-target="props">
-                <span>✏️ 属性修改</span>
-                <span class="accordion-icon">▼</span>
-            </div>
-            <div class="accordion-content" id="contentProps">
-                <div class="menu-inner" id="propsEditorContainer">
-                    <div class="no-selection">点击顶点或关系以编辑属性</div>
+                <div class="accordion-item" id="accordionStyles">
+                    <div class="accordion-header" data-target="styles">
+                        <span>🎨 类型管理器</span>
+                        <span class="accordion-icon">▼</span>
+                    </div>
+                    <div class="accordion-content" id="contentStyles">
+                        <div class="menu-inner">
+                            <div id="stylePanelContent" style="max-height: 300px; overflow-y: auto;">
+                                <div class="no-styles">暂无类型数据</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="accordion-item" id="accordionProps">
+                    <div class="accordion-header" data-target="props">
+                        <span>✏️ 属性修改</span>
+                        <span class="accordion-icon">▼</span>
+                    </div>
+                    <div class="accordion-content" id="contentProps">
+                        <div class="menu-inner" id="propsEditorContainer">
+                            <div class="no-selection">点击顶点或关系以编辑属性</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -559,6 +631,8 @@
         let nextTabId = 1;
         let currentSelectedElement = null;
         let pendingEdgeSource = null;
+        let menuTimeout = null;
+        let isMenuVisible = false;
 
         const STORAGE_KEY = 'multitab_graphs_v16_statusborder';
 
@@ -727,7 +801,7 @@
             if (vertex.status) {
                 title += ` (${vertex.status})`;
             }
-            
+
             let propsHtml = '';
             const propsObj = vertex.props || {};
             const propEntries = Object.entries(propsObj);
@@ -743,7 +817,7 @@
                 }
                 propsHtml += '</div>';
             }
-            
+
             return `<div class="tooltip-title">${title}</div>${propsHtml}`;
         }
 
@@ -752,14 +826,14 @@
             const fromName = getNodeDisplayName(tab, edge.from);
             const toName = getNodeDisplayName(tab, edge.to);
             const relationType = (edge.typeLabel && edge.typeLabel !== '默认关系') ? edge.typeLabel : '';
-            
+
             let title;
             if (relationType) {
                 title = `${fromName} → [${relationType}] → ${toName}`;
             } else {
                 title = `${fromName} → ${toName}`;
             }
-            
+
             let propsHtml = '';
             const propsObj = edge.props || {};
             const propEntries = Object.entries(propsObj);
@@ -775,7 +849,7 @@
                 }
                 propsHtml += '</div>';
             }
-            
+
             return `<div class="tooltip-title">${title}</div>${propsHtml}`;
         }
 
@@ -784,7 +858,7 @@
             const tooltip = document.getElementById('hoverTooltip');
             tooltip.innerHTML = content;
             tooltip.style.display = 'block';
-            
+
             // 计算位置，避免超出边界
             let left = mouseX + 15;
             let top = mouseY + 15;
@@ -829,7 +903,8 @@
 
             let html = '';
             if (vertexTypes.size > 0) {
-                html += `<div class="section-title">🎨 顶点填充颜色 (Label)</div><div class="style-list">`;
+                html +=
+                    `<div class="section-title">🎨 顶点填充颜色 (Label)</div><div class="style-list">`;
                 for (let type of vertexTypes) {
                     const config = globalVertexFillStyles.get(type) || { background: '#888888', border: '#666666' };
                     html += `<div class="style-item" data-style-type="vertex_fill" data-style-name="${escapeHtml(type)}">
@@ -937,7 +1012,8 @@
                 const newName = e.target.value.trim();
                 if (newName) {
                     tab.verticesDataSet.update({ id: vertex.id, displayName: newName, label: newName });
-                    saveAllToLocal(); refreshStylePanel();
+                    saveAllToLocal();
+                    refreshStylePanel();
                     const updated = tab.verticesDataSet.get(vertex.id);
                     if (updated) showVertexEditor(tab, updated);
                 }
@@ -947,7 +1023,8 @@
                 if (newType) {
                     tab.verticesDataSet.update({ id: vertex.id, typeLabel: newType });
                     applyVertexStyleToNode(tab, vertex.id);
-                    saveAllToLocal(); refreshStylePanel();
+                    saveAllToLocal();
+                    refreshStylePanel();
                     const updated = tab.verticesDataSet.get(vertex.id);
                     if (updated) showVertexEditor(tab, updated);
                 }
@@ -957,12 +1034,14 @@
                 const update = { id: vertex.id, status: newStatus === "" ? undefined : newStatus };
                 tab.verticesDataSet.update(update);
                 applyVertexStyleToNode(tab, vertex.id);
-                saveAllToLocal(); refreshStylePanel();
+                saveAllToLocal();
+                refreshStylePanel();
                 const updated = tab.verticesDataSet.get(vertex.id);
                 if (updated) showVertexEditor(tab, updated);
             });
             document.getElementById('deleteVertexBtn')?.addEventListener('click', () => {
-                if (confirm(`确定要删除顶点 "${vertex.displayName || vertex.id}" 及其所有关联关系吗？`)) deleteVertexAndRelations(tab, vertex.id);
+                if (confirm(`确定要删除顶点 "${vertex.displayName || vertex.id}" 及其所有关联关系吗？`)) deleteVertexAndRelations(
+                    tab, vertex.id);
             });
             const addBtn = document.getElementById('addPropBtn');
             if (addBtn) addBtn.onclick = () => {
@@ -1000,9 +1079,11 @@
             document.getElementById('editRelationType')?.addEventListener('change', (e) => {
                 const newType = e.target.value.trim();
                 if (newType) {
-                    tab.relationsDataSet.update({ id: relation.id, typeLabel: newType, label: newType === '默认关系' ? '' : newType });
+                    tab.relationsDataSet.update({ id: relation.id, typeLabel: newType, label: newType === '默认关系' ? '' :
+                            newType });
                     applyRelationStyleToEdge(tab, relation.id);
-                    saveAllToLocal(); refreshStylePanel();
+                    saveAllToLocal();
+                    refreshStylePanel();
                     const updated = tab.relationsDataSet.get(relation.id);
                     if (updated) showRelationEditor(tab, updated);
                 }
@@ -1033,7 +1114,8 @@
                         const oldKey = delBtn?.dataset.propKey;
                         const newKey = keyInput.value.trim();
                         if (!newKey) return;
-                        const currentProps = { ...(type === 'vertex' ? tab.verticesDataSet.get(id).props : tab.relationsDataSet.get(id).props) };
+                        const currentProps = { ...(type === 'vertex' ? tab.verticesDataSet.get(id).props : tab
+                                .relationsDataSet.get(id).props) };
                         const val = currentProps[oldKey];
                         delete currentProps[oldKey];
                         currentProps[newKey] = val;
@@ -1048,7 +1130,8 @@
                     valInput.addEventListener('change', () => {
                         const key = delBtn?.dataset.propKey;
                         if (key) {
-                            const currentProps = { ...(type === 'vertex' ? tab.verticesDataSet.get(id).props : tab.relationsDataSet.get(id).props) };
+                            const currentProps = { ...(type === 'vertex' ? tab.verticesDataSet.get(id).props : tab
+                                    .relationsDataSet.get(id).props) };
                             currentProps[key] = valInput.value;
                             if (type === 'vertex') tab.verticesDataSet.update({ id, props: currentProps });
                             else tab.relationsDataSet.update({ id, props: currentProps });
@@ -1059,7 +1142,8 @@
                 if (delBtn) {
                     delBtn.onclick = () => {
                         const key = delBtn.dataset.propKey;
-                        const currentProps = { ...(type === 'vertex' ? tab.verticesDataSet.get(id).props : tab.relationsDataSet.get(id).props) };
+                        const currentProps = { ...(type === 'vertex' ? tab.verticesDataSet.get(id).props : tab
+                                .relationsDataSet.get(id).props) };
                         delete currentProps[key];
                         if (type === 'vertex') tab.verticesDataSet.update({ id, props: currentProps });
                         else tab.relationsDataSet.update({ id, props: currentProps });
@@ -1085,7 +1169,8 @@
                 typeLabel: typeLabel,
                 status: undefined,
                 props: {},
-                x: x, y: y,
+                x: x,
+                y: y,
                 color: style.color,
                 font: style.font,
                 size: style.size,
@@ -1094,7 +1179,8 @@
                 shadow: style.shadow
             };
             tab.verticesDataSet.add(newVertex);
-            saveAllToLocal(); refreshStylePanel();
+            saveAllToLocal();
+            refreshStylePanel();
             showTip(`已创建顶点: ${baseName}`);
             setTimeout(() => { const v = tab.verticesDataSet.get(baseId); if (v) showVertexEditor(tab, v); }, 50);
             return baseId;
@@ -1155,7 +1241,7 @@
                     }
                 }
                 if (updates.length) tab.verticesDataSet.update(updates);
-            } catch (e) { }
+            } catch (e) {}
         }
 
         function restoreVertexPositions(tab) {
@@ -1262,7 +1348,7 @@
                     showHoverTooltip(content, params.event.clientX, params.event.clientY);
                 }
             });
-            
+
             // 悬停显示属性 - 边（显示节点名称）
             network.on("hoverEdge", (params) => {
                 const edge = relationsDs.get(params.edge);
@@ -1271,12 +1357,12 @@
                     showHoverTooltip(content, params.event.clientX, params.event.clientY);
                 }
             });
-            
+
             // 离开顶点时隐藏提示
             network.on("blurNode", () => {
                 hideHoverTooltip();
             });
-            
+
             // 离开边时隐藏提示
             network.on("blurEdge", () => {
                 hideHoverTooltip();
@@ -1365,7 +1451,8 @@
                     typeLabel: typeLabel,
                     status: statusVal,
                     props: raw.props || {},
-                    x: undefined, y: undefined,
+                    x: undefined,
+                    y: undefined,
                     color: style.color,
                     font: style.font,
                     size: style.size,
@@ -1386,18 +1473,24 @@
                 const style = getRelationStyleByType(relType);
                 relationsToAdd.push({
                     id: `${raw.from}->${raw.to}_${Date.now()}_${Math.random()}`,
-                    from: raw.from, to: raw.to,
+                    from: raw.from,
+                    to: raw.to,
                     typeLabel: relType,
                     label: relType === '默认关系' ? '' : relType,
                     props: raw.props || {},
-                    color: style.color, width: style.width, font: style.font, smooth: style.smooth, arrows: style.arrows
+                    color: style.color,
+                    width: style.width,
+                    font: style.font,
+                    smooth: style.smooth,
+                    arrows: style.arrows
                 });
                 existRels.add(key);
             }
             if (verticesToAdd.length) tab.verticesDataSet.add(verticesToAdd);
             if (relationsToAdd.length) tab.relationsDataSet.add(relationsToAdd);
             if (tab.network) setTimeout(() => tab.network.fit({ animation: true }), 200);
-            document.getElementById('statusMsg').innerHTML = `✅ 追加 ${verticesToAdd.length}顶点,${relationsToAdd.length}关系 (支持status边框)`;
+            document.getElementById('statusMsg').innerHTML =
+                `✅ 追加 ${verticesToAdd.length}顶点,${relationsToAdd.length}关系 (支持status边框)`;
             document.getElementById('fileName').innerText = fileName;
             saveAllToLocal();
             refreshStylePanel();
@@ -1509,7 +1602,7 @@
                 input.type = 'text';
                 input.value = oldName;
                 input.className = 'tab-name-input';
-                
+
                 // 隐藏原文字，显示输入框
                 nameSpan.style.display = 'none';
                 nameSpan.parentNode.insertBefore(input, nameSpan);
@@ -1528,10 +1621,10 @@
                     nameSpan.style.display = 'inline-block';
                     input.remove();
                 };
-                
+
                 input.addEventListener('blur', saveRename);
-                input.addEventListener('keypress', (e) => { 
-                    if (e.key === 'Enter') saveRename(); 
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') saveRename();
                 });
             });
 
@@ -1604,7 +1697,8 @@
 
         function loadFromLocal() {
             const raw = localStorage.getItem(STORAGE_KEY);
-            if (!raw) { createNewTab("默认图谱"); refreshStylePanel(); return; }
+            if (!raw) { createNewTab("默认图谱");
+                refreshStylePanel(); return; }
             try {
                 const saved = JSON.parse(raw);
                 if (saved.styles) {
@@ -1623,7 +1717,8 @@
                 nextTabId = Math.max(...savedTabs.map(t => t.id), 0) + 1;
                 for (const s of savedTabs) {
                     const containerDiv = createContainer(s.id);
-                    const tab = { id: s.id, name: s.name, container: containerDiv, verticesDataSet: null, relationsDataSet: null, network: null };
+                    const tab = { id: s.id, name: s.name, container: containerDiv, verticesDataSet: null,
+                        relationsDataSet: null, network: null };
                     tabs.push(tab);
                     initGraph(tab, s.vertices || [], s.relations || []);
                     addTabButton(s.id, s.name);
@@ -1632,7 +1727,8 @@
                 if (savedActive && tabs.find(t => t.id == savedActive)) switchTab(parseInt(savedActive));
                 else if (tabs.length) switchTab(tabs[0].id);
                 refreshStylePanel();
-            } catch (e) { createNewTab("恢复图谱"); refreshStylePanel(); }
+            } catch (e) { createNewTab("恢复图谱");
+                refreshStylePanel(); }
         }
 
         function exportCurrentTabData() {
@@ -1649,7 +1745,10 @@
                 props: v.props || {}
             }));
             const edges = tab.relationsDataSet.get().map(r => ({
-                from: r.from, to: r.to, label: r.typeLabel || "默认关系", props: r.props || {}
+                from: r.from,
+                to: r.to,
+                label: r.typeLabel || "默认关系",
+                props: r.props || {}
             }));
             const jsonStr = JSON.stringify({ nodes: vertices, edges }, null, 2);
             const blob = new Blob([jsonStr], { type: 'application/json' });
@@ -1670,11 +1769,12 @@
                 showTip("没有可导出的画布");
                 return;
             }
-            const menu = document.getElementById('accordionMenu');
+            const menuWrapper = document.getElementById('accordionMenuWrapper');
             const tip = document.getElementById('statusTip');
-            const originalMenuDisplay = menu.style.display;
+            const originalMenuTransform = menuWrapper.style.transform;
             const originalTipOpacity = tip.style.opacity;
-            menu.style.display = 'none';
+            // 隐藏菜单（移出视野）
+            menuWrapper.style.transform = 'translateX(-100%)';
             tip.style.opacity = '0';
             try {
                 const canvas = await html2canvas(tab.container, { backgroundColor: '#0a0e1a', scale: 2 });
@@ -1686,7 +1786,7 @@
             } catch (err) {
                 showTip("导出图片失败");
             } finally {
-                menu.style.display = originalMenuDisplay;
+                menuWrapper.style.transform = originalMenuTransform;
                 tip.style.opacity = originalTipOpacity;
             }
         }
@@ -1708,7 +1808,8 @@
             setTimeout(() => { tip.style.display = 'none'; }, duration);
         }
 
-        function escapeHtml(str) { return String(str).replace(/[&<>]/g, function (m) { if (m === '&') return '&amp;'; if (m === '<') return '&lt;'; return '&gt;'; }); }
+        function escapeHtml(str) { return String(str).replace(/[&<>]/g, function(m) { if (m === '&') return '&amp;'; if (m ===
+                    '<') return '&lt;'; return '&gt;'; }); }
 
         function initAccordion() {
             const headers = document.querySelectorAll('.accordion-header');
@@ -1722,6 +1823,98 @@
                 });
             });
             document.getElementById('contentMain').classList.add('open');
+        }
+
+        // 菜单显示/隐藏控制 - 鼠标在左边缘100px内触发
+        function initMenuTrigger() {
+            const wrapper = document.getElementById('accordionMenuWrapper');
+            const triggerZone = document.getElementById('menuTriggerZone');
+            let hideTimeout = null;
+            let isHovering = false;
+
+            // 鼠标进入感应区
+            triggerZone.addEventListener('mouseenter', () => {
+                isHovering = true;
+                if (hideTimeout) {
+                    clearTimeout(hideTimeout);
+                    hideTimeout = null;
+                }
+                wrapper.classList.add('menu-visible');
+                isMenuVisible = true;
+            });
+
+            // 鼠标离开感应区
+            triggerZone.addEventListener('mouseleave', () => {
+                isHovering = false;
+                // 延迟隐藏，给用户时间移动到菜单上
+                hideTimeout = setTimeout(() => {
+                    // 检查鼠标是否在菜单上
+                    const menuRect = wrapper.getBoundingClientRect();
+                    const mouseX = window.event?.clientX || 0;
+                    const mouseY = window.event?.clientY || 0;
+                    const isOverMenu = mouseX >= menuRect.left && mouseX <= menuRect.right &&
+                        mouseY >= menuRect.top && mouseY <= menuRect.bottom;
+                    if (!isOverMenu && !isHovering) {
+                        wrapper.classList.remove('menu-visible');
+                        isMenuVisible = false;
+                    }
+                    hideTimeout = null;
+                }, 150);
+            });
+
+            // 鼠标在菜单上的悬停
+            wrapper.addEventListener('mouseenter', () => {
+                if (hideTimeout) {
+                    clearTimeout(hideTimeout);
+                    hideTimeout = null;
+                }
+                wrapper.classList.add('menu-visible');
+                isMenuVisible = true;
+            });
+
+            wrapper.addEventListener('mouseleave', (e) => {
+                // 检查是否移动到感应区
+                const rect = triggerZone.getBoundingClientRect();
+                const mouseX = e.clientX;
+                const mouseY = e.clientY;
+                const isOverTrigger = mouseX >= rect.left && mouseX <= rect.right &&
+                    mouseY >= rect.top && mouseY <= rect.bottom;
+                if (!isOverTrigger) {
+                    hideTimeout = setTimeout(() => {
+                        wrapper.classList.remove('menu-visible');
+                        isMenuVisible = false;
+                        hideTimeout = null;
+                    }, 200);
+                }
+            });
+
+            // 全局鼠标移动检测 - 确保感应区始终有效
+            document.addEventListener('mousemove', (e) => {
+                const rect = triggerZone.getBoundingClientRect();
+                const isOverTrigger = e.clientX >= rect.left && e.clientX <= rect.right &&
+                    e.clientY >= rect.top && e.clientY <= rect.bottom;
+
+                if (isOverTrigger && !isMenuVisible) {
+                    wrapper.classList.add('menu-visible');
+                    isMenuVisible = true;
+                    if (hideTimeout) {
+                        clearTimeout(hideTimeout);
+                        hideTimeout = null;
+                    }
+                } else if (!isOverTrigger && isMenuVisible) {
+                    // 检查是否在菜单上
+                    const menuRect = wrapper.getBoundingClientRect();
+                    const isOverMenu = e.clientX >= menuRect.left && e.clientX <= menuRect.right &&
+                        e.clientY >= menuRect.top && e.clientY <= menuRect.bottom;
+                    if (!isOverMenu && !hideTimeout) {
+                        hideTimeout = setTimeout(() => {
+                            wrapper.classList.remove('menu-visible');
+                            isMenuVisible = false;
+                            hideTimeout = null;
+                        }, 300);
+                    }
+                }
+            });
         }
 
         document.getElementById('jsonInput').addEventListener('change', (e) => {
@@ -1771,6 +1964,7 @@
         });
 
         initAccordion();
+        initMenuTrigger();
         loadFromLocal();
     </script>
 </body>
