@@ -1,0 +1,3012 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <!--
+        SPDX-License-Identifier: CC-BY-NC-SA-4.0
+        本文件是"汉末废柴堆 · 超级团队组建系统"的一部分。
+        完整项目受 CC BY-NC-SA 4.0 许可证保护，详见根目录 LICENSE 文件。
+        本项目核心设计思想、架构方案、方法论受 NOTICE 文件独立保护。
+        个人可免费使用，严禁用于商业目的。
+        商业授权请联系：xxuuyyuunn@sina.com
+    -->
+    <!--
+        **版本历史**
+        | 版本号 | 过程节点说明 | 修订人 | 修订日期 | 修订内容 |
+        | :----- | :----------- | :----- | :------- | :------- |
+        | V0.1.0 | 初稿创建     | 徐昀 | 2026-09-07 | 根据用户需求生成 |
+        | V0.1.1 | 功能增加     | 徐昀 | 2026-09-09 | 菜单位置调整，增加导出JSON和Markdown |
+    -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>北冥有数据</title>
+    <!-- SheetJS 用于 Excel/CSV 解析 -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js">
+    </script>
+    <!-- Danfo.js 用于类 Pandas 数据操作 -->
+    <script src="https://cdn.jsdelivr.net/npm/danfojs@1.1.2/lib/bundle.min.js">
+    </script>
+    <!-- ML.js 用于 PCA、KMeans -->
+    <script src="https://www.lactame.com/lib/ml/6.0.0/ml.min.js"></script>
+    <!-- ECharts 用于绘制 SSE 折线图 -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js">
+    </script>
+    <!-- Font Awesome 图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0f1f;
+            --bg-sidebar: #111827;
+            --bg-panel: #0f172f;
+            --bg-card: rgba(18, 25, 45, 0.9);
+            --bg-hover: rgba(59, 130, 246, 0.12);
+            --border-color: #2d3a5e;
+            --border-blue: #3b82f6;
+            --text-primary: #eef2ff;
+            --text-secondary: #cbd5e6;
+            --text-muted: #8ba0c0;
+            --accent-blue: #3b82f6;
+            --accent-hover: #2563eb;
+            --danger: #ef4444;
+            --success: #10b981;
+            --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --transition: 0.2s ease;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Roboto', sans-serif;
+            background: var(--bg-primary);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            color: var(--text-primary);
+            user-select: none;
+        }
+
+        /* ========== 侧边栏 ========== */
+        .sidebar {
+            width: 280px;
+            background: var(--bg-sidebar);
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
+            flex-shrink: 0;
+            z-index: 10;
+            overflow-y: auto;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .sidebar-header {
+            padding: 25px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar-header h2 {
+            font-weight: 600;
+            font-size: 1.45rem;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .sidebar-header h2 i {
+            color: var(--accent-blue);
+            font-size: 1.7rem;
+            text-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
+        }
+
+        .menu-area {
+            padding: 15px 12px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .upload-btn-wrapper {
+            position: relative;
+            overflow: hidden;
+            border-radius: var(--radius-lg);
+            margin-bottom: 4px;
+        }
+
+        .upload-btn {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            padding: 13px 20px;
+            border: none;
+            border-radius: var(--radius-lg);
+            font-size: 0.95rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            transition: var(--transition);
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+        }
+
+        .upload-btn:hover {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            box-shadow: 0 6px 24px rgba(59, 130, 246, 0.5);
+            transform: translateY(-1px);
+        }
+
+        .upload-btn-wrapper input[type=file] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .collapsible-header {
+            background: rgba(255, 255, 255, 0.04);
+            padding: 12px 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-radius: var(--radius-sm);
+            transition: var(--transition);
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            border: 1px solid transparent;
+        }
+
+        .collapsible-header:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.3);
+            color: #fff;
+        }
+
+        .collapsible-header .chevron {
+            margin-left: auto;
+            transition: transform 0.3s;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .collapsible-header.active .chevron {
+            transform: rotate(90deg);
+            color: var(--accent-blue);
+        }
+
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s ease;
+            padding-left: 10px;
+        }
+
+        .collapsible-content.open {
+            max-height: 600px;
+        }
+
+        .submenu-item {
+            padding: 8px 15px;
+            margin: 3px 0;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-muted);
+            transition: var(--transition);
+            border: 1px solid transparent;
+        }
+
+        .submenu-item:hover {
+            background: rgba(59, 130, 246, 0.12);
+            color: #fff;
+            border-color: rgba(59, 130, 246, 0.25);
+        }
+
+        .submenu-item i:not(.chevron) {
+            width: 18px;
+            text-align: center;
+            color: #60a5fa;
+        }
+
+        .future-btn-disabled {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.3);
+            padding: 8px 15px;
+            border-radius: var(--radius-sm);
+            width: 100%;
+            text-align: left;
+            cursor: not-allowed;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 3px 0;
+        }
+
+        /* ========== 主内容区 ========== */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            background: var(--bg-primary);
+        }
+
+        .tab-bar {
+            background: #111827;
+            border-bottom: 1px solid var(--border-color);
+            padding: 8px 16px 0 16px;
+            display: flex;
+            align-items: flex-end;
+            gap: 4px;
+            overflow-x: auto;
+            min-height: 46px;
+            scrollbar-width: thin;
+            flex-shrink: 0;
+        }
+
+        .tab-bar::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .tab-bar::-webkit-scrollbar-thumb {
+            background: var(--accent-blue);
+            border-radius: 4px;
+        }
+
+        .tab {
+            background: #1f2937;
+            color: #cbd5e6;
+            padding: 9px 18px;
+            border-radius: 12px 12px 0 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            border: 1px solid var(--border-color);
+            border-bottom: none;
+            flex-shrink: 0;
+            transition: var(--transition);
+            margin-bottom: -1px;
+        }
+
+        .tab:hover {
+            background: #263244;
+            color: #fff;
+        }
+
+        .tab.active {
+            background: #0f172f;
+            color: #fff;
+            border-top: 2px solid var(--accent-blue);
+            border-color: var(--border-color);
+            border-bottom: 1px solid #0f172f;
+            font-weight: 600;
+        }
+
+        .tab .tab-label {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 120px;
+            cursor: pointer;
+        }
+
+        .tab .close-tab {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            cursor: pointer;
+            color: #9ca3af;
+            font-size: 0.9rem;
+            padding: 2px 6px;
+            border-radius: 20px;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tab .close-tab:hover {
+            background: var(--danger);
+            color: #fff;
+        }
+
+        .preview-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            margin: 14px 18px 18px 18px;
+            background: var(--bg-panel);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-card);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            min-height: 0;
+        }
+
+        .preview-toolbar {
+            padding: 12px 20px;
+            background: #111827;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .toolbar-left i {
+            color: var(--accent-blue);
+        }
+
+        .action-btns {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-outline {
+            background: #1e293b;
+            border: 1px solid var(--border-color);
+            padding: 7px 16px;
+            border-radius: 24px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: var(--transition);
+        }
+
+        .btn-outline:hover {
+            background: #263244;
+            border-color: var(--accent-blue);
+            color: #fff;
+        }
+
+        .btn-outline.active {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: var(--accent-blue);
+            color: #fff;
+        }
+
+        .table-container {
+            flex: 1;
+            overflow: auto;
+            background: #0a0f1f;
+            scrollbar-width: thin;
+        }
+
+        .table-container::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb {
+            background: #2d3a5e;
+            border-radius: 4px;
+        }
+
+        .table-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            font-size: 0.82rem;
+        }
+
+        th {
+            background: #1a2332;
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            padding: 11px 14px;
+            text-align: left;
+            font-weight: 600;
+            color: #60a5fa;
+            border-bottom: 2px solid var(--border-color);
+            white-space: nowrap;
+            font-size: 0.8rem;
+            letter-spacing: 0.3px;
+        }
+
+        td {
+            padding: 9px 14px;
+            border-bottom: 1px solid rgba(45, 58, 94, 0.4);
+            max-width: 280px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #d1d5db;
+        }
+
+        tr:hover td {
+            background: rgba(59, 130, 246, 0.06);
+        }
+
+        .empty-message {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #6b7a90;
+            font-size: 1.1rem;
+            gap: 15px;
+        }
+
+        .empty-message i {
+            font-size: 3.5rem;
+            color: #2d3a5e;
+            text-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+        }
+
+        .describe-panel {
+            padding: 18px 25px;
+            background: #111827;
+            border-top: 1px solid var(--border-color);
+            overflow: auto;
+            max-height: 45%;
+            display: none;
+            flex-shrink: 0;
+        }
+
+        .describe-panel.active {
+            display: block;
+        }
+
+        .describe-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--accent-blue);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .describe-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.78rem;
+        }
+
+        .describe-table th,
+        .describe-table td {
+            padding: 7px 12px;
+            border: 1px solid rgba(45, 58, 94, 0.5);
+            white-space: nowrap;
+            color: #d1d5db;
+        }
+
+        .describe-table th {
+            background: #1a2332;
+            font-weight: 600;
+            color: #60a5fa;
+        }
+
+        .shape-info {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        .export-menu {
+            position: relative;
+            display: inline-block;
+        }
+
+        .export-options {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 110%;
+            background: #1a2332;
+            border: 1px solid var(--border-blue);
+            border-radius: var(--radius-sm);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+            z-index: 50;
+            min-width: 160px;
+            overflow: hidden;
+        }
+
+        .export-options.show {
+            display: block;
+        }
+
+        .export-option {
+            padding: 10px 18px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            transition: var(--transition);
+        }
+
+        .export-option:hover {
+            background: rgba(59, 130, 246, 0.15);
+            color: #fff;
+        }
+
+        /* ========== 模态框 ========== */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(6px);
+        }
+
+        .modal-dialog {
+            background: #0f172f;
+            border-radius: var(--radius-xl);
+            padding: 25px;
+            width: 550px;
+            max-width: 92vw;
+            max-height: 85vh;
+            overflow-y: auto;
+            border: 1px solid var(--border-blue);
+            box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
+        }
+
+        .modal-dialog h3 {
+            margin-bottom: 20px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.1rem;
+        }
+
+        .modal-dialog h3 i {
+            color: var(--accent-blue);
+        }
+
+        .field-checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 5px;
+        }
+
+        .field-checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #1a2332;
+            padding: 8px 14px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            transition: var(--transition);
+            border: 1px solid transparent;
+        }
+
+        .field-checkbox-label:hover {
+            background: rgba(59, 130, 246, 0.15);
+            border-color: rgba(59, 130, 246, 0.3);
+            color: #fff;
+        }
+
+        .field-checkbox-label input[type="checkbox"],
+        .field-checkbox-label input[type="radio"] {
+            accent-color: var(--accent-blue);
+            cursor: pointer;
+        }
+
+        .modal-btns {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .modal-btns button {
+            padding: 9px 22px;
+            border-radius: 24px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.85rem;
+            transition: var(--transition);
+        }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: #1e293b;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color) !important;
+        }
+
+        .btn-secondary:hover {
+            background: #263244;
+            color: #fff;
+        }
+
+        .join-config-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .join-config-row select {
+            padding: 8px 12px;
+            background: #1a2332;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+
+        .join-config-row select:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .join-config-row button {
+            background: rgba(239, 68, 68, 0.2);
+            border: none;
+            color: var(--danger);
+            cursor: pointer;
+            font-size: 1rem;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+
+        .join-config-row button:hover {
+            background: var(--danger);
+            color: #fff;
+        }
+
+        .add-join-btn {
+            background: none;
+            border: none;
+            color: var(--accent-blue);
+            cursor: pointer;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 0;
+        }
+
+        .add-join-btn:hover {
+            color: #60a5fa;
+        }
+
+        .filter-input-group {
+            margin-bottom: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .filter-input-group label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .filter-input-group input,
+        .filter-input-group select {
+            padding: 8px 12px;
+            background: #1a2332;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            color: var(--text-primary);
+        }
+
+        .filter-input-group input:focus,
+        .filter-input-group select:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .replace-input-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .replace-input-group input[type="text"] {
+            flex: 2;
+            padding: 8px 12px;
+            background: #1a2332;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            color: var(--text-primary);
+        }
+
+        .replace-input-group label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+
+        /* ========== 自定义模态框 ========== */
+        .custom-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            backdrop-filter: blur(6px);
+        }
+
+        .custom-modal {
+            background: #0f172f;
+            border-radius: var(--radius-xl);
+            padding: 25px;
+            width: 400px;
+            max-width: 90vw;
+            border: 1px solid var(--border-blue);
+            box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
+            animation: modalIn 0.2s ease;
+        }
+
+        @keyframes modalIn {
+            from {
+                opacity: 0;
+                transform: scale(0.92) translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .custom-modal h4 {
+            margin-bottom: 15px;
+            color: #fff;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .custom-modal h4 i {
+            color: var(--accent-blue);
+        }
+
+        .custom-modal .custom-message {
+            margin-bottom: 20px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .custom-modal input[type="text"] {
+            width: 100%;
+            padding: 10px 14px;
+            background: #1a2332;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            margin-bottom: 20px;
+        }
+
+        .custom-modal input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .custom-modal .custom-btns {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .custom-modal .custom-btns button {
+            padding: 8px 20px;
+            border-radius: 20px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.85rem;
+            transition: var(--transition);
+        }
+
+        .custom-modal .btn-cancel {
+            background: #1e293b;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color) !important;
+        }
+
+        .custom-modal .btn-cancel:hover {
+            background: #263244;
+            color: #fff;
+        }
+
+        .custom-modal .btn-ok {
+            background: var(--accent-blue);
+            color: #fff;
+        }
+
+        .custom-modal .btn-ok:hover {
+            background: var(--accent-hover);
+        }
+
+        /* 滚动条全局优化 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #2d3a5e;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3b82f6;
+        }
+
+        /* KMeans 额外样式 */
+        .kmeans-config {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+
+        .kmeans-config label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .kmeans-config input[type="number"] {
+            width: 70px;
+            padding: 6px 8px;
+            background: #1a2332;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+        }
+
+        #sseChart {
+            height: 250px;
+            margin-bottom: 15px;
+            background: #0f172f;
+            border-radius: var(--radius-sm);
+        }
+
+        /* 代码导出模态框样式 */
+        .code-export-modal {
+            background: #0f172f;
+            border-radius: var(--radius-xl);
+            padding: 25px;
+            width: 700px;
+            max-width: 95vw;
+            border: 1px solid var(--border-blue);
+            box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
+        }
+
+        .code-export-modal h3 {
+            margin-bottom: 20px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.1rem;
+        }
+
+        .code-export-modal h3 i {
+            color: var(--accent-blue);
+        }
+
+        .code-export-modal textarea {
+            width: 100%;
+            height: 300px;
+            background: #1a2332;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: #d1d5db;
+            font-family: monospace;
+            font-size: 0.85rem;
+            padding: 12px;
+            resize: vertical;
+            margin-bottom: 20px;
+        }
+
+        .code-export-modal .modal-btns {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 侧边栏 -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h2><i class="fas fa-database"></i> 北冥有数据</h2>
+        </div>
+        <div class="menu-area">
+            <div class="upload-btn-wrapper">
+                <button class="upload-btn"><i class="fas fa-upload"></i> 上传文件</button>
+                <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" multiple>
+            </div>
+
+            <!-- 数据理解（新增） -->
+            <div class="collapsible-section">
+                <div class="collapsible-header" id="understandingHeader">
+                    <i class="fas fa-eye"></i> 数据理解 <i class="fas fa-chevron-right chevron"></i>
+                </div>
+                <div class="collapsible-content" id="understandingContent">
+                    <div class="submenu-item" id="overviewHeader"><i class="fas fa-chart-bar"></i> 数据概览 <i
+                            class="fas fa-chevron-right chevron" style="margin-left:auto;"></i></div>
+                    <div style="padding-left:15px;display:none;" id="overviewSubmenu">
+                        <div class="submenu-item" data-action="describe"><i class="fas fa-chart-pie"></i> 数据描述</div>
+                    </div>
+                    <div class="submenu-item" id="statsInUnderstandingHeader"><i class="fas fa-chart-pie"></i> 数据统计 <i
+                            class="fas fa-chevron-right chevron" style="margin-left:auto;"></i></div>
+                    <div style="padding-left:15px;display:none;" id="statsInUnderstandingSubmenu">
+                        <div class="submenu-item" data-action="groupby"><i class="fas fa-object-group"></i> 分组统计</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 数据预处理 -->
+            <div class="collapsible-section">
+                <div class="collapsible-header" id="preprocessHeader">
+                    <i class="fas fa-broom"></i> 数据预处理 <i class="fas fa-chevron-right chevron"></i>
+                </div>
+                <div class="collapsible-content" id="preprocessContent">
+                    <div class="submenu-item" id="cleanHeader"><i class="fas fa-soap"></i> 数据清洗 <i
+                            class="fas fa-chevron-right chevron" style="margin-left:auto;"></i></div>
+                    <div style="padding-left:15px;display:none;" id="cleanSubmenu">
+                        <div class="submenu-item" data-action="dropna"><i class="fas fa-trash-alt"></i> 删除缺失值</div>
+                        <div class="submenu-item" data-action="fillna"><i class="fas fa-fill-drip"></i> 填补缺失值</div>
+                        <div class="submenu-item" data-action="dropduplicates"><i class="fas fa-copy"></i> 删除重复值</div>
+                    </div>
+                    <div class="submenu-item" id="integrationHeader"><i class="fas fa-project-diagram"></i> 数据集成 <i
+                            class="fas fa-chevron-right chevron" style="margin-left:auto;"></i></div>
+                    <div style="padding-left:15px;display:none;" id="integrationSubmenu">
+                        <div class="submenu-item" data-action="merge"><i class="fas fa-link"></i> 数据连接</div>
+                        <div class="submenu-item" data-action="concat"><i class="fas fa-object-group"></i> 数据合并</div>
+                    </div>
+                    <div class="submenu-item" id="reductionHeader"><i class="fas fa-compress-arrows-alt"></i> 数据归约 <i
+                            class="fas fa-chevron-right chevron" style="margin-left:auto;"></i></div>
+                    <div style="padding-left:15px;display:none;" id="reductionSubmenu">
+                        <div class="submenu-item" data-action="select_fields"><i class="fas fa-check-square"></i> 字段选择
+                        </div>
+                        <div class="submenu-item" data-action="pca"><i class="fas fa-chart-bar"></i> 主成分分析</div>
+                        <div class="submenu-item" data-action="sample_data"><i class="fas fa-random"></i> 数据抽样</div>
+                        <div class="submenu-item" data-action="filter_by_value"><i class="fas fa-filter"></i> 按值筛选</div>
+                    </div>
+                    <div class="submenu-item" id="transformHeader"><i class="fas fa-exchange-alt"></i> 数据变换 <i
+                            class="fas fa-chevron-right chevron" style="margin-left:auto;"></i></div>
+                    <div style="padding-left:15px;display:none;" id="transformSubmenu">
+                        <div class="submenu-item" data-action="normalize"><i class="fas fa-chart-line"></i> 归一化</div>
+                        <div class="submenu-item" data-action="standardize"><i class="fas fa-chart-bar"></i> 标准化</div>
+                        <div class="submenu-item" data-action="normalize_sum"><i class="fas fa-percent"></i> 规范化</div>
+                        <div class="submenu-item" data-action="split_field"><i class="fas fa-cut"></i> 字段分割</div>
+                        <div class="submenu-item" data-action="replace_value"><i class="fas fa-edit"></i> 属性替换</div>
+                        <div class="submenu-item" data-action="one_hot"><i class="fas fa-th-large"></i> 独热编码</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 数据挖掘 -->
+            <div class="collapsible-section">
+                <div class="collapsible-header" id="miningHeader"><i class="fas fa-chart-line"></i> 数据挖掘 <i
+                        class="fas fa-chevron-right chevron"></i></div>
+                <div class="collapsible-content" id="miningContent">
+                    <div class="submenu-item" id="clusterHeader"><i class="fas fa-cubes"></i> 聚类 <i
+                            class="fas fa-chevron-right chevron" style="margin-left:auto;"></i></div>
+                    <div style="padding-left:15px;display:none;" id="clusterSubmenu">
+                        <div class="submenu-item" data-action="kmeans"><i class="fas fa-circle-dot"></i> K-Means聚类</div>
+                    </div>
+                    <div class="future-btn-disabled" style="margin-left:10px;"><i class="fas fa-chart-line"></i> 回归
+                        <span style="font-size:0.7rem;color:#888;">(即将上线)</span>
+                    </div>
+                    <div class="future-btn-disabled" style="margin-left:10px;"><i class="fas fa-tag"></i> 分类
+                        <span style="font-size:0.7rem;color:#888;">(即将上线)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="main-content">
+        <div class="tab-bar" id="tabBar"></div>
+        <div class="preview-area">
+            <div class="preview-toolbar">
+                <div class="toolbar-left">
+                    <span id="activeTabTitle" style="font-weight:600;"><i class="fas fa-table"></i> 请选择数据</span>
+                    <span id="recordCount" style="font-weight:400;color:#8ba0c0;"></span>
+                </div>
+                <div class="action-btns">
+                    <button class="btn-outline" id="toggleAllBtn"><i class="fas fa-expand"></i> 展示全部</button>
+                    <div class="export-menu">
+                        <button class="btn-outline" id="exportBtn"><i class="fas fa-download"></i> 导出</button>
+                        <div class="export-options" id="exportOptions">
+                            <div class="export-option" data-format="csv"><i class="fas fa-file-csv"></i> CSV 格式</div>
+                            <div class="export-option" data-format="xlsx"><i class="fas fa-file-excel"></i> Excel 格式</div>
+                            <div class="export-option" data-format="json"><i class="fas fa-code"></i> JSON 数据</div>
+                            <div class="export-option" data-format="markdown"><i class="fas fa-markdown"></i> Markdown 数据</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="table-container" id="tableContainer">
+                <div class="empty-message" id="emptyMessage"><i class="fas fa-file-import"></i><span>请从左侧上传 CSV 或 Excel
+                        文件</span></div>
+                <div id="dataTableWrapper" style="display: none;"></div>
+            </div>
+            <!-- 描述面板已隐藏，不再使用 -->
+            <div class="describe-panel" id="describePanel" style="display:none;">
+                <div class="describe-title"><i class="fas fa-chart-pie"></i> 数据完整描述</div>
+                <div id="describeContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            // ========== 自定义模态框 ==========
+            function showModal({ type = 'alert', title = '提示', message = '', defaultValue = '',
+                placeholder = '' }) {
+                return new Promise((resolve) => {
+                    const overlay = document.createElement('div');
+                    overlay.className = 'custom-modal-overlay';
+                    const modal = document.createElement('div');
+                    modal.className = 'custom-modal';
+                    let html = `<h4><i class="fas fa-info-circle"></i> ${title}</h4>`;
+                    html += `<div class="custom-message">${message}</div>`;
+                    if (type === 'prompt') {
+                        html +=
+                            `<input type="text" class="custom-input" value="${defaultValue}" placeholder="${placeholder}" />`;
+                    }
+                    html += `<div class="custom-btns">`;
+                    if (type === 'confirm' || type === 'prompt') html +=
+                        `<button class="btn-cancel">取消</button>`;
+                    html += `<button class="btn-ok">确定</button></div>`;
+                    modal.innerHTML = html;
+                    overlay.appendChild(modal);
+                    document.body.appendChild(overlay);
+                    const input = modal.querySelector('.custom-input');
+                    const okBtn = modal.querySelector('.btn-ok');
+                    const cancelBtn = modal.querySelector('.btn-cancel');
+
+                    function close() { document.body.removeChild(overlay); }
+                    okBtn.addEventListener('click', () => {
+                        if (type === 'prompt') resolve(input.value);
+                        else if (type === 'confirm') resolve(true);
+                        else resolve(undefined);
+                        close();
+                    });
+                    if (cancelBtn) {
+                        cancelBtn.addEventListener('click', () => {
+                            if (type === 'confirm') resolve(false);
+                            else if (type === 'prompt') resolve(null);
+                            else resolve(undefined);
+                            close();
+                        });
+                    }
+                    overlay.addEventListener('click', (e) => {
+                        if (e.target === overlay && type === 'alert') {
+                            resolve(undefined);
+                            close();
+                        }
+                    });
+                    document.addEventListener('keydown', function escHandler(e) {
+                        if (e.key === 'Escape') {
+                            if (type === 'confirm') resolve(false);
+                            else if (type === 'prompt') resolve(null);
+                            else resolve(undefined);
+                            close();
+                            document.removeEventListener('keydown', escHandler);
+                        }
+                    });
+                    if (input) setTimeout(() => input.focus(), 50);
+                });
+            }
+            async function alertModal(message, title = '提示') {
+                await showModal({ type: 'alert', title, message });
+            }
+            async function confirmModal(message, title = '确认') {
+                return await showModal({ type: 'confirm', title, message });
+            }
+            async function promptModal(message, defaultValue = '', title = '输入') {
+                return await showModal({ type: 'prompt', title, message, defaultValue });
+            }
+
+            // ========== Danfo.js 辅助函数 ==========
+            function dfToArray(df) {
+                if (!df || df.shape[0] === 0) return [];
+                const columns = df.columns;
+                const values = df.values;
+                return values.map(row => {
+                    const obj = {};
+                    columns.forEach((col, i) => { obj[col] = row[i]; });
+                    return obj;
+                });
+            }
+
+            function arrayToDf(arr) {
+                if (!arr || arr.length === 0) return new dfd.DataFrame([], { columns: [] });
+                return new dfd.DataFrame(arr);
+            }
+
+            function inferColumnTypeFromDf(df, col) {
+                if (!df || df.shape[0] === 0) return 'object';
+                const sample = df[col].values.slice(0, 100).filter(v => v !== null && v !== undefined && v !==
+                    '');
+                if (sample.length === 0) return 'object';
+                let allInt = true,
+                    allNumeric = true;
+                for (let val of sample) {
+                    const num = Number(val);
+                    if (isNaN(num) || val === '' || val === null) {
+                        allNumeric = false;
+                        allInt = false;
+                        break;
+                    }
+                    if (!Number.isInteger(num)) allInt = false;
+                }
+                if (allNumeric) return allInt ? 'int64' : 'float64';
+                return 'object';
+            }
+
+            function computeDescribeWithDf(df) {
+                if (!df || df.shape[0] === 0) return null;
+                const columns = df.columns;
+                const colTypes = {};
+                columns.forEach(c => { colTypes[c] = inferColumnTypeFromDf(df, c); });
+                const describeRows = {};
+                ['count', 'unique', 'top', 'freq', 'mean', 'std', 'min', '25%', '50%', '75%', 'max'].forEach(idx =>
+                    describeRows[idx] = {});
+                columns.forEach(col => {
+                    const values = df[col].values;
+                    const nonNull = values.filter(v => v !== null && v !== undefined && v !== '');
+                    describeRows['count'][col] = nonNull.length;
+                    if (colTypes[col] === 'int64' || colTypes[col] === 'float64') {
+                        const nums = nonNull.map(Number).filter(v => !isNaN(v));
+                        if (nums.length) {
+                            nums.sort((a, b) => a - b);
+                            const sum = nums.reduce((a, b) => a + b, 0);
+                            const mean = sum / nums.length;
+                            const variance = nums.reduce((acc, v) => acc + (v - mean) ** 2, 0) / (nums.length -
+                                1 || 1);
+                            describeRows['mean'][col] = round(mean, 3);
+                            describeRows['std'][col] = round(Math.sqrt(variance), 3);
+                            describeRows['min'][col] = colTypes[col] === 'int64' ? Math.round(nums[0]) : nums[0];
+                            describeRows['25%'][col] = percentile(nums, 25);
+                            describeRows['50%'][col] = percentile(nums, 50);
+                            describeRows['75%'][col] = percentile(nums, 75);
+                            describeRows['max'][col] = colTypes[col] === 'int64' ? Math.round(nums[nums.length -
+                                1]) : nums[nums.length - 1];
+                        } else {
+                            ['mean', 'std', 'min', '25%', '50%', '75%', 'max'].forEach(r => describeRows[r][
+                                col
+                            ] = 'NaN');
+                        }
+                        const uniqueVals = new Set(nonNull.map(String));
+                        describeRows['unique'][col] = uniqueVals.size;
+                        const freqMap = {};
+                        nonNull.forEach(v => freqMap[v] = (freqMap[v] || 0) + 1);
+                        const topEntry = Object.entries(freqMap).sort((a, b) => b[1] - a[1])[0];
+                        describeRows['top'][col] = topEntry ? topEntry[0] : 'NaN';
+                        describeRows['freq'][col] = topEntry ? topEntry[1] : 0;
+                    } else {
+                        const uniqueVals = new Set(nonNull.map(String));
+                        describeRows['unique'][col] = uniqueVals.size;
+                        const freqMap = {};
+                        nonNull.forEach(v => {
+                            const k = String(v);
+                            freqMap[k] = (freqMap[k] || 0) + 1;
+                        });
+                        const sorted = Object.entries(freqMap).sort((a, b) => b[1] - a[1]);
+                        describeRows['top'][col] = sorted.length ? sorted[0][0] : 'NaN';
+                        describeRows['freq'][col] = sorted.length ? sorted[0][1] : 0;
+                        ['mean', 'std', 'min', '25%', '50%', '75%', 'max'].forEach(r => describeRows[r][col] =
+                            'NaN');
+                    }
+                });
+                return { columns, colTypes, describeRows, shape: [df.shape[0], df.shape[1]] };
+            }
+
+            function percentile(sortedArr, p) {
+                if (!sortedArr.length) return 'NaN';
+                const i = (sortedArr.length - 1) * p / 100;
+                const l = Math.floor(i),
+                    u = Math.ceil(i);
+                return l === u ? sortedArr[l] : round((sortedArr[l] + sortedArr[u]) / 2, 3);
+            }
+
+            function round(num, d) {
+                if (typeof num !== 'number' || isNaN(num)) return num;
+                return Math.round(num * 10 ** d) / 10 ** d;
+            }
+
+            // ========== 自定义 K-Means 函数 ==========
+            function simpleKMeans(data, k, maxIter = 100) {
+                const n = data.length;
+                if (k >= n) throw new Error('k must be smaller than number of points');
+                const dim = data[0].length;
+                // 随机初始化质心
+                let centroids = [];
+                const indices = Array.from({ length: n }, (_, i) => i);
+                for (let i = 0; i < k; i++) {
+                    const randIdx = Math.floor(Math.random() * indices.length);
+                    centroids.push(data[indices[randIdx]].slice());
+                    indices.splice(randIdx, 1);
+                }
+                let labels = new Array(n).fill(0);
+                for (let iter = 0; iter < maxIter; iter++) {
+                    // 分配样本到最近的质心
+                    for (let i = 0; i < n; i++) {
+                        let minDist = Infinity,
+                            best = 0;
+                        for (let j = 0; j < k; j++) {
+                            let dist = 0;
+                            for (let d = 0; d < dim; d++) {
+                                dist += Math.pow(data[i][d] - centroids[j][d], 2);
+                            }
+                            if (dist < minDist) {
+                                minDist = dist;
+                                best = j;
+                            }
+                        }
+                        labels[i] = best;
+                    }
+                    // 更新质心
+                    const newCentroids = Array.from({ length: k }, () => new Array(dim).fill(0));
+                    const counts = new Array(k).fill(0);
+                    for (let i = 0; i < n; i++) {
+                        const c = labels[i];
+                        counts[c]++;
+                        for (let d = 0; d < dim; d++) newCentroids[c][d] += data[i][d];
+                    }
+                    for (let j = 0; j < k; j++) {
+                        if (counts[j] > 0) {
+                            for (let d = 0; d < dim; d++) newCentroids[j][d] /= counts[j];
+                        } else {
+                            newCentroids[j] = centroids[j]; // 空簇保持原质心
+                        }
+                    }
+                    // 检查收敛
+                    let changed = false;
+                    for (let j = 0; j < k; j++) {
+                        for (let d = 0; d < dim; d++) {
+                            if (Math.abs(newCentroids[j][d] - centroids[j][d]) > 1e-6) {
+                                changed = true;
+                                break;
+                            }
+                        }
+                        if (changed) break;
+                    }
+                    centroids = newCentroids;
+                    if (!changed) break;
+                }
+                // 计算 SSE
+                let sse = 0;
+                for (let i = 0; i < n; i++) {
+                    const c = labels[i];
+                    for (let d = 0; d < dim; d++) {
+                        sse += Math.pow(data[i][d] - centroids[c][d], 2);
+                    }
+                }
+                return { labels, centroids, sse };
+            }
+
+            // ========== 分组统计（修改后） ==========
+            function openGroupBy() {
+                const tab = tabs.find(t => t.id === activeTabId);
+                if (!tab) { alertModal('请先选择数据标签'); return; }
+                const columns = tab.df.columns;
+                if (columns.length === 0) { alertModal('数据为空'); return; }
+
+                const overlay = document.createElement('div');
+                overlay.className = 'modal-overlay';
+                const dialog = document.createElement('div');
+                dialog.className = 'modal-dialog';
+                dialog.innerHTML = `
+                    <h3><i class="fas fa-object-group"></i> 分组统计</h3>
+                    <div style="margin-bottom:10px;color:#cbd5e6;font-size:0.85rem;"><strong>选择分组字段（可多选）：</strong></div>
+                    <div class="field-checkbox-group" id="groupFieldsContainer">
+                        ${columns.map(c => `<label class="field-checkbox-label"><input type="checkbox" class="group-field" value="${c}"> ${c}</label>`).join('')}
+                    </div>
+                    <div style="margin-bottom:10px;color:#cbd5e6;font-size:0.85rem;"><strong>统计方式（每行选择字段和聚合方式）：</strong></div>
+                    <div id="statsConfigContainer"></div>
+                    <button class="add-join-btn" id="addStatRow"><i class="fas fa-plus-circle"></i> 添加统计方式</button>
+                    <div class="modal-btns">
+                        <button class="btn-secondary" id="cancelGroupBy">取消</button>
+                        <button class="btn-primary" id="confirmGroupBy">执行统计</button>
+                    </div>
+                `;
+                overlay.appendChild(dialog);
+                document.body.appendChild(overlay);
+
+                const statsContainer = dialog.querySelector('#statsConfigContainer');
+
+                function addStatRow() {
+                    const row = document.createElement('div');
+                    row.className = 'join-config-row';
+                    row.innerHTML = `
+                        <select class="stat-field-select">
+                            ${columns.map(c => `<option value="${c}">${c}</option>`).join('')}
+                        </select>
+                        <span style="color:#60a5fa;">→</span>
+                        <select class="stat-agg-select">
+                            <option value="count">非空值数量</option>
+                            <option value="max">最大值</option>
+                            <option value="min">最小值</option>
+                            <option value="mean">平均值</option>
+                            <option value="sum">总值</option>
+                        </select>
+                        <button class="remove-stat-row"><i class="fas fa-times"></i></button>
+                    `;
+                    row.querySelector('.remove-stat-row').addEventListener('click', () => row.remove());
+                    statsContainer.appendChild(row);
+                }
+
+                addStatRow();
+
+                document.getElementById('addStatRow').addEventListener('click', addStatRow);
+
+                document.getElementById('cancelGroupBy').onclick = () => document.body.removeChild(overlay);
+                document.getElementById('confirmGroupBy').onclick = () => {
+                    const groupFields = [...dialog.querySelectorAll('.group-field:checked')].map(cb => cb.value);
+                    if (groupFields.length === 0) { alertModal('请至少选择一个分组字段'); return; }
+
+                    const statRows = statsContainer.querySelectorAll('.join-config-row');
+                    if (statRows.length === 0) { alertModal('请至少配置一个统计方式'); return; }
+
+                    const statsConfig = [];
+                    statRows.forEach(row => {
+                        const field = row.querySelector('.stat-field-select').value;
+                        const agg = row.querySelector('.stat-agg-select').value;
+                        statsConfig.push({ field, agg });
+                    });
+
+                    document.body.removeChild(overlay);
+                    const result = performGroupBy(tab, groupFields, statsConfig);
+                    addTab(tab.name + '_分组统计', result);
+                };
+            }
+
+            function performGroupBy(tab, groupFields, statsConfig) {
+                const data = dfToArray(tab.df);
+                const groups = new Map();
+                data.forEach(row => {
+                    const key = groupFields.map(f => row[f]).join('|||');
+                    if (!groups.has(key)) groups.set(key, []);
+                    groups.get(key).push(row);
+                });
+
+                const result = [];
+                groups.forEach((rows, key) => {
+                    const newRow = {};
+                    const firstRow = rows[0];
+                    groupFields.forEach(f => newRow[f] = firstRow[f]);
+                    const usedNames = new Set(Object.keys(newRow));
+                    statsConfig.forEach(cfg => {
+                        const field = cfg.field;
+                        const agg = cfg.agg;
+                        const values = rows.map(r => r[field]).filter(v => v !== null && v !== undefined && v !== '');
+                        const numericValues = values.map(v => Number(v)).filter(v => !isNaN(v));
+                        let val;
+                        let suffix;
+                        switch (agg) {
+                            case 'count':
+                                val = values.length;
+                                suffix = '计数';
+                                break;
+                            case 'max':
+                                val = numericValues.length ? Math.max(...numericValues) : null;
+                                suffix = '最大值';
+                                break;
+                            case 'min':
+                                val = numericValues.length ? Math.min(...numericValues) : null;
+                                suffix = '最小值';
+                                break;
+                            case 'mean':
+                                val = numericValues.length ? round(numericValues.reduce((a, b) => a + b, 0) / numericValues.length, 3) : null;
+                                suffix = '平均值';
+                                break;
+                            case 'sum':
+                                val = numericValues.length ? round(numericValues.reduce((a, b) => a + b, 0), 3) : null;
+                                suffix = '总值';
+                                break;
+                            default:
+                                val = null;
+                                suffix = '未知';
+                        }
+                        let colName = `${field}_${suffix}`;
+                        let counter = 2;
+                        while (usedNames.has(colName)) {
+                            colName = `${field}_${suffix}_${counter}`;
+                            counter++;
+                        }
+                        usedNames.add(colName);
+                        newRow[colName] = val;
+                    });
+                    result.push(newRow);
+                });
+                return result;
+            }
+
+            // ========== 全局状态 ==========
+            const tabs = [];
+            let activeTabId = null;
+            let tabIdCounter = 0;
+            let exportMenuOpen = false;
+
+            const fileInput = document.getElementById('fileInput');
+            const tabBar = document.getElementById('tabBar');
+            const activeTabTitle = document.getElementById('activeTabTitle');
+            const recordCount = document.getElementById('recordCount');
+            const toggleAllBtn = document.getElementById('toggleAllBtn');
+            const dataTableWrapper = document.getElementById('dataTableWrapper');
+            const emptyMessage = document.getElementById('emptyMessage');
+            const describePanel = document.getElementById('describePanel');
+            const describeContent = document.getElementById('describeContent');
+            const exportBtn = document.getElementById('exportBtn');
+            const exportOptions = document.getElementById('exportOptions');
+
+            const understandingHeader = document.getElementById('understandingHeader');
+            const understandingContent = document.getElementById('understandingContent');
+            const overviewHeader = document.getElementById('overviewHeader');
+            const overviewSubmenu = document.getElementById('overviewSubmenu');
+            const statsInUnderstandingHeader = document.getElementById('statsInUnderstandingHeader');
+            const statsInUnderstandingSubmenu = document.getElementById('statsInUnderstandingSubmenu');
+
+            const preprocessHeader = document.getElementById('preprocessHeader');
+            const preprocessContent = document.getElementById('preprocessContent');
+            const cleanHeader = document.getElementById('cleanHeader');
+            const cleanSubmenu = document.getElementById('cleanSubmenu');
+            const integrationHeader = document.getElementById('integrationHeader');
+            const integrationSubmenu = document.getElementById('integrationSubmenu');
+            const reductionHeader = document.getElementById('reductionHeader');
+            const reductionSubmenu = document.getElementById('reductionSubmenu');
+            const transformHeader = document.getElementById('transformHeader');
+            const transformSubmenu = document.getElementById('transformSubmenu');
+            const miningHeader = document.getElementById('miningHeader');
+            const miningContent = document.getElementById('miningContent');
+            const clusterHeader = document.getElementById('clusterHeader');
+            const clusterSubmenu = document.getElementById('clusterSubmenu');
+
+            function generateTabId() { return 'tab_' + (++tabIdCounter); }
+
+            // ========== 折叠菜单事件 ==========
+            understandingHeader.addEventListener('click', () => {
+                understandingContent.classList.toggle('open');
+                understandingHeader.classList.toggle('active');
+            });
+            preprocessHeader.addEventListener('click', () => {
+                preprocessContent.classList.toggle('open');
+                preprocessHeader.classList.toggle('active');
+            });
+            miningHeader.addEventListener('click', () => {
+                miningContent.classList.toggle('open');
+                miningHeader.classList.toggle('active');
+            });
+            cleanHeader.addEventListener('click', (e) => {
+                e.stopPropagation();
+                cleanSubmenu.style.display = cleanSubmenu.style.display === 'none' ? 'block' : 'none';
+            });
+            integrationHeader.addEventListener('click', (e) => {
+                e.stopPropagation();
+                integrationSubmenu.style.display = integrationSubmenu.style.display === 'none' ? 'block' :
+                    'none';
+            });
+            reductionHeader.addEventListener('click', (e) => {
+                e.stopPropagation();
+                reductionSubmenu.style.display = reductionSubmenu.style.display === 'none' ? 'block' : 'none';
+            });
+            transformHeader.addEventListener('click', (e) => {
+                e.stopPropagation();
+                transformSubmenu.style.display = transformSubmenu.style.display === 'none' ? 'block' : 'none';
+            });
+            clusterHeader.addEventListener('click', (e) => {
+                e.stopPropagation();
+                clusterSubmenu.style.display = clusterSubmenu.style.display === 'none' ? 'block' : 'none';
+            });
+            overviewHeader.addEventListener('click', (e) => {
+                e.stopPropagation();
+                overviewSubmenu.style.display = overviewSubmenu.style.display === 'none' ? 'block' : 'none';
+            });
+            statsInUnderstandingHeader.addEventListener('click', (e) => {
+                e.stopPropagation();
+                statsInUnderstandingSubmenu.style.display = statsInUnderstandingSubmenu.style.display === 'none' ? 'block' : 'none';
+            });
+
+            // ========== 数据描述（新标签页打开） ==========
+            function openDataDescription() {
+                const tab = tabs.find(t => t.id === activeTabId);
+                if (!tab) { alertModal('请先选择数据标签'); return; }
+                if (!tab.describe) { alertModal('无法获取数据描述'); return; }
+                const desc = tab.describe;
+                const columns = desc.columns;
+                const rowsData = [];
+                const dtypeRow = { '统计量': 'dtype' };
+                columns.forEach(c => dtypeRow[c] = desc.colTypes[c]);
+                rowsData.push(dtypeRow);
+                ['count', 'unique', 'top', 'freq', 'mean', 'std', 'min', '25%', '50%', '75%', 'max'].forEach(idx => {
+                    const row = { '统计量': idx };
+                    columns.forEach(c => {
+                        const v = desc.describeRows[idx][c];
+                        row[c] = v !== undefined && v !== null ? v : '';
+                    });
+                    rowsData.push(row);
+                });
+                addTab(tab.name + '_数据描述', rowsData);
+            }
+
+            // ========== PCA ==========
+            function openPCA() {
+                const tab = tabs.find(t => t.id === activeTabId);
+                if (!tab) { alertModal('请先选择数据标签'); return; }
+                const columns = tab.df.columns;
+                const numericCols = columns.filter(c => ['int64', 'float64'].includes(inferColumnTypeFromDf(tab.df,
+                    c)));
+                if (numericCols.length < 2) { alertModal('至少需要两个数值字段才能进行主成分分析'); return; }
+
+                const overlay = document.createElement('div');
+                overlay.className = 'modal-overlay';
+                const dialog = document.createElement('div');
+                dialog.className = 'modal-dialog';
+                let html = `<h3><i class="fas fa-chart-bar"></i> 主成分分析</h3>`;
+                html += `<div class="field-checkbox-group">`;
+                numericCols.forEach(c => {
+                    html +=
+                        `<label class="field-checkbox-label"><input type="checkbox" class="pca-field" value="${c}" checked> ${c}</label>`;
+                });
+                html += `</div>`;
+                html += `<div class="filter-input-group">
+                    <label>降维方式：</label>
+                    <select id="pcaMethod">
+                        <option value="variance">累计贡献率不低于</option>
+                        <option value="count">主成分数量</option>
+                    </select>
+                </div>`;
+                html += `<div id="pcaParamContainer"></div>`;
+                html +=
+                    `<div class="modal-btns"><button class="btn-secondary" id="cancelPCA">取消</button><button class="btn-primary" id="confirmPCA">开始分析</button></div>`;
+                dialog.innerHTML = html;
+                overlay.appendChild(dialog);
+                document.body.appendChild(overlay);
+
+                const methodSelect = dialog.querySelector('#pcaMethod');
+                const paramContainer = dialog.querySelector('#pcaParamContainer');
+
+                function updateParamInput() {
+                    const method = methodSelect.value;
+                    paramContainer.innerHTML = '';
+                    if (method === 'variance') {
+                        paramContainer.innerHTML = `
+                            <div class="filter-input-group">
+                                <label>累计贡献率（0~1）：</label>
+                                <input type="number" id="pcaVariance" min="0.5" max="1" step="0.05" value="0.95">
+                            </div>`;
+                    } else if (method === 'count') {
+                        const maxCount = numericCols.length;
+                        paramContainer.innerHTML = `
+                            <div class="filter-input-group">
+                                <label>主成分数量（1~${maxCount}）：</label>
+                                <input type="number" id="pcaCount" min="1" max="${maxCount}" value="2">
+                            </div>`;
+                    }
+                }
+                updateParamInput();
+                methodSelect.addEventListener('change', updateParamInput);
+
+                document.getElementById('cancelPCA').onclick = () => document.body.removeChild(overlay);
+                document.getElementById('confirmPCA').onclick = () => {
+                    const selectedFields = [...dialog.querySelectorAll('.pca-field:checked')].map(cb => cb.value);
+                    if (selectedFields.length < 2) { alertModal('请至少选择两个数值字段'); return; }
+                    const method = methodSelect.value;
+                    let nComponents, threshold;
+                    if (method === 'variance') {
+                        threshold = parseFloat(dialog.querySelector('#pcaVariance').value);
+                        if (isNaN(threshold) || threshold <= 0 || threshold > 1) {
+                            alertModal('请输入有效的累计贡献率(0~1)'); return;
+                        }
+                        nComponents = selectedFields.length;
+                    } else {
+                        nComponents = parseInt(dialog.querySelector('#pcaCount').value);
+                        if (isNaN(nComponents) || nComponents < 1 || nComponents > selectedFields.length) {
+                            alertModal(`主成分数量应在1~${selectedFields.length}之间`);
+                            return;
+                        }
+                    }
+                    document.body.removeChild(overlay);
+                    performPCA(tab, selectedFields, method, nComponents, threshold);
+                };
+            }
+
+            function performPCA(tab, selectedFields, method, nComponents, threshold) {
+                const data = dfToArray(tab.df);
+                const validData = data.map((row, idx) => ({ ...row, __originalIndex: idx }))
+                    .filter(row => selectedFields.every(f => row[f] !== null && row[f] !== undefined && row[f] !==
+                        '' && !isNaN(Number(row[f]))));
+                const usedRows = validData.length;
+                if (usedRows === 0) { alertModal('所选字段没有有效数值数据'); return; }
+
+                const numericMatrix = validData.map(row => selectedFields.map(f => Number(row[f])));
+                const means = selectedFields.map((_, i) => numericMatrix.reduce((sum, row) => sum + row[i], 0) /
+                    usedRows);
+                const stds = selectedFields.map((_, i) => {
+                    const variance = numericMatrix.reduce((sum, row) => sum + (row[i] - means[i]) ** 2, 0) / (
+                        usedRows - 1 || 1);
+                    return Math.sqrt(variance) || 1;
+                });
+                const standardizedMatrix = numericMatrix.map(row => row.map((val, i) => (val - means[i]) / stds[
+                    i]));
+
+                const pca = new ML.PCA(standardizedMatrix);
+                const explainedVariance = pca.getExplainedVariance();
+
+                let nComp;
+                if (method === 'variance') {
+                    let cumSum = 0;
+                    nComp = 0;
+                    for (let i = 0; i < explainedVariance.length; i++) {
+                        cumSum += explainedVariance[i];
+                        nComp++;
+                        if (cumSum >= threshold) break;
+                    }
+                    if (nComp === 0) nComp = 1;
+                } else {
+                    nComp = Math.min(nComponents, explainedVariance.length);
+                }
+
+                const fullProjections = pca.predict(standardizedMatrix);
+                const projections = fullProjections.to2DArray().map(row => row.slice(0, nComp));
+
+                const newData = data.map((row, rowIndex) => {
+                    const newRow = { ...row };
+                    const validIdx = validData.findIndex(v => v.__originalIndex === rowIndex);
+                    if (validIdx !== -1) {
+                        const proj = projections[validIdx] || new Array(nComp).fill(null);
+                        for (let i = 0; i < nComp; i++) {
+                            const variancePct = (explainedVariance[i] * 100).toFixed(2);
+                            newRow[`主成分${i + 1}_贡献率${variancePct}%`] = proj[i];
+                        }
+                    } else {
+                        for (let i = 0; i < nComp; i++) {
+                            const variancePct = (explainedVariance[i] * 100).toFixed(2);
+                            newRow[`主成分${i + 1}_贡献率${variancePct}%`] = null;
+                        }
+                    }
+                    return newRow;
+                });
+
+                addTab(tab.name + '_PCA', newData);
+            }
+
+            // ========== K-Means 聚类 ==========
+            function openKMeans() {
+                const tab = tabs.find(t => t.id === activeTabId);
+                if (!tab) { alertModal('请先选择数据标签'); return; }
+                const columns = tab.df.columns;
+                const numericCols = columns.filter(c => ['int64', 'float64'].includes(inferColumnTypeFromDf(tab.df,
+                    c)));
+                if (numericCols.length < 1) { alertModal('至少需要一个数值字段才能聚类'); return; }
+
+                const totalRows = tab.allData.length;
+                if (totalRows < 3) {
+                    alertModal('数据行数太少（少于3行），无法进行 K-Means 聚类分析。');
+                    return;
+                }
+
+                const overlay = document.createElement('div');
+                overlay.className = 'modal-overlay';
+                const dialog = document.createElement('div');
+                dialog.className = 'modal-dialog';
+                dialog.innerHTML = `
+                    <h3><i class="fas fa-dot-circle"></i> K-Means 聚类</h3>
+                    <div class="field-checkbox-group" id="kmeansFields">
+                        ${numericCols.map(c => `
+                            <label class="field-checkbox-label">
+                                <input type="checkbox" class="kmeans-field" value="${c}" checked> ${c}
+                            </label>`).join('')}
+                    </div>
+                    <div class="kmeans-config">
+                        <label>最小 k：</label>
+                        <input type="number" id="minK" value="2" min="1" max="20">
+                        <label>最大 k：</label>
+                        <input type="number" id="maxK" value="10" min="1" max="20">
+                        <button class="btn-primary" id="computeSSE">计算SSE并绘图</button>
+                    </div>
+                    <div id="sseChart"></div>
+                    <div class="kmeans-config">
+                        <label>聚类个数 k：</label>
+                        <input type="number" id="targetK" value="3" min="1" max="20">
+                    </div>
+                    <div class="modal-btns">
+                        <button class="btn-secondary" id="cancelKMeans">取消</button>
+                        <button class="btn-primary" id="confirmKMeans">执行聚类</button>
+                    </div>
+                `;
+                overlay.appendChild(dialog);
+                document.body.appendChild(overlay);
+
+                let chart = null;
+                let sseResults = [];
+
+                function getSelectedFields() {
+                    return [...dialog.querySelectorAll('.kmeans-field:checked')].map(cb => cb.value);
+                }
+
+                function getValidData(selectedFields) {
+                    const data = dfToArray(tab.df);
+                    const validData = [];
+                    const validIndices = [];
+                    data.forEach((row, idx) => {
+                        if (selectedFields.every(f => row[f] !== null && row[f] !== undefined && row[f] !==
+                            '' && !isNaN(Number(row[f])))) {
+                            validData.push(selectedFields.map(f => Number(row[f])));
+                            validIndices.push(idx);
+                        }
+                    });
+                    return { validData, validIndices };
+                }
+
+                document.getElementById('cancelKMeans').onclick = () => document.body.removeChild(overlay);
+
+                document.getElementById('computeSSE').onclick = async () => {
+                    const selectedFields = getSelectedFields();
+                    if (selectedFields.length === 0) { alertModal('请至少选择一个字段'); return; }
+                    const minK = parseInt(document.getElementById('minK').value);
+                    const maxK = parseInt(document.getElementById('maxK').value);
+                    if (isNaN(minK) || isNaN(maxK) || minK < 1 || maxK < minK || maxK > 20) {
+                        alertModal('请输入有效的 k 范围 (1-20)');
+                        return;
+                    }
+
+                    const { validData } = getValidData(selectedFields);
+                    if (validData.length < 2) {
+                        alertModal('有效数据行数太少（少于2行），无法计算 SSE。');
+                        return;
+                    }
+                    if (minK >= validData.length) {
+                        alertModal(`最小 k (${minK}) 必须小于有效数据行数 (${validData.length})。请减少 k 或提供更多数据。`);
+                        return;
+                    }
+
+                    sseResults = [];
+                    for (let k = minK; k <= maxK; k++) {
+                        if (k >= validData.length) break;
+                        try {
+                            const result = simpleKMeans(validData, k);
+                            sseResults.push({ k, sse: result.sse });
+                        } catch (e) {
+                            console.warn(`k=${k} 计算失败:`, e);
+                        }
+                    }
+
+                    if (sseResults.length === 0) {
+                        alertModal('没有计算出任何 SSE 值，请检查数据量或 k 范围。');
+                        return;
+                    }
+
+                    if (chart) chart.dispose();
+                    chart = echarts.init(document.getElementById('sseChart'));
+                    const option = {
+                        backgroundColor: 'transparent',
+                        title: { text: 'SSE vs K', left: 'center', textStyle: { color: '#cbd5e6', fontSize: 14 } },
+                        tooltip: { trigger: 'axis' },
+                        xAxis: { type: 'category', data: sseResults.map(d => d.k), axisLabel: { color: '#cbd5e6' } },
+                        yAxis: { type: 'value', axisLabel: { color: '#cbd5e6' } },
+                        series: [{
+                            data: sseResults.map(d => d.sse),
+                            type: 'line',
+                            smooth: false,  // 修改为 false，绘制直线
+                            lineStyle: { color: '#3b82f6' },
+                            itemStyle: { color: '#3b82f6' }
+                        }]
+                    };
+                    chart.setOption(option);
+                };
+
+                document.getElementById('confirmKMeans').onclick = () => {
+                    const selectedFields = getSelectedFields();
+                    if (selectedFields.length === 0) { alertModal('请至少选择一个字段'); return; }
+                    const k = parseInt(document.getElementById('targetK').value);
+                    if (isNaN(k) || k < 1 || k > 20) { alertModal('请输入有效的聚类个数(1-20)'); return; }
+
+                    const { validData, validIndices } = getValidData(selectedFields);
+                    if (validData.length < 2) {
+                        alertModal('有效数据行数太少，无法进行聚类。');
+                        return;
+                    }
+                    if (k >= validData.length) {
+                        alertModal(`聚类个数 k (${k}) 必须小于有效数据行数 (${validData.length})。`);
+                        return;
+                    }
+
+                    try {
+                        const result = simpleKMeans(validData, k);
+                        const labels = result.labels;
+
+                        const data = dfToArray(tab.df);
+                        const newData = data.map((row, idx) => {
+                            const newRow = { ...row };
+                            const pos = validIndices.indexOf(idx);
+                            newRow['聚类标签'] = pos !== -1 ? labels[pos] : null;
+                            return newRow;
+                        });
+
+                        addTab(tab.name + '_KMeans', newData);
+                        document.body.removeChild(overlay);
+                    } catch (e) {
+                        alertModal('聚类失败：' + e.message);
+                    }
+                };
+            }
+
+            // ========== 数据清洗 ==========
+            function showFieldSelector(title, actionCallback, extraOptions) {
+                const tab = tabs.find(t => t.id === activeTabId);
+                if (!tab) { alertModal('请先选择数据标签'); return; }
+                const columns = tab.df.columns;
+                if (columns.length === 0) { alertModal('数据为空'); return; }
+                const overlay = document.createElement('div');
+                overlay.className = 'modal-overlay';
+                const dialog = document.createElement('div');
+                dialog.className = 'modal-dialog';
+                let html = `<h3><i class="fas fa-tasks"></i> ${title}</h3><div class="field-checkbox-group">`;
+                columns.forEach(c => {
+                    html +=
+                        `<label class="field-checkbox-label"><input type="checkbox" class="field-check" value="${c}" checked> ${c}</label>`;
+                });
+                html += '</div>';
+                if (extraOptions && extraOptions.type === 'fillna') {
+                    html += `<div class="replace-input-group">
+                        <input type="text" id="fillValue" placeholder="替换值（留空则用统计值）" style="flex:2;">
+                        <label style="display:flex;gap:5px;"><input type="radio" name="fillType" value="value" checked> 值</label>
+                        <label style="display:flex;gap:5px;"><input type="radio" name="fillType" value="mean"> 均值</label>
+                        <label style="display:flex;gap:5px;"><input type="radio" name="fillType" value="median"> 中位数</label>
+                    </div>`;
+                }
+                html +=
+                    '<div class="modal-btns"><button class="btn-secondary" id="cancelModal">取消</button><button class="btn-primary" id="confirmModal">执行</button></div>';
+                dialog.innerHTML = html;
+                overlay.appendChild(dialog);
+                document.body.appendChild(overlay);
+                document.getElementById('cancelModal').onclick = () => document.body.removeChild(overlay);
+                document.getElementById('confirmModal').onclick = () => {
+                    const checked = [...dialog.querySelectorAll('.field-check:checked')].map(cb => cb.value);
+                    if (checked.length === 0) { alertModal('请至少选择一个字段'); return; }
+                    let fillValue = null,
+                        fillMethod = 'value';
+                    if (extraOptions && extraOptions.type === 'fillna') {
+                        fillValue = document.getElementById('fillValue').value;
+                        fillMethod = dialog.querySelector('input[name="fillType"]:checked').value;
+                    }
+                    document.body.removeChild(overlay);
+                    actionCallback(tab, checked, fillValue, fillMethod);
+                };
+            }
+
+            function dropMissing(tab, fields) {
+                const arr = dfToArray(tab.df);
+                const newData = arr.filter(row => fields.every(f => row[f] !== null && row[f] !== undefined &&
+                    row[f] !== ''));
+                addTab(tab.name + '删除缺失值', newData);
+            }
+
+            function fillMissing(tab, fields, fillValue, fillMethod) {
+                const arr = dfToArray(tab.df);
+                const newData = arr.map(row => {
+                    const nr = { ...row };
+                    fields.forEach(f => {
+                        if (nr[f] === null || nr[f] === undefined || nr[f] === '') {
+                            if (fillMethod === 'mean' || fillMethod === 'median') {
+                                const colData = arr.map(r => r[f]).filter(v => v !== null && v !==
+                                    undefined && v !== '').map(Number);
+                                if (colData.length) {
+                                    colData.sort((a, b) => a - b);
+                                    nr[f] = fillMethod === 'mean' ? round(colData.reduce((a, b) => a +
+                                        b, 0) / colData.length, 3) : percentile(colData, 50);
+                                } else nr[f] = fillValue || '';
+                            } else nr[f] = fillValue || '';
+                        }
+                    });
+                    return nr;
+                });
+                addTab(tab.name + '填补缺失值', newData);
+            }
+
+            function dropDuplicates(tab, fields) {
+                const arr = dfToArray(tab.df);
+                const seen = new Set();
+                const newData = [];
+                arr.forEach(row => {
+                    const key = fields.map(f => row[f]).join('|||');
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        newData.push(row);
+                    }
+                });
+                addTab(tab.name + '删除重复值', newData);
+            }
+
+            // ========== 数据归约 ==========
+            function openFieldSelection() {
+                const tab = tabs.find(t => t.id === activeTabId);
+                if (!tab) { alertModal('请先选择数据标签'); return; }
+                const columns = tab.df.columns;
+                const overlay = document.createElement('div');
+                overlay.className = 'modal-overlay';
+                const dialog = document.createElement('div');
+                dialog.className = 'modal-dialog';
+                let html =
+                    `<h3><i class="fas fa-check-square"></i> 字段选择</h3><div class="field-checkbox-group">`;
+                columns.forEach(c => {
+                    html +=
+                        `<label class="field-checkbox-label"><input type="checkbox" class="field-check" value="${c}" checked> ${c}</label>`;
+                });
+                html +=
+                    '</div><div class="modal-btns"><button class="btn-secondary" id="cancelFieldSelection">取消</button><button class="btn-primary" id="confirmFieldSelection">确定</button></div>';
+                dialog.innerHTML = html;
+                overlay.appendChild(dialog);
+                document.body.appendChild(overlay);
+                document.getElementById('cancelFieldSelection').onclick = () => document.body.removeChild(overlay);
+                document.getElementById('confirmFieldSelection').onclick = () => {
+                    const selected = [...dialog.querySelectorAll('.field-check:checked')].map(cb => cb.value);
+                    if (selected.length === 0) { alertModal('请至少选择一个字段'); return; }
+                    const arr = dfToArray(tab.df);
+                    const newData = arr.map(row => {
+                        const newRow = {};
+                        selected.forEach(f => newRow[f] = row[f]);
+                        return newRow;
+                    });
+                    addTab('字段选择', newData);
+                    document.body.removeChild(overlay);
+                };
+            }
+
+            function openSampling() {
+                const tab = tabs.find(t => t.id === activeTabId);
+                if (!tab) { alertModal('请先选择数据标签'); return; }
+                const total = tab.allData.length;
+                const overlay = document.createElement('div');
+                overlay.className = 'modal-overlay';
+                const dialog = document.createElement('div');
+                dialog.className = 'modal-dialog';
+                let html = `<h3><i class="fas fa-random"></i> 数据抽样</h3><p style="color:#8ba0c0;margin-bottom:15px;">当前数据共 ${total} 条。</p>`;
+                html +=
+                    `<div class="filter-input-group"><label>样本数量：</label><input type="number" id="sampleSize" min="1" max="${total}" value="${Math.min(100, total)}"></div>`;
+                html +=
+                    `<div class="filter-input-group"><label>抽样方式：</label><select id="sampleMethod"><option value="without">不放回抽样</option><option value="with">放回抽样</option></select></div>`;
+                html +=
+                    '<div class="modal-btns"><button class="btn-secondary" id="cancelSampling">取消</button><button class="btn-primary" id="confirmSampling">抽样</button></div>';
+                dialog.innerHTML = html;
+                overlay.appendChild(dialog);
+                document.body.appendChild(overlay);
+                document.getElementById('cancelSampling').onclick = () => document.body.removeChild(overlay);
+                document.getElementById('confirmSampling').onclick = () => {
+                    const size = parseInt(document.getElementById('sampleSize').value);
+                    const method = document.getElementById('sampleMethod').value;
+                    if (isNaN(size) || size <= 0) { alertModal('请输入有效数量'); return; }
+                    if (method === 'without' && size > total) { alertModal('不放回抽样不能超过总数'); return; }
+                    let newData = [];
+                    if (method === 'without') {
+                        const shuffled = [...tab.allData];
+                        for (let i = shuffled.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                        }
+                        newData = shuffled.slice(0, size);
+                    } else {
+                        for (let i = 0; i < size; i++) {
+                            newData.push(tab.allData[Math.floor(Math.random() * total)]);
+                        }
+                    }
+                    addTab('数据抽样', newData);
+                    document.body.removeChild(overlay);
+                };
+            }
+
+            function openValueFilter() {
+                const tab = tabs.find(t => t.id === activeTabId);
+                if (!tab) { alertModal('请先选择数据标签'); return; }
+                const columns = tab.df.columns;
+                const overlay = document.createElement('div');
+                overlay.className = 'modal-overlay';
+                const dialog = document.createElement('div');
+                dialog.className = 'modal-dialog';
+                let html = `<h3><i class="fas fa-filter"></i> 按值筛选</h3>`;
+                html +=
+                    `<div class="filter-input-group"><label>选择字段：</label><select id="filterField">${columns.map(c => `<option>${c}</option>`).join('')}</select></div>`;
+                html +=
+                    `<div class="filter-input-group"><label>筛选方式：</label><select id="filterOperator">${['等于', '不等于', '大于', '大于等于', '小于', '小于等于', '在...之间', '不在...之间', '以...开头', '以...结尾', '包含...', '不包含...'].map(op => `<option>${op}</option>`).join('')}</select></div>`;
+                html += `<div id="filterValueContainer"></div>`;
+                html +=
+                    '<div class="modal-btns"><button class="btn-secondary" id="cancelFilter">取消</button><button class="btn-primary" id="confirmFilter">筛选</button></div>';
+                dialog.innerHTML = html;
+                overlay.appendChild(dialog);
+                document.body.appendChild(overlay);
+                const operatorSelect = dialog.querySelector('#filterOperator');
+                const valueContainer = dialog.querySelector('#filterValueContainer');
+
+                function updateValueInputs() {
+                    const op = operatorSelect.value;
+                    valueContainer.innerHTML = '';
+                    if (op === '在...之间' || op === '不在...之间') {
+                        valueContainer.innerHTML =
+                            `<div class="filter-input-group"><label>最小值：</label><input type="text" id="filterVal1"><label>最大值：</label><input type="text" id="filterVal2"></div>`;
+                    } else {
+                        valueContainer.innerHTML =
+                            `<div class="filter-input-group"><label>值：</label><input type="text" id="filterVal"></div>`;
+                    }
+                }
+                updateValueInputs();
+                operatorSelect.addEventListener('change', updateValueInputs);
+                document.getElementById('cancelFilter').onclick = () => document.body.removeChild(overlay);
+                document.getElementById('confirmFilter').onclick = () => {
+                    const field = dialog.querySelector('#filterField').value;
+                    const operator = operatorSelect.value;
+                    let val1, val2;
+                    if (operator === '在...之间' || operator === '不在...之间') {
+                        val1 = dialog.querySelector('#filterVal1').value;
+                        val2 = dialog.querySelector('#filterVal2').value;
+                        if (val1 === '' || val2 === '') { alertModal('请输入两个边界值'); return; }
+                    } else {
+                        val1 = dialog.querySelector('#filterVal')?.value;
+                        if (val1 === undefined) val1 = '';
+                    }
+                    const arr = dfToArray(tab.df);
+                    const newData = arr.filter(row => {
+                        const cell = row[field];
+                        const cellStr = (cell === null || cell === undefined) ? '' : String(cell);
+                        const cellNum = Number(cell);
+                        const isNum = !isNaN(cellNum) && cell !== '' && cell !== null;
+                        switch (operator) {
+                            case '等于': return cellStr === val1;
+                            case '不等于': return cellStr !== val1;
+                            case '大于': return isNum && cellNum > Number(val1);
+                            case '大于等于': return isNum && cellNum >= Number(val1);
+                            case '小于': return isNum && cellNum < Number(val1);
+                            case '小于等于': return isNum && cellNum <= Number(val1);
+                            case '在...之间': return isNum && cellNum >= Number(val1) && cellNum <= Number(val2);
+                            case '不在...之间': return !(isNum && cellNum >= Number(val1) && cellNum <= Number(val2));
+                            case '以...开头': return cellStr.startsWith(val1);
+                            case '以...结尾': return cellStr.endsWith(val1);
+                            case '包含...': return cellStr.includes(val1);
+                            case '不包含...': return !cellStr.includes(val1);
+                            default: return true;
+                        }
+                    });
+                    addTab('按值筛选', newData);
+                    document.body.removeChild(overlay);
+                };
+            }
+
+            // ========== 数据集成 ==========
+            function openMergeModal() {
+                if (tabs.length < 2) { alertModal('至少需要两个标签才能进行连接操作。'); return; }
+                const overlay = document.createElement('div');
+                overlay.className = 'modal-overlay';
+                const dialog = document.createElement('div');
+                dialog.className = 'modal-dialog';
+                let html = `<h3><i class="fas fa-link"></i> 数据连接</h3>`;
+                html +=
+                    `<div style="display:flex;gap:15px;flex-wrap:wrap;margin-bottom:15px;"><div><label style="color:#cbd5e6;font-size:0.85rem;">连接方式：</label><select id="joinType"><option value="left">左外连接</option><option value="right">右外连接</option><option value="full">全外连接</option><option value="inner">内连接</option></select></div></div>`;
+                html +=
+                    `<div style="display:flex;gap:15px;flex-wrap:wrap;margin-bottom:15px;"><div><label style="color:#cbd5e6;font-size:0.85rem;">左表：</label><select id="leftTableSelect">${tabs.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}</select></div><div><label style="color:#cbd5e6;font-size:0.85rem;">右表：</label><select id="rightTableSelect">${tabs.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}</select></div></div>`;
+                html +=
+                    `<div style="margin-top:15px;color:#cbd5e6;font-size:0.85rem;"><strong>连接字段：</strong></div>`;
+                html += `<div id="joinFieldsContainer"></div>`;
+                html +=
+                    `<button class="add-join-btn" id="addJoinField"><i class="fas fa-plus-circle"></i> 添加连接字段</button>`;
+                html +=
+                    '<div class="modal-btns"><button class="btn-secondary" id="cancelMerge">取消</button><button class="btn-primary" id="confirmMerge">执行连接</button></div>';
+                dialog.innerHTML = html;
+                overlay.appendChild(dialog);
+                document.body.appendChild(overlay);
+                const leftSelect = dialog.querySelector('#leftTableSelect');
+                const rightSelect = dialog.querySelector('#rightTableSelect');
+                const joinFieldsContainer = dialog.querySelector('#joinFieldsContainer');
+
+                function updateFieldOptions() {
+                    const leftTab = tabs.find(t => t.id === leftSelect.value);
+                    const rightTab = tabs.find(t => t.id === rightSelect.value);
+                    if (!leftTab || !rightTab) return;
+                    const leftCols = leftTab.df.columns;
+                    const rightCols = rightTab.df.columns;
+                    const rows = joinFieldsContainer.querySelectorAll('.join-config-row');
+                    rows.forEach(row => {
+                        const leftSel = row.querySelector('.left-field');
+                        const rightSel = row.querySelector('.right-field');
+                        const prevLeft = leftSel.value,
+                            prevRight = rightSel.value;
+                        leftSel.innerHTML = leftCols.map(c =>
+                            `<option value="${c}" ${c === prevLeft ? 'selected' : ''}>${c}</option>`).join('');
+                        rightSel.innerHTML = rightCols.map(c =>
+                            `<option value="${c}" ${c === prevRight ? 'selected' : ''}>${c}</option>`).join('');
+                    });
+                }
+
+                function addJoinRow() {
+                    const leftTab = tabs.find(t => t.id === leftSelect.value);
+                    const rightTab = tabs.find(t => t.id === rightSelect.value);
+                    if (!leftTab || !rightTab) return;
+                    const leftCols = leftTab.df.columns;
+                    const rightCols = rightTab.df.columns;
+                    const row = document.createElement('div');
+                    row.className = 'join-config-row';
+                    row.innerHTML =
+                        `<select class="left-field">${leftCols.map(c => `<option>${c}</option>`).join('')}</select><span style="color:#60a5fa;">=</span><select class="right-field">${rightCols.map(c => `<option>${c}</option>`).join('')}</select><button class="remove-join-btn"><i class="fas fa-times"></i></button>`;
+                    row.querySelector('.remove-join-btn').addEventListener('click', () => row.remove());
+                    joinFieldsContainer.appendChild(row);
+                }
+                addJoinRow();
+                leftSelect.addEventListener('change', updateFieldOptions);
+                rightSelect.addEventListener('change', updateFieldOptions);
+                dialog.querySelector('#addJoinField').addEventListener('click', addJoinRow);
+                document.getElementById('cancelMerge').onclick = () => document.body.removeChild(overlay);
+                document.getElementById('confirmMerge').onclick = () => {
+                    const joinType = dialog.querySelector('#joinType').value;
+                    const leftTab = tabs.find(t => t.id === leftSelect.value);
+                    const rightTab = tabs.find(t => t.id === rightSelect.value);
+                    if (!leftTab || !rightTab) { alertModal('请选择表'); return; }
+                    const joinKeys = [];
+                    const rows = joinFieldsContainer.querySelectorAll('.join-config-row');
+                    rows.forEach(row => {
+                        const lf = row.querySelector('.left-field').value,
+                            rf = row.querySelector('.right-field').value;
+                        joinKeys.push({ left: lf, right: rf });
+                    });
+                    if (joinKeys.length === 0) { alertModal('请至少设置一个连接字段'); return; }
+                    const result = performMergeWithDf(leftTab.df, rightTab.df, joinKeys, joinType);
+                    const name = (joinType === 'left' ? '左外连接' : joinType === 'right' ? '右外连接' :
+                        joinType === 'full' ? '全外连接' : '内连接') + '结果';
+                    addTab(name, result);
+                    document.body.removeChild(overlay);
+                };
+            }
+
+            function performMergeWithDf(leftDf, rightDf, joinKeys, joinType) {
+                const leftArr = dfToArray(leftDf);
+                const rightArr = dfToArray(rightDf);
+
+                function keyOf(row, keys) { return keys.map(k => row[k]).join('|||'); }
+                const leftMap = new Map();
+                leftArr.forEach(row => {
+                    const key = keyOf(row, joinKeys.map(k => k.left));
+                    if (!leftMap.has(key)) leftMap.set(key, []);
+                    leftMap.get(key).push(row);
+                });
+                const rightMap = new Map();
+                rightArr.forEach(row => {
+                    const key = keyOf(row, joinKeys.map(k => k.right));
+                    if (!rightMap.has(key)) rightMap.set(key, []);
+                    rightMap.get(key).push(row);
+                });
+                let result = [];
+                const allLeftKeys = new Set(leftMap.keys());
+                const allRightKeys = new Set(rightMap.keys());
+                if (joinType === 'inner') {
+                    allLeftKeys.forEach(key => {
+                        if (rightMap.has(key)) {
+                            leftMap.get(key).forEach(lRow => {
+                                rightMap.get(key).forEach(rRow => result.push({
+                                    ...lRow,
+                                    ...rRow
+                                }));
+                            });
+                        }
+                    });
+                } else if (joinType === 'left') {
+                    allLeftKeys.forEach(key => {
+                        const lRows = leftMap.get(key) || [];
+                        const rRows = rightMap.get(key) || [null];
+                        lRows.forEach(lRow => rRows.forEach(rRow => result.push({
+                            ...lRow, ...(rRow ||
+                                {})
+                        })));
+                    });
+                } else if (joinType === 'right') {
+                    allRightKeys.forEach(key => {
+                        const rRows = rightMap.get(key) || [];
+                        const lRows = leftMap.get(key) || [null];
+                        rRows.forEach(rRow => lRows.forEach(lRow => result.push({
+                            ...(lRow || {}),
+                            ...rRow
+                        })));
+                    });
+                } else if (joinType === 'full') {
+                    const allKeys = new Set([...allLeftKeys, ...allRightKeys]);
+                    allKeys.forEach(key => {
+                        const lRows = leftMap.get(key) || [null];
+                        const rRows = rightMap.get(key) || [null];
+                        lRows.forEach(lRow => rRows.forEach(rRow => result.push({
+                            ...(lRow || {}),
+                            ...(rRow || {})
+                        })));
+                    });
+                }
+                return result;
+            }
+
+            function openConcatModal() {
+                if (tabs.length < 2) { alertModal('至少需要两个标签才能进行合并操作。'); return; }
+                const overlay = document.createElement('div');
+                overlay.className = 'modal-overlay';
+                const dialog = document.createElement('div');
+                dialog.className = 'modal-dialog';
+                let html = `<h3><i class="fas fa-object-group"></i> 数据合并（上下拼接）</h3>`;
+                html +=
+                    `<p style="margin-bottom:15px;color:#8ba0c0;font-size:0.85rem;">选择两个表进行合并，可指定字段对应关系，未映射字段保留但缺失值填null。</p>`;
+                html +=
+                    `<div style="display:flex;gap:15px;flex-wrap:wrap;margin-bottom:15px;"><div><label style="color:#cbd5e6;font-size:0.85rem;">上表：</label><select id="concatTopTable">${tabs.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}</select></div><div><label style="color:#cbd5e6;font-size:0.85rem;">下表：</label><select id="concatBottomTable">${tabs.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}</select></div></div>`;
+                html +=
+                    `<div style="margin-top:15px;color:#cbd5e6;font-size:0.85rem;"><strong>字段对应关系：</strong></div>`;
+                html += `<div id="concatFieldMappingContainer"></div>`;
+                html +=
+                    `<button class="add-join-btn" id="addFieldMapping"><i class="fas fa-plus-circle"></i> 添加字段对应</button>`;
+                html +=
+                    '<div class="modal-btns"><button class="btn-secondary" id="cancelConcat">取消</button><button class="btn-primary" id="confirmConcat">执行合并</button></div>';
+                dialog.innerHTML = html;
+                overlay.appendChild(dialog);
+                document.body.appendChild(overlay);
+                const topSelect = dialog.querySelector('#concatTopTable');
+                const bottomSelect = dialog.querySelector('#concatBottomTable');
+                const mappingContainer = dialog.querySelector('#concatFieldMappingContainer');
+
+                function updateMappingFields() {
+                    const topTab = tabs.find(t => t.id === topSelect.value);
+                    const bottomTab = tabs.find(t => t.id === bottomSelect.value);
+                    if (!topTab || !bottomTab) return;
+                    const topCols = topTab.df.columns;
+                    const bottomCols = bottomTab.df.columns;
+                    const rows = mappingContainer.querySelectorAll('.join-config-row');
+                    rows.forEach(row => {
+                        const topSel = row.querySelector('.top-field');
+                        const bottomSel = row.querySelector('.bottom-field');
+                        const prevTop = topSel.value,
+                            prevBottom = bottomSel.value;
+                        topSel.innerHTML = topCols.map(c =>
+                            `<option value="${c}" ${c === prevTop ? 'selected' : ''}>${c}</option>`).join('');
+                        bottomSel.innerHTML = bottomCols.map(c =>
+                            `<option value="${c}" ${c === prevBottom ? 'selected' : ''}>${c}</option>`).join('');
+                    });
+                }
+
+                function addMappingRow() {
+                    const topTab = tabs.find(t => t.id === topSelect.value);
+                    const bottomTab = tabs.find(t => t.id === bottomSelect.value);
+                    if (!topTab || !bottomTab) return;
+                    const topCols = topTab.df.columns;
+                    const bottomCols = bottomTab.df.columns;
+                    const row = document.createElement('div');
+                    row.className = 'join-config-row';
+                    row.innerHTML =
+                        `<select class="top-field">${topCols.map(c => `<option>${c}</option>`).join('')}</select><span style="color:#60a5fa;">↔</span><select class="bottom-field">${bottomCols.map(c => `<option>${c}</option>`).join('')}</select><button class="remove-mapping-btn"><i class="fas fa-times"></i></button>`;
+                    row.querySelector('.remove-mapping-btn').addEventListener('click', () => row.remove());
+                    mappingContainer.appendChild(row);
+                }
+                addMappingRow();
+                topSelect.addEventListener('change', updateMappingFields);
+                bottomSelect.addEventListener('change', updateMappingFields);
+                dialog.querySelector('#addFieldMapping').addEventListener('click', addMappingRow);
+                document.getElementById('cancelConcat').onclick = () => document.body.removeChild(overlay);
+                document.getElementById('confirmConcat').onclick = () => {
+                    const topTab = tabs.find(t => t.id === topSelect.value);
+                    const bottomTab = tabs.find(t => t.id === bottomSelect.value);
+                    if (!topTab || !bottomTab) { alertModal('请选择表'); return; }
+                    const mappings = [];
+                    const rows = mappingContainer.querySelectorAll('.join-config-row');
+                    rows.forEach(row => {
+                        const tf = row.querySelector('.top-field').value,
+                            bf = row.querySelector('.bottom-field').value;
+                        mappings.push({ top: tf, bottom: bf });
+                    });
+                    const result = performConcatWithMapping(topTab.allData, bottomTab.allData, mappings);
+                    addTab('合并结果', result);
+                    document.body.removeChild(overlay);
+                };
+            }
+
+            function performConcatWithMapping(topData, bottomData, mappings) {
+                const topCols = topData.length ? Object.keys(topData[0]) : [];
+                const bottomCols = bottomData.length ? Object.keys(bottomData[0]) : [];
+                const mappedTopFields = new Set(mappings.map(m => m.top));
+                const mappedBottomFields = new Set(mappings.map(m => m.bottom));
+                const topOnlyCols = topCols.filter(c => !mappedTopFields.has(c));
+                const bottomOnlyCols = bottomCols.filter(c => !mappedBottomFields.has(c));
+                const topOnlySet = new Set(topOnlyCols);
+                const bottomOnlyFinal = bottomOnlyCols.map(c => topOnlySet.has(c) ? c + '_下表' : c);
+                const finalCols = [];
+                mappings.forEach(m => finalCols.push(m.top));
+                topOnlyCols.forEach(c => finalCols.push(c));
+                bottomOnlyFinal.forEach(c => finalCols.push(c));
+                const used = new Set();
+                const uniqueCols = finalCols.map(col => {
+                    let name = col,
+                        i = 2;
+                    while (used.has(name)) { name = col + '_' + i++; }
+                    used.add(name);
+                    return name;
+                });
+                const result = [];
+                topData.forEach(row => {
+                    const newRow = {};
+                    mappings.forEach((m, idx) => { newRow[uniqueCols[idx]] = row[m.top]; });
+                    topOnlyCols.forEach((col, idx) => {
+                        newRow[uniqueCols[mappings.length + idx]] = row[
+                            col];
+                    });
+                    bottomOnlyFinal.forEach((col, idx) => {
+                        newRow[uniqueCols[mappings.length + topOnlyCols.length + idx]] = null;
+                    });
+                    result.push(newRow);
+                });
+                bottomData.forEach(row => {
+                    const newRow = {};
+                    mappings.forEach((m, idx) => { newRow[uniqueCols[idx]] = row[m.bottom]; });
+                    topOnlyCols.forEach((col, idx) => { newRow[uniqueCols[mappings.length + idx]] = null; });
+                    bottomOnlyFinal.forEach((col, idx) => {
+                        const originalCol = bottomOnlyCols[idx];
+                        newRow[uniqueCols[mappings.length + topOnlyCols.length + idx]] = row[
+                            originalCol];
+                    });
+                    result.push(newRow);
+                });
+                return result;
+            }
+
+            // ========== 数据变换 ==========
+            function selectNumericField(callback, title = '选择数值字段') {
+                const tab = tabs.find(t => t.id === activeTabId);
+                if (!tab) { alertModal('请先选择数据标签'); return; }
+                const columns = tab.df.columns;
+                const numericCols = columns.filter(c => ['int64', 'float64'].includes(inferColumnTypeFromDf(tab.df,
+                    c)));
+                if (numericCols.length === 0) { alertModal('没有数值字段'); return; }
+                const overlay = document.createElement('div');
+                overlay.className = 'modal-overlay';
+                const dialog = document.createElement('div');
+                dialog.className = 'modal-dialog';
+                let html = `<h3><i class="fas fa-list"></i> ${title}</h3><div class="field-checkbox-group">`;
+                numericCols.forEach(c => {
+                    html +=
+                        `<label class="field-checkbox-label"><input type="radio" name="numField" value="${c}"> ${c}</label>`;
+                });
+                html +=
+                    '</div><div class="modal-btns"><button class="btn-secondary" id="cancelNum">取消</button><button class="btn-primary" id="confirmNum">确定</button></div>';
+                dialog.innerHTML = html;
+                overlay.appendChild(dialog);
+                document.body.appendChild(overlay);
+                document.getElementById('cancelNum').onclick = () => document.body.removeChild(overlay);
+                document.getElementById('confirmNum').onclick = () => {
+                    const selected = dialog.querySelector('input[name="numField"]:checked');
+                    if (!selected) { alertModal('请选择一个字段'); return; }
+                    document.body.removeChild(overlay);
+                    callback(selected.value);
+                };
+            }
+
+            function normalize(field, range) {
+                const tab = tabs.find(t => t.id === activeTabId);
+                const data = dfToArray(tab.df);
+                const values = data.map(r => Number(r[field])).filter(v => !isNaN(v));
+                const minVal = Math.min(...values),
+                    maxVal = Math.max(...values);
+                const newData = data.map(row => {
+                    const newRow = { ...row };
+                    const val = Number(row[field]);
+                    if (isNaN(val)) newRow[field + '_归一化'] = null;
+                    else if (range === '0to1') newRow[field + '_归一化'] = (val - minVal) / (maxVal - minVal);
+                    else if (range === '-1to1') newRow[field + '_归一化'] = 2 * (val - minVal) / (maxVal - minVal) -
+                        1;
+                    return newRow;
+                });
+                addTab(tab.name + '归一化', newData);
+            }
+
+            function standardize(field) {
+                const tab = tabs.find(t => t.id === activeTabId);
+                const data = dfToArray(tab.df);
+                const values = data.map(r => Number(r[field])).filter(v => !isNaN(v));
+                const mean = values.reduce((a, b) => a + b, 0) / values.length;
+                const variance = values.reduce((acc, v) => acc + (v - mean) ** 2, 0) / (values.length - 1 || 1);
+                const std = Math.sqrt(variance);
+                const newData = data.map(row => {
+                    const newRow = { ...row };
+                    const val = Number(row[field]);
+                    newRow[field + '_标准化'] = isNaN(val) ? null : (val - mean) / std;
+                    return newRow;
+                });
+                addTab(tab.name + '标准化', newData);
+            }
+
+            function normalizeSum(field) {
+                const tab = tabs.find(t => t.id === activeTabId);
+                const data = dfToArray(tab.df);
+                const values = data.map(r => Number(r[field])).filter(v => !isNaN(v) && v >= 0);
+                if (values.length === 0) { alertModal('该字段没有非负值'); return; }
+                const sum = values.reduce((a, b) => a + b, 0);
+                if (sum === 0) { alertModal('总和为0，无法规范化'); return; }
+                const newData = data.map(row => {
+                    const newRow = { ...row };
+                    const val = Number(row[field]);
+                    newRow[field + '_规范化'] = (isNaN(val) || val < 0) ? null : val / sum;
+                    return newRow;
+                });
+                addTab(tab.name + '规范化', newData);
+            }
+
+            function splitField(field, separator) {
+                const tab = tabs.find(t => t.id === activeTabId);
+                const data = dfToArray(tab.df);
+                const newData = data.map(row => {
+                    const newRow = { ...row };
+                    const str = String(row[field] ?? '');
+                    const idx = str.indexOf(separator);
+                    if (idx === -1) {
+                        newRow[field + '_左'] = str;
+                        newRow[field + '_右'] = '';
+                    } else {
+                        newRow[field + '_左'] = str.substring(0, idx);
+                        newRow[field + '_右'] = str.substring(idx + separator.length);
+                    }
+                    return newRow;
+                });
+                addTab(tab.name + '字段分割', newData);
+            }
+
+            function replaceValue(field, oldStr, newStr) {
+                const tab = tabs.find(t => t.id === activeTabId);
+                const data = dfToArray(tab.df);
+                const newData = data.map(row => {
+                    const newRow = { ...row };
+                    const cell = String(row[field] ?? '');
+                    newRow[field + '_替换'] = cell.split(oldStr).join(newStr);
+                    return newRow;
+                });
+                addTab(tab.name + '属性替换', newData);
+            }
+
+            function oneHot(field) {
+                const tab = tabs.find(t => t.id === activeTabId);
+                const data = dfToArray(tab.df);
+                const uniqueVals = [...new Set(data.map(r => String(r[field] ?? '')))];
+                const newData = data.map(row => {
+                    const newRow = { ...row };
+                    uniqueVals.forEach(val => {
+                        newRow[field + '_' + val] = (String(row[field] ?? '') === val) ? 1 : 0;
+                    });
+                    return newRow;
+                });
+                addTab(tab.name + '独热编码', newData);
+            }
+
+            // ========== 渲染函数 ==========
+            function updateRecordCount(tab) {
+                if (!tab) { recordCount.textContent = ''; return; }
+                const total = tab.allData.length;
+                const shown = tab.showingAll ? total : Math.min(20, total);
+                recordCount.textContent = `(共 ${total} 条 · 显示 ${shown} 条)`;
+            }
+
+            function renderTable(tab) {
+                if (!tab) {
+                    dataTableWrapper.style.display = 'none';
+                    emptyMessage.style.display = 'flex';
+                    emptyMessage.innerHTML = '<i class="fas fa-file-import"></i><span>请上传文件</span>';
+                    updateRecordCount(null);
+                    return;
+                }
+                const data = tab.showingAll ? tab.allData : tab.allData.slice(0, 20);
+                if (!data || data.length === 0) {
+                    dataTableWrapper.style.display = 'none';
+                    emptyMessage.style.display = 'flex';
+                    emptyMessage.innerHTML = '<i class="fas fa-exclamation-circle"></i><span>数据为空</span>';
+                    updateRecordCount(tab);
+                    return;
+                }
+                emptyMessage.style.display = 'none';
+                dataTableWrapper.style.display = 'block';
+                const columns = Object.keys(data[0]);
+                let html = '<table><thead><tr><th style="width:50px;">#</th>';
+                columns.forEach(c => html += `<th>${c}</th>`);
+                html += '</tr></thead><tbody>';
+                data.forEach((row, i) => {
+                    html += `<tr><td style="color:#8ba0c0;">${i + 1}</td>`;
+                    columns.forEach(c => {
+                        let v = row[c];
+                        if (v === null || v === undefined) v = '';
+                        html += `<td>${v}</td>`;
+                    });
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                dataTableWrapper.innerHTML = html;
+                updateRecordCount(tab);
+            }
+
+            function updateToggleButton(tab) {
+                if (!tab) {
+                    toggleAllBtn.innerHTML = '<i class="fas fa-expand"></i> 展示全部';
+                    toggleAllBtn.classList.remove('active');
+                    return;
+                }
+                if (tab.showingAll) {
+                    toggleAllBtn.innerHTML = '<i class="fas fa-compress"></i> 仅显示前20条';
+                    toggleAllBtn.classList.add('active');
+                } else {
+                    toggleAllBtn.innerHTML = '<i class="fas fa-expand"></i> 展示全部';
+                    toggleAllBtn.classList.remove('active');
+                }
+            }
+
+            function setActiveTab(tabId) {
+                activeTabId = tabId;
+                document.querySelectorAll('.tab').forEach(el => el.classList.toggle('active', el.dataset.id ===
+                    tabId));
+                const tab = tabs.find(t => t.id === tabId);
+                renderTable(tab);
+                updateToggleButton(tab);
+                if (tab) {
+                    activeTabTitle.innerHTML = `<i class="fas fa-table"></i> ${tab.name}`;
+                } else {
+                    activeTabTitle.innerHTML = '<i class="fas fa-table"></i> 请选择数据';
+                }
+            }
+
+            function renderTabBar() {
+                tabBar.innerHTML = '';
+                tabs.forEach(tab => {
+                    const el = document.createElement('div');
+                    el.className = 'tab' + (tab.id === activeTabId ? ' active' : '');
+                    el.dataset.id = tab.id;
+                    el.draggable = true;
+                    const label = document.createElement('span');
+                    label.className = 'tab-label';
+                    label.textContent = tab.name;
+                    label.title = '双击修改标签名';
+                    const closeBtn = document.createElement('button');
+                    closeBtn.className = 'close-tab';
+                    closeBtn.innerHTML = '<i class="fas fa-times"></i>';
+                    el.appendChild(label);
+                    el.appendChild(closeBtn);
+                    el.addEventListener('click', e => {
+                        if (e.target.closest('.close-tab')) return;
+                        setActiveTab(tab.id);
+                    });
+                    closeBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        const confirmed = await confirmModal(`关闭后数据会消失，确定关闭 "${tab.name}" 吗？`,
+                            '确认关闭');
+                        if (confirmed) closeTab(tab.id);
+                    });
+                    el.addEventListener('dblclick', async (e) => {
+                        if (e.target.closest('.close-tab')) return;
+                        e.preventDefault();
+                        const newName = await promptModal('请输入新的标签名：', tab.name, '修改标签名');
+                        if (newName && newName.trim()) {
+                            tab.name = newName.trim();
+                            renderTabBar();
+                            if (tab.id === activeTabId) {
+                                activeTabTitle.innerHTML = `<i class="fas fa-table"></i> ${tab.name}`;
+                            }
+                        }
+                    });
+                    el.addEventListener('dragstart', e => {
+                        e.dataTransfer.setData('text/plain', tab.id);
+                        el.classList.add('dragging');
+                    });
+                    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+                    el.addEventListener('dragover', e => e.preventDefault());
+                    el.addEventListener('drop', e => {
+                        e.preventDefault();
+                        const sid = e.dataTransfer.getData('text/plain');
+                        if (sid && sid !== tab.id) reorderTabs(sid, tab.id);
+                    });
+                    tabBar.appendChild(el);
+                });
+            }
+
+            function closeTab(tabId) {
+                const idx = tabs.findIndex(t => t.id === tabId);
+                if (idx === -1) return;
+                tabs.splice(idx, 1);
+                if (activeTabId === tabId) {
+                    if (tabs.length) setActiveTab(tabs[0].id);
+                    else {
+                        activeTabId = null;
+                        dataTableWrapper.style.display = 'none';
+                        emptyMessage.style.display = 'flex';
+                        emptyMessage.innerHTML = '<i class="fas fa-file-import"></i><span>请上传文件</span>';
+                        activeTabTitle.innerHTML = '<i class="fas fa-table"></i> 请选择数据';
+                        recordCount.textContent = '';
+                    }
+                }
+                renderTabBar();
+            }
+
+            function reorderTabs(sid, tid) {
+                const si = tabs.findIndex(t => t.id === sid),
+                    ti = tabs.findIndex(t => t.id === tid);
+                if (si === -1 || ti === -1 || si === ti) return;
+                const [m] = tabs.splice(si, 1);
+                tabs.splice(ti, 0, m);
+                renderTabBar();
+            }
+
+            function addTab(name, allData) {
+                const df = arrayToDf(allData);
+                const t = {
+                    id: generateTabId(),
+                    name,
+                    df: df,
+                    allData: allData,
+                    showingAll: false,
+                    describe: computeDescribeWithDf(df)
+                };
+                tabs.push(t);
+                renderTabBar();
+                setActiveTab(t.id);
+            }
+
+            // ========== 菜单动作绑定 ==========
+            document.querySelectorAll('.submenu-item[data-action]').forEach(item => {
+                item.addEventListener('click', () => {
+                    const action = item.dataset.action;
+                    if (action === 'describe') openDataDescription();
+                    else if (action === 'dropna') showFieldSelector('删除缺失值', dropMissing);
+                    else if (action === 'fillna') showFieldSelector('填补缺失值', fillMissing, { type: 'fillna' });
+                    else if (action === 'dropduplicates') showFieldSelector('删除重复值', dropDuplicates);
+                    else if (action === 'merge') openMergeModal();
+                    else if (action === 'concat') openConcatModal();
+                    else if (action === 'select_fields') openFieldSelection();
+                    else if (action === 'pca') openPCA();
+                    else if (action === 'sample_data') openSampling();
+                    else if (action === 'filter_by_value') openValueFilter();
+                    else if (action === 'kmeans') openKMeans();
+                    else if (action === 'groupby') openGroupBy();
+                    else if (action === 'normalize') {
+                        selectNumericField((field) => {
+                            const overlay = document.createElement('div');
+                            overlay.className = 'modal-overlay';
+                            const dialog = document.createElement('div');
+                            dialog.className = 'modal-dialog';
+                            dialog.innerHTML =
+                                `<h3><i class="fas fa-chart-line"></i> 归一化范围</h3><div class="filter-input-group"><label>选择范围：</label><select id="normRange"><option value="0to1">0~1</option><option value="-1to1">-1~1</option></select></div><div class="modal-btns"><button class="btn-secondary" id="cancelNormRange">取消</button><button class="btn-primary" id="confirmNormRange">确定</button></div>`;
+                            overlay.appendChild(dialog);
+                            document.body.appendChild(overlay);
+                            document.getElementById('cancelNormRange').onclick = () => document.body
+                                .removeChild(overlay);
+                            document.getElementById('confirmNormRange').onclick = () => {
+                                const range = dialog.querySelector('#normRange').value;
+                                document.body.removeChild(overlay);
+                                normalize(field, range);
+                            };
+                        }, '选择要归一化的字段');
+                    } else if (action === 'standardize') selectNumericField((field) => standardize(field),
+                        '选择要标准化的字段');
+                    else if (action === 'normalize_sum') selectNumericField((field) => normalizeSum(field),
+                        '选择要规范化的字段');
+                    else if (action === 'split_field') {
+                        const tab = tabs.find(t => t.id === activeTabId);
+                        if (!tab) { alertModal('请先选择数据标签'); return; }
+                        const columns = tab.df.columns;
+                        const overlay = document.createElement('div');
+                        overlay.className = 'modal-overlay';
+                        const dialog = document.createElement('div');
+                        dialog.className = 'modal-dialog';
+                        let html =
+                            `<h3><i class="fas fa-cut"></i> 字段分割</h3><div class="filter-input-group"><label>选择字段：</label><select id="splitField">${columns.map(c => `<option>${c}</option>`).join('')}</select></div>`;
+                        html +=
+                            `<div class="filter-input-group"><label>分隔符：</label><input type="text" id="splitSeparator" value=","></div>`;
+                        html +=
+                            '<div class="modal-btns"><button class="btn-secondary" id="cancelSplit">取消</button><button class="btn-primary" id="confirmSplit">分割</button></div>';
+                        dialog.innerHTML = html;
+                        overlay.appendChild(dialog);
+                        document.body.appendChild(overlay);
+                        document.getElementById('cancelSplit').onclick = () => document.body.removeChild(
+                            overlay);
+                        document.getElementById('confirmSplit').onclick = () => {
+                            const field = dialog.querySelector('#splitField').value,
+                                sep = dialog.querySelector('#splitSeparator').value;
+                            if (sep === '') { alertModal('请输入分隔符'); return; }
+                            document.body.removeChild(overlay);
+                            splitField(field, sep);
+                        };
+                    } else if (action === 'replace_value') {
+                        const tab = tabs.find(t => t.id === activeTabId);
+                        if (!tab) { alertModal('请先选择数据标签'); return; }
+                        const columns = tab.df.columns;
+                        const overlay = document.createElement('div');
+                        overlay.className = 'modal-overlay';
+                        const dialog = document.createElement('div');
+                        dialog.className = 'modal-dialog';
+                        let html =
+                            `<h3><i class="fas fa-edit"></i> 属性替换</h3><div class="filter-input-group"><label>选择字段：</label><select id="replaceField">${columns.map(c => `<option>${c}</option>`).join('')}</select></div>`;
+                        html +=
+                            `<div class="filter-input-group"><label>查找字符：</label><input type="text" id="oldStr" placeholder="旧字符"></div>`;
+                        html +=
+                            `<div class="filter-input-group"><label>替换为：</label><input type="text" id="newStr" placeholder="新字符"></div>`;
+                        html +=
+                            '<div class="modal-btns"><button class="btn-secondary" id="cancelReplace">取消</button><button class="btn-primary" id="confirmReplace">替换</button></div>';
+                        dialog.innerHTML = html;
+                        overlay.appendChild(dialog);
+                        document.body.appendChild(overlay);
+                        document.getElementById('cancelReplace').onclick = () => document.body.removeChild(
+                            overlay);
+                        document.getElementById('confirmReplace').onclick = () => {
+                            const field = dialog.querySelector('#replaceField').value,
+                                oldStr = dialog.querySelector('#oldStr').value,
+                                newStr = dialog.querySelector('#newStr').value;
+                            if (oldStr === '') { alertModal('请输入要替换的字符'); return; }
+                            document.body.removeChild(overlay);
+                            replaceValue(field, oldStr, newStr);
+                        };
+                    } else if (action === 'one_hot') {
+                        const tab = tabs.find(t => t.id === activeTabId);
+                        if (!tab) { alertModal('请先选择数据标签'); return; }
+                        const columns = tab.df.columns;
+                        const overlay = document.createElement('div');
+                        overlay.className = 'modal-overlay';
+                        const dialog = document.createElement('div');
+                        dialog.className = 'modal-dialog';
+                        let html =
+                            `<h3><i class="fas fa-th-large"></i> 独热编码</h3><div class="filter-input-group"><label>选择字段：</label><select id="oneHotField">${columns.map(c => `<option>${c}</option>`).join('')}</select></div>`;
+                        html +=
+                            '<div class="modal-btns"><button class="btn-secondary" id="cancelOneHot">取消</button><button class="btn-primary" id="confirmOneHot">编码</button></div>';
+                        dialog.innerHTML = html;
+                        overlay.appendChild(dialog);
+                        document.body.appendChild(overlay);
+                        document.getElementById('cancelOneHot').onclick = () => document.body.removeChild(
+                            overlay);
+                        document.getElementById('confirmOneHot').onclick = () => {
+                            const field = dialog.querySelector('#oneHotField').value;
+                            document.body.removeChild(overlay);
+                            oneHot(field);
+                        };
+                    }
+                });
+            });
+
+            // ========== 导出功能 ==========
+            function exportActiveTab(format) {
+                const tab = tabs.find(t => t.id === activeTabId);
+                if (!tab) { alertModal('无数据'); return; }
+                const data = tab.allData;
+                if (!data.length) return;
+
+                // 如果是 json 或 markdown，先检查行数限制
+                if (format === 'json' || format === 'markdown') {
+                    if (data.length > 20) {
+                        alertModal('数据量过大，请下载 CSV 或 Excel 文件。');
+                        return;
+                    }
+                    showCodeExportModal(format, data);
+                    return;
+                }
+
+                const name = tab.name || '数据';
+                if (format === 'csv') {
+                    const csv = XLSX.utils.sheet_to_csv(XLSX.utils.json_to_sheet(data));
+                    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = name + '.csv';
+                    a.click();
+                } else if (format === 'xlsx') {
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+                    XLSX.writeFile(wb, name + '.xlsx');
+                }
+                closeExportMenu();
+            }
+
+            function showCodeExportModal(format, data) {
+                const overlay = document.createElement('div');
+                overlay.className = 'modal-overlay';
+                const modal = document.createElement('div');
+                modal.className = 'code-export-modal';
+                let code = '';
+                if (format === 'json') {
+                    code = JSON.stringify(data, null, 2);
+                } else if (format === 'markdown') {
+                    // 生成 Markdown 表格
+                    const columns = Object.keys(data[0]);
+                    // 表头
+                    let md = '| ' + columns.join(' | ') + ' |\n';
+                    // 分隔线
+                    md += '| ' + columns.map(() => '---').join(' | ') + ' |\n';
+                    // 数据行
+                    data.forEach(row => {
+                        md += '| ' + columns.map(c => String(row[c] ?? '')).join(' | ') + ' |\n';
+                    });
+                    code = md;
+                }
+                modal.innerHTML = `
+                    <h3><i class="fas fa-code"></i> ${format === 'json' ? 'JSON 数据' : 'Markdown 数据'}</h3>
+                    <textarea readonly>${code}</textarea>
+                    <div class="modal-btns">
+                        <button class="btn-secondary" id="closeCodeModal">关闭</button>
+                        <button class="btn-primary" id="copyCodeBtn"><i class="fas fa-copy"></i> 一键复制</button>
+                    </div>
+                `;
+                overlay.appendChild(modal);
+                document.body.appendChild(overlay);
+
+                const textarea = modal.querySelector('textarea');
+                document.getElementById('closeCodeModal').onclick = () => document.body.removeChild(overlay);
+                document.getElementById('copyCodeBtn').onclick = async () => {
+                    try {
+                        await navigator.clipboard.writeText(code);
+                        alertModal('已复制到剪贴板');
+                    } catch (e) {
+                        alertModal('复制失败，请手动复制');
+                    }
+                };
+                // 点击遮罩关闭
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) document.body.removeChild(overlay);
+                });
+            }
+
+            function closeExportMenu() {
+                exportMenuOpen = false;
+                exportOptions.classList.remove('show');
+            }
+            exportBtn.addEventListener('click', e => {
+                e.stopPropagation();
+                exportMenuOpen = !exportMenuOpen;
+                exportOptions.classList.toggle('show', exportMenuOpen);
+            });
+            document.addEventListener('click', e => { if (!e.target.closest('.export-menu')) closeExportMenu(); });
+            exportOptions.querySelectorAll('.export-option').forEach(opt => opt.addEventListener('click', e => {
+                e.stopPropagation();
+                exportActiveTab(opt.dataset.format);
+            }));
+
+            // ========== 文件上传 ==========
+            fileInput.addEventListener('change', e => {
+                const files = e.target.files;
+                if (!files.length) return;
+                for (let file of files) {
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    if (ext === 'csv') {
+                        const reader = new FileReader();
+                        reader.onload = ev => {
+                            const wb = XLSX.read(ev.target.result, { type: 'string' });
+                            const ws = wb.Sheets[wb.SheetNames[0]];
+                            addTab(file.name.replace(/\.csv$/i, ''), XLSX.utils.sheet_to_json(ws, { defval: '' }));
+                        };
+                        reader.readAsText(file);
+                    } else if (ext === 'xlsx' || ext === 'xls') {
+                        const reader = new FileReader();
+                        reader.onload = ev => {
+                            const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
+                            const names = wb.SheetNames;
+                            const overlay = document.createElement('div');
+                            overlay.className = 'modal-overlay';
+                            const dialog = document.createElement('div');
+                            dialog.className = 'modal-dialog';
+                            dialog.innerHTML =
+                                `<h3><i class="fas fa-file-excel"></i> 选择工作表</h3><div class="field-checkbox-group">${names.map((s, i) => `<label class="field-checkbox-label"><input type="checkbox" class="sheet-check" value="${s}" checked> ${s}</label>`).join('')}</div><div style="display:flex;justify-content:space-between;margin-bottom:15px;"><button id="selectAllSheets" style="background:none;border:none;color:#3b82f6;cursor:pointer;font-size:0.85rem;">全选</button></div><div class="modal-btns"><button class="btn-secondary" id="cancelSheetModal">取消</button><button class="btn-primary" id="confirmSheetModal">导入</button></div>`;
+                            overlay.appendChild(dialog);
+                            document.body.appendChild(overlay);
+                            document.getElementById('cancelSheetModal').onclick = () => document.body
+                                .removeChild(overlay);
+                            document.getElementById('selectAllSheets').onclick = () => {
+                                dialog.querySelectorAll('.sheet-check').forEach(cb => cb.checked =
+                                    true);
+                            };
+                            document.getElementById('confirmSheetModal').onclick = () => {
+                                const sel = [...dialog.querySelectorAll('.sheet-check:checked')].map(
+                                    cb => cb.value);
+                                document.body.removeChild(overlay);
+                                sel.forEach(s => addTab(s, XLSX.utils.sheet_to_json(wb.Sheets[s], {
+                                    defval: ''
+                                })));
+                            };
+                        };
+                        reader.readAsArrayBuffer(file);
+                    } else alertModal('不支持文件');
+                }
+                fileInput.value = '';
+            });
+
+            // ========== 工具栏 ==========
+            toggleAllBtn.addEventListener('click', async () => {
+                const tab = tabs.find(t => t.id === activeTabId);
+                if (!tab) return;
+                if (!tab.showingAll && tab.allData.length > 500) {
+                    const ok = await confirmModal(
+                        `数据量较大 (${tab.allData.length} 条)，全部展示可能卡顿，继续吗？`);
+                    if (!ok) return;
+                }
+                tab.showingAll = !tab.showingAll;
+                renderTable(tab);
+                updateToggleButton(tab);
+            });
+
+            // ========== 初始化 ==========
+            renderTabBar();
+            setActiveTab(null);
+            updateToggleButton(null);
+            closeExportMenu();
+        })();
+    </script>
+</body>
+
+</html>

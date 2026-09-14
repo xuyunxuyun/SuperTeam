@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <!--
+
+        SPDX-License-Identifier: CC-BY-NC-SA-4.0
+
+        本文件是"汉末废柴堆 · 超级团队组建系统"的一部分。
+
+        完整项目受 CC BY-NC-SA 4.0 许可证保护，详见根目录 LICENSE 文件。
+
+        本项目核心设计思想、架构方案、方法论受 NOTICE 文件独立保护。
+
+        个人可免费使用，严禁用于商业目的。
+
+        商业授权请联系：xxuuyyuunn@sina.com
+
+    -->
+
+    <!--
+
+        **版本历史**
+        | 版本号 | 过程节点说明 | 修订人 | 修订日期 | 修订内容 |
+        | :----- | :----------- | :----- | :------- | :------- |
+        | V0.1.0 | 初稿创建     | 徐昀 | 2026-08-26 | 根据用户需求生成 |
+    -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>赤壁连连看</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0a0f1f;
+            --bg-secondary: #111827;
+            --bg-card: #1a1f2e;
+            --bg-hover: #1e243b;
+            --border-color: #2a3452;
+            --border-hover: #3b82f6;
+            --text-primary: #e0e0e0;
+            --text-secondary: #9aa9c1;
+            --text-muted: #6b7a8f;
+            --accent: #4c9aff;
+            --accent-hover: #3b82f6;
+            --danger: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', 'Roboto', sans-serif;
+            background: var(--bg-primary);
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            color: var(--text-primary);
+            user-select: none;
+        }
+        .tabs-header {
+            background: var(--bg-secondary);
+            padding: 8px 16px 0 16px;
+            display: flex;
+            gap: 4px;
+            align-items: flex-end;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: thin;
+            border-bottom: 1px solid var(--border-color);
+            z-index: 20;
+            flex-shrink: 0;
+            min-height: 46px;
+        }
+        .tabs-header::-webkit-scrollbar { height: 4px; background: transparent; }
+        .tabs-header::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 8px; }
+        .tab-item {
+            background: #1f2937;
+            color: #cbd5e6;
+            padding: 7px 16px;
+            border-radius: 12px 12px 0 0;
+            font-size: 13px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--border-color);
+            border-bottom: none;
+            position: relative;
+            margin-bottom: -1px;
+            white-space: nowrap;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+        .tab-item.active {
+            background: var(--bg-primary);
+            color: white;
+            border-top: 2px solid var(--accent);
+            border-bottom: 1px solid var(--bg-primary);
+        }
+        .tab-name { display: inline-block; cursor: pointer; padding: 0 2px; border-radius: 4px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+        .tab-name:hover { background: rgba(76, 154, 255, 0.2); }
+        .close-tab { background: rgba(255,255,255,0.1); border-radius: 30px; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; transition: 0.2s; flex-shrink: 0; }
+        .close-tab:hover { background: var(--danger); color: white; }
+        .add-tab-btn { background: var(--border-color); border: none; color: var(--text-secondary); padding: 6px 16px; border-radius: 20px; margin-left: 6px; cursor: pointer; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
+        .add-tab-btn:hover { background: var(--accent); color: white; }
+        .tab-name-input { background: #2a3a60; border: 1px solid var(--accent); border-radius: 6px; padding: 2px 6px; font-size: 12px; color: white; outline: none; width: 100px; }
+        .canvas-container { flex: 1; position: relative; background: var(--bg-primary); overflow: hidden; }
+        .canvas-wrapper { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; cursor: grab; }
+        .canvas-wrapper.active-canvas { display: block; }
+        canvas { display: block; position: absolute; top: 0; left: 0; cursor: crosshair; }
+        .menu-trigger-zone { position: fixed; left: 0; top: 60px; width: 80px; height: calc(100vh - 80px); z-index: 98; pointer-events: none; }
+        .accordion-menu-wrapper {
+            position: fixed; left: 0; top: 60px; z-index: 100;
+            height: calc(100vh - 80px); display: flex; align-items: flex-start;
+            transition: transform 0.3s cubic-bezier(0.22,1,0.36,1);
+            transform: translateX(-100%);
+        }
+        .accordion-menu-wrapper.menu-visible { transform: translateX(0); }
+        .accordion-menu {
+            width: 280px; background: rgba(20,26,44,0.95); backdrop-filter: blur(16px);
+            border-radius: 0 20px 20px 0; border: 1px solid rgba(76,154,255,0.4);
+            border-left: none; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            height: 100%; display: flex; flex-direction: column; flex-shrink: 0;
+        }
+        .accordion-scroll { flex: 1; overflow-y: auto; padding-bottom: 12px; }
+        .accordion-scroll::-webkit-scrollbar { width: 4px; }
+        .accordion-scroll::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 8px; }
+        .menu-section {
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 0;
+        }
+        .menu-section:last-child { border-bottom: none; }
+        .section-title {
+            color: #b9d0ff;
+            font-size: 11px;
+            margin-bottom: 10px;
+            font-weight: 500;
+            padding: 0 14px;
+        }
+        .menu-inner {
+            padding: 0 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .menu-btn {
+            background: var(--border-color);
+            border: none;
+            color: white;
+            padding: 8px 14px;
+            border-radius: 40px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            width: 100%;
+            justify-content: center;
+        }
+        .menu-btn:hover { background: var(--accent-hover); }
+        .menu-btn-danger { background: #5a2a2a; }
+        .menu-btn-danger:hover { background: var(--danger); }
+        .context-menu {
+            position: fixed; background: rgba(30,35,55,0.98); backdrop-filter: blur(12px);
+            border: 1px solid var(--accent); border-radius: 12px; padding: 6px 0;
+            min-width: 180px; z-index: 1000; box-shadow: 0 8px 20px rgba(0,0,0,0.4); display: none;
+        }
+        .context-menu-item { padding: 8px 18px; font-size: 13px; color: #e0e0e0; cursor: pointer; transition: 0.1s; display: flex; align-items: center; gap: 10px; }
+        .context-menu-item:hover { background: var(--accent); color: white; }
+        .context-menu-divider { height: 1px; background: var(--border-color); margin: 4px 0; }
+        .status-tip { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(76,154,255,0.85); padding: 6px 16px; border-radius: 20px; font-size: 12px; color: white; pointer-events: none; z-index: 99; display: none; }
+    </style>
+</head>
+<body>
+    <div class="tabs-header" id="tabsHeader">
+        <button class="add-tab-btn" id="addTabBtn">+ 新建页签</button>
+    </div>
+    <div class="canvas-container" id="canvasContainer"></div>
+    <div class="menu-trigger-zone" id="menuTriggerZone"></div>
+    <div class="accordion-menu-wrapper" id="accordionMenuWrapper">
+        <div class="accordion-menu">
+            <div class="accordion-scroll">
+                <div class="menu-section">
+                    <div class="section-title">📁 工具菜单</div>
+                    <div class="menu-inner">
+                        <div class="section-title" style="margin-top:4px;">节点添加</div>
+                        <button class="menu-btn" id="addRectBtn">⬜ 矩形节点</button>
+                        <button class="menu-btn" id="addCircleBtn">⭕ 圆形节点</button>
+                        <button class="menu-btn" id="addDiamondBtn">🔶 菱形节点</button>
+                        <div style="height:6px;"></div>
+                        <div class="section-title">连线操作</div>
+                        <button class="menu-btn" id="straightLineBtn">📏 直线连线</button>
+                        <button class="menu-btn" id="polylineBtn">📐 折线连线</button>
+                        <div style="height:6px;"></div>
+                        <div class="section-title">其他操作</div>
+                        <button class="menu-btn" id="deleteSelectedBtn">🗑️ 删除选中</button>
+                        <button class="menu-btn" id="exportJsonBtn">📤 导出JSON</button>
+                        <button class="menu-btn" id="importJsonBtn">📥 导入JSON</button>
+                        <button class="menu-btn menu-btn-danger" id="clearBtn">清空画布</button>
+                        <input type="file" id="fileInput" accept=".json" style="display:none;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="contextMenu" class="context-menu">
+        <div class="context-menu-item" id="ctxExportJson">📤 导出数据 (JSON)</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" id="ctxExportPng">📸 导出图片 (PNG)</div>
+    </div>
+    <div id="statusTip" class="status-tip"></div>
+
+    <script>
+        (function() {
+            let tabs = [];
+            let activeTabId = null;
+            let nextTabId = 1;
+            const STORAGE_KEY = 'flowchart_multitab_v4';
+            let mousePos = { x: 0, y: 0 };
+
+            function showTip(msg, duration = 1500) {
+                const tip = document.getElementById('statusTip');
+                tip.textContent = msg; tip.style.display = 'block';
+                clearTimeout(tip._timer);
+                tip._timer = setTimeout(() => { tip.style.display = 'none'; }, duration);
+            }
+
+            function createTab(name = null) {
+                const id = nextTabId++;
+                const tabName = name || `画布${id}`;
+                const tab = {
+                    id, name: tabName, nodes: [], edges: [],
+                    nextNodeId: 1, nextEdgeId: 1,
+                    canvasOffsetX: 0, canvasOffsetY: 0,
+                    connectMode: null, connectSourceNodeId: null,
+                    selectedNodeId: null, selectedEdgeId: null,
+                    wrapper: null, canvas: null, ctx: null,
+                    isDraggingNode: false, isPanning: false,
+                    dragNodeId: null, dragOffsetX: 0, dragOffsetY: 0,
+                    panStartX: 0, panStartY: 0, panStartOffsetX: 0, panStartOffsetY: 0,
+                    dragBendEdgeId: null, dragBendIndex: -1
+                };
+                tabs.push(tab);
+                return tab;
+            }
+
+            function createCanvasDOM(tab) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'canvas-wrapper';
+                wrapper.id = `canvas-wrapper-${tab.id}`;
+                wrapper.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;display:none;';
+                const canvas = document.createElement('canvas');
+                canvas.id = `canvas-${tab.id}`;
+                canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;';
+                wrapper.appendChild(canvas);
+                document.getElementById('canvasContainer').appendChild(wrapper);
+                tab.wrapper = wrapper; tab.canvas = canvas; tab.ctx = canvas.getContext('2d');
+                resizeCanvas(tab);
+                initCanvasEvents(tab);
+                return wrapper;
+            }
+
+            function resizeCanvas(tab) {
+                if (!tab.wrapper || !tab.canvas) return;
+                const rect = tab.wrapper.getBoundingClientRect();
+                tab.canvas.width = rect.width > 0 ? rect.width : 1200;
+                tab.canvas.height = rect.height > 0 ? rect.height : 800;
+            }
+
+            function addTabButton(tab) {
+                const header = document.getElementById('tabsHeader');
+                const addBtn = document.getElementById('addTabBtn');
+                const div = document.createElement('div');
+                div.className = 'tab-item'; div.dataset.tabId = tab.id;
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'tab-name'; nameSpan.textContent = tab.name; nameSpan.title = '双击编辑名称';
+                const closeSpan = document.createElement('span');
+                closeSpan.className = 'close-tab'; closeSpan.textContent = '✕';
+                div.appendChild(nameSpan); div.appendChild(closeSpan);
+                nameSpan.addEventListener('dblclick', (e) => {
+                    e.stopPropagation();
+                    const oldName = nameSpan.textContent;
+                    const input = document.createElement('input');
+                    input.type = 'text'; input.value = oldName; input.className = 'tab-name-input';
+                    nameSpan.style.display = 'none'; nameSpan.parentNode.insertBefore(input, nameSpan);
+                    input.focus(); input.select();
+                    const saveRename = () => {
+                        const newName = input.value.trim() || oldName;
+                        tab.name = newName; nameSpan.textContent = newName;
+                        nameSpan.style.display = 'inline-block'; input.remove(); saveAllToLocal();
+                    };
+                    input.addEventListener('blur', saveRename);
+                    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveRename(); if (e.key === 'Escape') { nameSpan.style.display = 'inline-block'; input.remove(); } });
+                });
+                div.addEventListener('click', (e) => {
+                    if (e.target === closeSpan) { e.stopPropagation(); closeTab(tab.id); } else switchTab(tab.id);
+                });
+                header.insertBefore(div, addBtn);
+            }
+
+            function switchTab(tabId) {
+                if (activeTabId === tabId) return;
+                const tab = tabs.find(t => t.id === tabId);
+                if (!tab) return;
+                tabs.forEach(t => { if (t.wrapper) { t.wrapper.style.display = 'none'; t.wrapper.classList.remove('active-canvas'); } });
+                tab.wrapper.style.display = 'block'; tab.wrapper.classList.add('active-canvas');
+                activeTabId = tabId;
+                document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
+                document.querySelector(`.tab-item[data-tab-id="${tabId}"]`)?.classList.add('active');
+                resizeCanvas(tab); render(tab); saveAllToLocal();
+            }
+
+            function closeTab(tabId) {
+                const tab = tabs.find(t => t.id === tabId);
+                if (!tab || tabs.length <= 1) { showTip('至少保留一个画布'); return; }
+                tabs = tabs.filter(t => t.id !== tabId);
+                tab.wrapper?.remove();
+                document.querySelector(`.tab-item[data-tab-id="${tabId}"]`)?.remove();
+                if (activeTabId === tabId) switchTab(tabs[0].id);
+                saveAllToLocal();
+            }
+
+            function createNewTab(name = null) {
+                const tab = createTab(name);
+                createCanvasDOM(tab); addTabButton(tab); switchTab(tab.id);
+                saveAllToLocal(); return tab;
+            }
+
+            function saveAllToLocal() {
+                try {
+                    const data = tabs.map(t => ({ id: t.id, name: t.name, nodes: t.nodes, edges: t.edges, nextNodeId: t.nextNodeId, nextEdgeId: t.nextEdgeId, canvasOffsetX: t.canvasOffsetX, canvasOffsetY: t.canvasOffsetY }));
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify({ tabs: data, activeTabId, nextTabId }));
+                } catch(e) {}
+            }
+
+            function loadFromLocal() {
+                try {
+                    const saved = localStorage.getItem(STORAGE_KEY);
+                    if (!saved) return false;
+                    const data = JSON.parse(saved);
+                    data.tabs.forEach(t => {
+                        const tab = createTab(t.name);
+                        tab.id = t.id; tab.nodes = t.nodes || []; tab.edges = t.edges || [];
+                        tab.nextNodeId = t.nextNodeId || 1; tab.nextEdgeId = t.nextEdgeId || 1;
+                        tab.canvasOffsetX = t.canvasOffsetX || 0; tab.canvasOffsetY = t.canvasOffsetY || 0;
+                        createCanvasDOM(tab); addTabButton(tab);
+                    });
+                    nextTabId = data.nextTabId || (tabs.length + 1);
+                    if (data.activeTabId && tabs.find(t => t.id === data.activeTabId)) switchTab(parseInt(data.activeTabId));
+                    else if (tabs.length) switchTab(tabs[0].id);
+                    return true;
+                } catch(e) { return false; }
+            }
+
+            function getNodeById(tab, id) { return tab.nodes.find(n => n.id === id); }
+            function getEdgeById(tab, id) { return tab.edges.find(e => e.id === id); }
+
+            function getNodeCenter(node) {
+                return { x: node.x + node.width / 2, y: node.y + node.height / 2 };
+            }
+
+            function getNodeAtPosition(tab, mx, my) {
+                for (let i = tab.nodes.length - 1; i >= 0; i--) {
+                    const node = tab.nodes[i];
+                    if (node.type === 'circle') {
+                        const c = getNodeCenter(node);
+                        const r = Math.min(node.width, node.height) / 2;
+                        if (Math.hypot(mx - c.x, my - c.y) <= r) return node;
+                    } else if (node.type === 'diamond') {
+                        const c = getNodeCenter(node);
+                        const hw = node.width / 2, hh = node.height / 2;
+                        if (Math.abs(mx - c.x) / hw + Math.abs(my - c.y) / hh <= 1.2) return node;
+                    } else {
+                        if (mx >= node.x && mx <= node.x + node.width && my >= node.y && my <= node.y + node.height) return node;
+                    }
+                }
+                return null;
+            }
+
+            function getEdgeAtPosition(tab, mx, my) {
+                const threshold = 12;
+                for (let i = tab.edges.length - 1; i >= 0; i--) {
+                    const edge = tab.edges[i];
+                    const fromNode = getNodeById(tab, edge.from);
+                    const toNode = getNodeById(tab, edge.to);
+                    if (!fromNode || !toNode) continue;
+                    const fromC = getNodeCenter(fromNode);
+                    const toC = getNodeCenter(toNode);
+                    if (edge.polyline && edge.bendPoints && edge.bendPoints.length >= 2) {
+                        const b1 = edge.bendPoints[0], b2 = edge.bendPoints[1];
+                        const segs = [[fromC.x, fromC.y, b1.x, b1.y], [b1.x, b1.y, b2.x, b2.y], [b2.x, b2.y, toC.x, toC.y]];
+                        for (const seg of segs) {
+                            if (distToSegment(mx, my, seg[0], seg[1], seg[2], seg[3]) <= threshold) return edge;
+                        }
+                    } else {
+                        if (distToSegment(mx, my, fromC.x, fromC.y, toC.x, toC.y) <= threshold) return edge;
+                    }
+                }
+                return null;
+            }
+
+            function distToSegment(px, py, x1, y1, x2, y2) {
+                const dx = x2 - x1, dy = y2 - y1;
+                const lenSq = dx * dx + dy * dy;
+                if (lenSq === 0) return Math.hypot(px - x1, py - y1);
+                let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+                t = Math.max(0, Math.min(1, t));
+                return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+            }
+
+            function getBendPoints(tab, edge) {
+                const fromNode = getNodeById(tab, edge.from);
+                const toNode = getNodeById(tab, edge.to);
+                if (!fromNode || !toNode) return [];
+                const fromC = getNodeCenter(fromNode);
+                const toC = getNodeCenter(toNode);
+                const midX = (fromC.x + toC.x) / 2;
+                return [{ x: midX, y: fromC.y }, { x: midX, y: toC.y }];
+            }
+
+            // 计算直线与矩形边界的交点
+            function intersectRect(x1, y1, x2, y2, rect) {
+                const left = rect.x, right = rect.x + rect.width;
+                const top = rect.y, bottom = rect.y + rect.height;
+                const dx = x2 - x1, dy = y2 - y1;
+                let tMin = 1, tMax = 0;
+                const candidates = [];
+                // 与四条边的交点
+                const edges = [
+                    { x1: left, y1: top, x2: right, y2: top },
+                    { x1: right, y1: top, x2: right, y2: bottom },
+                    { x1: right, y1: bottom, x2: left, y2: bottom },
+                    { x1: left, y1: bottom, x2: left, y2: top }
+                ];
+                for (const edge of edges) {
+                    const t = segmentIntersection(x1, y1, x2, y2, edge.x1, edge.y1, edge.x2, edge.y2);
+                    if (t !== null && t >= 0 && t <= 1) {
+                        candidates.push(t);
+                    }
+                }
+                if (candidates.length === 0) return null;
+                // 选择离起点最远的交点（即进入矩形的点）
+                let tMaxVal = Math.max(...candidates);
+                return { x: x1 + tMaxVal * dx, y: y1 + tMaxVal * dy, t: tMaxVal };
+            }
+
+            // 线段与线段交点参数t
+            function segmentIntersection(x1, y1, x2, y2, x3, y3, x4, y4) {
+                const d1x = x2 - x1, d1y = y2 - y1;
+                const d2x = x4 - x3, d2y = y4 - y3;
+                const denom = d1x * d2y - d1y * d2x;
+                if (Math.abs(denom) < 1e-10) return null;
+                const t = ((x3 - x1) * d2y - (y3 - y1) * d2x) / denom;
+                const u = ((x3 - x1) * d1y - (y3 - y1) * d1x) / denom;
+                if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+                    return t;
+                }
+                return null;
+            }
+
+            // 计算直线与圆的交点
+            function intersectCircle(x1, y1, x2, y2, cx, cy, r) {
+                const dx = x2 - x1, dy = y2 - y1;
+                const fx = x1 - cx, fy = y1 - cy;
+                const a = dx * dx + dy * dy;
+                const b = 2 * (fx * dx + fy * dy);
+                const c = fx * fx + fy * fy - r * r;
+                let discriminant = b * b - 4 * a * c;
+                if (discriminant < 0) return null;
+                discriminant = Math.sqrt(discriminant);
+                const t1 = (-b - discriminant) / (2 * a);
+                const t2 = (-b + discriminant) / (2 * a);
+                let t = Math.max(t1, t2);
+                if (t < 0 || t > 1) return null;
+                return { x: x1 + t * dx, y: y1 + t * dy, t: t };
+            }
+
+            // 计算直线与菱形（旋转45度的矩形）的交点
+            function intersectDiamond(x1, y1, x2, y2, node) {
+                const cx = node.x + node.width / 2;
+                const cy = node.y + node.height / 2;
+                const hw = node.width / 2, hh = node.height / 2;
+                // 菱形四个顶点
+                const pts = [
+                    { x: cx, y: node.y },
+                    { x: node.x + node.width, y: cy },
+                    { x: cx, y: node.y + node.height },
+                    { x: node.x, y: cy }
+                ];
+                const candidates = [];
+                for (let i = 0; i < 4; i++) {
+                    const p1 = pts[i];
+                    const p2 = pts[(i + 1) % 4];
+                    const t = segmentIntersection(x1, y1, x2, y2, p1.x, p1.y, p2.x, p2.y);
+                    if (t !== null && t >= 0 && t <= 1) {
+                        candidates.push(t);
+                    }
+                }
+                if (candidates.length === 0) return null;
+                const tMaxVal = Math.max(...candidates);
+                return { x: x1 + tMaxVal * (x2 - x1), y: y1 + tMaxVal * (y2 - y1), t: tMaxVal };
+            }
+
+            // 计算连线与目标节点的交叉点
+            function getIntersection(tab, edge, fromC, toC) {
+                const toNode = getNodeById(tab, edge.to);
+                if (!toNode) return null;
+                // 获取连线最后一段的起点（对于折线，最后一段从最后一个折点到目标节点）
+                let startX = fromC.x, startY = fromC.y;
+                if (edge.polyline && edge.bendPoints && edge.bendPoints.length === 2) {
+                    startX = edge.bendPoints[1].x;
+                    startY = edge.bendPoints[1].y;
+                }
+                const endX = toC.x, endY = toC.y;
+
+                if (toNode.type === 'circle') {
+                    const r = Math.min(toNode.width, toNode.height) / 2;
+                    return intersectCircle(startX, startY, endX, endY, toC.x, toC.y, r);
+                } else if (toNode.type === 'diamond') {
+                    return intersectDiamond(startX, startY, endX, endY, toNode);
+                } else {
+                    return intersectRect(startX, startY, endX, endY, toNode);
+                }
+            }
+
+            function addNode(tab, type, x, y, text) {
+                const width = type === 'circle' ? 80 : (type === 'diamond' ? 130 : 150);
+                const height = type === 'circle' ? 80 : (type === 'diamond' ? 100 : 60);
+                const node = {
+                    id: `node_${tab.nextNodeId++}`, type,
+                    x: x - width / 2, y: y - height / 2, width, height,
+                    text: text || (type === 'circle' ? '开始/结束' : (type === 'diamond' ? '分支' : '节点'))
+                };
+                tab.nodes.push(node);
+                tab.selectedNodeId = node.id; tab.selectedEdgeId = null;
+                render(tab); saveAllToLocal(); return node;
+            }
+
+            function addEdge(tab, fromId, toId, label = '') {
+                if (fromId === toId) return false;
+                const isPolyline = tab.connectMode === 'polyline';
+                const exists = tab.edges.some(e => e.from === fromId && e.to === toId && e.polyline === isPolyline);
+                if (exists) return false;
+                const edge = {
+                    id: `edge_${tab.nextEdgeId++}`, from: fromId, to: toId, label,
+                    polyline: isPolyline, bendPoints: isPolyline ? [] : null, manualBend: false
+                };
+                tab.edges.push(edge);
+                if (isPolyline) edge.bendPoints = getBendPoints(tab, edge);
+                tab.selectedEdgeId = edge.id; tab.selectedNodeId = null;
+                tab.connectMode = null; tab.connectSourceNodeId = null;
+                updateMenuButtons(tab); render(tab); saveAllToLocal(); return true;
+            }
+
+            function deleteSelected(tab) {
+                if (tab.selectedNodeId) {
+                    tab.edges = tab.edges.filter(e => e.from !== tab.selectedNodeId && e.to !== tab.selectedNodeId);
+                    tab.nodes = tab.nodes.filter(n => n.id !== tab.selectedNodeId);
+                    tab.selectedNodeId = null; saveAllToLocal();
+                } else if (tab.selectedEdgeId) {
+                    tab.edges = tab.edges.filter(e => e.id !== tab.selectedEdgeId);
+                    tab.selectedEdgeId = null; saveAllToLocal();
+                }
+                render(tab);
+            }
+
+            function clearTab(tab) {
+                tab.nodes = []; tab.edges = []; tab.selectedNodeId = null; tab.selectedEdgeId = null;
+                tab.connectMode = null; tab.connectSourceNodeId = null;
+                tab.canvasOffsetX = 0; tab.canvasOffsetY = 0;
+                updateMenuButtons(tab); render(tab); saveAllToLocal();
+            }
+
+            function updateMenuButtons(tab) {
+                document.getElementById('straightLineBtn').style.background = tab.connectMode === 'straight' ? 'var(--accent-hover)' : 'var(--border-color)';
+                document.getElementById('polylineBtn').style.background = tab.connectMode === 'polyline' ? 'var(--accent-hover)' : 'var(--border-color)';
+            }
+
+            function render(tab) {
+                if (!tab.ctx || !tab.canvas) return;
+                const ctx = tab.ctx; const canvas = tab.canvas;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#0a0f1f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.strokeStyle = 'rgba(42,52,82,0.4)'; ctx.lineWidth = 1;
+                const step = 30;
+                const offX = tab.canvasOffsetX % step, offY = tab.canvasOffsetY % step;
+                for (let x = offX; x <= canvas.width; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
+                for (let y = offY; y <= canvas.height; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke(); }
+
+                ctx.save();
+                ctx.translate(tab.canvasOffsetX, tab.canvasOffsetY);
+
+                // 绘制连线（先画线，不画箭头）
+                tab.edges.forEach(edge => {
+                    const fromNode = getNodeById(tab, edge.from);
+                    const toNode = getNodeById(tab, edge.to);
+                    if (!fromNode || !toNode) return;
+                    const fromC = getNodeCenter(fromNode);
+                    const toC = getNodeCenter(toNode);
+                    const isSelected = tab.selectedEdgeId === edge.id;
+
+                    let bendPoints = edge.bendPoints;
+                    if (edge.polyline) {
+                        if (!bendPoints || bendPoints.length !== 2) {
+                            bendPoints = getBendPoints(tab, edge);
+                            edge.bendPoints = bendPoints; edge.manualBend = false;
+                        } else if (!edge.manualBend) {
+                            bendPoints[0].y = fromC.y;
+                            bendPoints[1].y = toC.y;
+                            const midX = (fromC.x + toC.x) / 2;
+                            bendPoints[0].x = midX; bendPoints[1].x = midX;
+                        }
+                    }
+
+                    // 计算与目标节点的交叉点，用于截断连线
+                    const intersection = getIntersection(tab, edge, fromC, toC);
+                    let endX = toC.x, endY = toC.y;
+                    if (intersection && intersection.t < 1) {
+                        endX = intersection.x;
+                        endY = intersection.y;
+                    }
+
+                    ctx.beginPath();
+                    if (edge.polyline && bendPoints && bendPoints.length === 2) {
+                        ctx.moveTo(fromC.x, fromC.y);
+                        ctx.lineTo(bendPoints[0].x, bendPoints[0].y);
+                        ctx.lineTo(bendPoints[1].x, bendPoints[1].y);
+                        ctx.lineTo(endX, endY);
+                    } else {
+                        ctx.moveTo(fromC.x, fromC.y);
+                        ctx.lineTo(endX, endY);
+                    }
+                    ctx.strokeStyle = isSelected ? '#f97316' : '#64748b';
+                    ctx.lineWidth = isSelected ? 3.5 : 2.5;
+                    ctx.stroke();
+
+                    // 标签
+                    if (edge.label) {
+                        let lx, ly;
+                        if (edge.polyline && bendPoints && bendPoints.length === 2) {
+                            lx = (bendPoints[0].x + bendPoints[1].x) / 2;
+                            ly = (bendPoints[0].y + bendPoints[1].y) / 2;
+                        } else {
+                            lx = (fromC.x + toC.x) / 2;
+                            ly = (fromC.y + toC.y) / 2;
+                        }
+                        ctx.font = '500 12px "Segoe UI", sans-serif';
+                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                        ctx.fillStyle = '#e0e0e0';
+                        ctx.fillText(edge.label, lx, ly - 12);
+                    }
+
+                    // 折点手柄
+                    if (isSelected && edge.polyline && bendPoints && bendPoints.length === 2) {
+                        bendPoints.forEach(bp => {
+                            ctx.beginPath(); ctx.arc(bp.x, bp.y, 6, 0, Math.PI * 2);
+                            ctx.fillStyle = '#ffffff'; ctx.fill();
+                            ctx.strokeStyle = '#f97316'; ctx.lineWidth = 2.5; ctx.stroke();
+                        });
+                    }
+                });
+
+                // 绘制节点
+                tab.nodes.forEach(node => {
+                    const colors = {
+                        rect: { fill: '#1e2a4a', border: '#3b82f6' },
+                        circle: { fill: '#1a2a3a', border: '#10b981' },
+                        diamond: { fill: '#2a2418', border: '#f59e0b' }
+                    }[node.type] || { fill: '#1e2a4a', border: '#3b82f6' };
+                    const isSelected = tab.selectedNodeId === node.id;
+                    const isConnectSource = tab.connectMode && tab.connectSourceNodeId === node.id;
+                    ctx.save();
+                    ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 12; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
+                    if (node.type === 'circle') {
+                        const c = getNodeCenter(node); const r = Math.min(node.width, node.height) / 2;
+                        ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+                        ctx.fillStyle = colors.fill; ctx.fill();
+                        ctx.strokeStyle = isConnectSource ? '#f97316' : (isSelected ? '#e67e22' : colors.border);
+                        ctx.lineWidth = isConnectSource ? 4 : (isSelected ? 3 : 2.5); ctx.stroke();
+                        ctx.fillStyle = '#ffffff'; ctx.font = '500 14px "Segoe UI", sans-serif';
+                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                        ctx.fillText(node.text || '开始/结束', c.x, c.y);
+                    } else if (node.type === 'diamond') {
+                        const c = getNodeCenter(node);
+                        ctx.beginPath();
+                        ctx.moveTo(c.x, node.y); ctx.lineTo(node.x + node.width, c.y);
+                        ctx.lineTo(c.x, node.y + node.height); ctx.lineTo(node.x, c.y); ctx.closePath();
+                        ctx.fillStyle = colors.fill; ctx.fill();
+                        ctx.strokeStyle = isConnectSource ? '#f97316' : (isSelected ? '#e67e22' : colors.border);
+                        ctx.lineWidth = isConnectSource ? 4 : (isSelected ? 3 : 2.5); ctx.stroke();
+                        ctx.fillStyle = '#ffffff'; ctx.font = '500 13px "Segoe UI", sans-serif';
+                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                        ctx.fillText(node.text || '分支', c.x, c.y);
+                    } else {
+                        ctx.beginPath(); ctx.roundRect(node.x, node.y, node.width, node.height, 12);
+                        ctx.fillStyle = colors.fill; ctx.fill();
+                        ctx.strokeStyle = isConnectSource ? '#f97316' : (isSelected ? '#e67e22' : colors.border);
+                        ctx.lineWidth = isConnectSource ? 4 : (isSelected ? 3 : 2.5); ctx.stroke();
+                        ctx.fillStyle = '#ffffff'; ctx.font = '500 14px "Segoe UI", sans-serif';
+                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                        ctx.fillText(node.text || '节点', node.x + node.width / 2, node.y + node.height / 2);
+                    }
+                    ctx.restore();
+                });
+
+                // 绘制箭头（在节点之上，基于交叉点位置）
+                tab.edges.forEach(edge => {
+                    const fromNode = getNodeById(tab, edge.from);
+                    const toNode = getNodeById(tab, edge.to);
+                    if (!fromNode || !toNode) return;
+                    const fromC = getNodeCenter(fromNode);
+                    const toC = getNodeCenter(toNode);
+                    const isSelected = tab.selectedEdgeId === edge.id;
+
+                    // 获取交叉点
+                    const intersection = getIntersection(tab, edge, fromC, toC);
+                    if (!intersection) return;
+
+                    // 计算箭头方向（从交叉点指向节点中心的方向，即连线进入节点的方向）
+                    const angle = Math.atan2(toC.y - intersection.y, toC.x - intersection.x);
+                    const arrowSize = 14;
+                    const tipX = intersection.x;
+                    const tipY = intersection.y;
+                    // 箭头基部（从尖端往回退）
+                    const baseX = tipX - arrowSize * Math.cos(angle);
+                    const baseY = tipY - arrowSize * Math.sin(angle);
+                    const wingOff = arrowSize * 0.45;
+                    const wingX1 = baseX + wingOff * Math.cos(angle - Math.PI / 2.5);
+                    const wingY1 = baseY + wingOff * Math.sin(angle - Math.PI / 2.5);
+                    const wingX2 = baseX + wingOff * Math.cos(angle + Math.PI / 2.5);
+                    const wingY2 = baseY + wingOff * Math.sin(angle + Math.PI / 2.5);
+
+                    ctx.beginPath();
+                    ctx.moveTo(tipX, tipY);
+                    ctx.lineTo(wingX1, wingY1);
+                    ctx.lineTo(wingX2, wingY2);
+                    ctx.closePath();
+                    ctx.fillStyle = isSelected ? '#f97316' : '#64748b';
+                    ctx.fill();
+                    ctx.strokeStyle = isSelected ? '#f97316' : '#64748b';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                });
+
+                // 临时连线（带虚线箭头）
+                if (tab.connectMode && tab.connectSourceNodeId) {
+                    const sourceNode = getNodeById(tab, tab.connectSourceNodeId);
+                    if (sourceNode) {
+                        const sourceC = getNodeCenter(sourceNode);
+                        const canvasPos = screenToCanvas(tab, mousePos.x, mousePos.y);
+                        ctx.beginPath();
+                        if (tab.connectMode === 'polyline') {
+                            const midX = (sourceC.x + canvasPos.x) / 2;
+                            ctx.moveTo(sourceC.x, sourceC.y);
+                            ctx.lineTo(midX, sourceC.y);
+                            ctx.lineTo(midX, canvasPos.y);
+                            ctx.lineTo(canvasPos.x, canvasPos.y);
+                        } else {
+                            ctx.moveTo(sourceC.x, sourceC.y);
+                            ctx.lineTo(canvasPos.x, canvasPos.y);
+                        }
+                        ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2;
+                        ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
+                        // 临时箭头
+                        const angle = Math.atan2(canvasPos.y - sourceC.y, canvasPos.x - sourceC.x);
+                        const tipX = canvasPos.x, tipY = canvasPos.y;
+                        const baseX = tipX - 14 * Math.cos(angle);
+                        const baseY = tipY - 14 * Math.sin(angle);
+                        const wingOff = 6;
+                        ctx.beginPath();
+                        ctx.moveTo(tipX, tipY);
+                        ctx.lineTo(baseX + wingOff * Math.cos(angle - Math.PI / 2.5), baseY + wingOff * Math.sin(angle - Math.PI / 2.5));
+                        ctx.lineTo(baseX + wingOff * Math.cos(angle + Math.PI / 2.5), baseY + wingOff * Math.sin(angle + Math.PI / 2.5));
+                        ctx.closePath();
+                        ctx.fillStyle = '#94a3b8';
+                        ctx.fill();
+                    }
+                }
+
+                ctx.restore();
+            }
+
+            function screenToCanvas(tab, sx, sy) { return { x: sx - tab.canvasOffsetX, y: sy - tab.canvasOffsetY }; }
+            function getActiveTab() { return tabs.find(t => t.id === activeTabId); }
+
+            function initCanvasEvents(tab) {
+                const canvas = tab.canvas;
+                function getEventPos(e) {
+                    const rect = canvas.getBoundingClientRect();
+                    const scaleX = canvas.width / rect.width;
+                    const scaleY = canvas.height / rect.height;
+                    return { sx: (e.clientX - rect.left) * scaleX, sy: (e.clientY - rect.top) * scaleY };
+                }
+                canvas.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    if (e.button !== 0) return;
+                    const { sx, sy } = getEventPos(e);
+                    const cp = screenToCanvas(tab, sx, sy);
+                    const clickedNode = getNodeAtPosition(tab, cp.x, cp.y);
+                    const clickedEdge = getEdgeAtPosition(tab, cp.x, cp.y);
+
+                    if (tab.selectedEdgeId && !tab.connectMode) {
+                        const edge = getEdgeById(tab, tab.selectedEdgeId);
+                        if (edge?.polyline && edge.bendPoints) {
+                            for (let i = 0; i < edge.bendPoints.length; i++) {
+                                if (Math.hypot(cp.x - edge.bendPoints[i].x, cp.y - edge.bendPoints[i].y) <= 15) {
+                                    tab.dragBendEdgeId = edge.id; tab.dragBendIndex = i; return;
+                                }
+                            }
+                        }
+                    }
+
+                    if (tab.connectMode) {
+                        if (clickedNode) {
+                            if (!tab.connectSourceNodeId) { tab.connectSourceNodeId = clickedNode.id; tab.selectedNodeId = clickedNode.id; }
+                            else { if (tab.connectSourceNodeId !== clickedNode.id) addEdge(tab, tab.connectSourceNodeId, clickedNode.id); else tab.connectSourceNodeId = null; }
+                            render(tab);
+                        }
+                        return;
+                    }
+
+                    if (clickedNode) {
+                        tab.selectedNodeId = clickedNode.id; tab.selectedEdgeId = null;
+                        tab.isDraggingNode = true; tab.dragNodeId = clickedNode.id;
+                        tab.dragOffsetX = cp.x - clickedNode.x; tab.dragOffsetY = cp.y - clickedNode.y;
+                        render(tab);
+                    } else if (clickedEdge) {
+                        tab.selectedEdgeId = clickedEdge.id; tab.selectedNodeId = null; render(tab);
+                    } else {
+                        tab.selectedNodeId = null; tab.selectedEdgeId = null;
+                        tab.isPanning = true; tab.panStartX = e.clientX; tab.panStartY = e.clientY;
+                        tab.panStartOffsetX = tab.canvasOffsetX; tab.panStartOffsetY = tab.canvasOffsetY;
+                        render(tab);
+                    }
+                });
+
+                canvas.addEventListener('mousemove', (e) => {
+                    const { sx, sy } = getEventPos(e);
+                    mousePos = { x: sx, y: sy };
+                    if (tab.isPanning) {
+                        tab.canvasOffsetX = tab.panStartOffsetX + (e.clientX - tab.panStartX);
+                        tab.canvasOffsetY = tab.panStartOffsetY + (e.clientY - tab.panStartY);
+                        render(tab); return;
+                    }
+                    const cp = screenToCanvas(tab, sx, sy);
+                    if (tab.isDraggingNode && tab.dragNodeId) {
+                        const node = getNodeById(tab, tab.dragNodeId);
+                        if (node) { node.x = cp.x - tab.dragOffsetX; node.y = cp.y - tab.dragOffsetY; render(tab); saveAllToLocal(); }
+                    } else if (tab.dragBendEdgeId && tab.dragBendIndex >= 0) {
+                        const edge = getEdgeById(tab, tab.dragBendEdgeId);
+                        if (edge?.bendPoints?.[tab.dragBendIndex]) {
+                            edge.bendPoints[tab.dragBendIndex].x = cp.x;
+                            edge.bendPoints[tab.dragBendIndex].y = cp.y;
+                            edge.manualBend = true; render(tab); saveAllToLocal();
+                        }
+                    } else if (tab.connectMode && tab.connectSourceNodeId) { render(tab); }
+                });
+
+                canvas.addEventListener('mouseup', () => {
+                    if (tab.isPanning) { tab.isPanning = false; saveAllToLocal(); }
+                    tab.isDraggingNode = false; tab.dragNodeId = null;
+                    tab.dragBendEdgeId = null; tab.dragBendIndex = -1;
+                });
+                canvas.addEventListener('mouseleave', () => {
+                    if (tab.isPanning) { tab.isPanning = false; saveAllToLocal(); }
+                    tab.isDraggingNode = false; tab.dragNodeId = null;
+                    tab.dragBendEdgeId = null; tab.dragBendIndex = -1;
+                });
+                canvas.addEventListener('dblclick', (e) => {
+                    const { sx, sy } = getEventPos(e);
+                    const cp = screenToCanvas(tab, sx, sy);
+                    const node = getNodeAtPosition(tab, cp.x, cp.y);
+                    const edge = getEdgeAtPosition(tab, cp.x, cp.y);
+                    if (node) editNodeText(tab, node); else if (edge) editEdgeLabel(tab, edge);
+                });
+                canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+            }
+
+            function editNodeText(tab, node) {
+                const input = document.createElement('input');
+                input.type = 'text'; input.value = node.text || '';
+                input.style.cssText = 'position:fixed;z-index:1001;border:2px solid #3b82f6;border-radius:10px;padding:6px 12px;font-size:14px;background:#1a1f2e;color:#fff;outline:none;';
+                input.style.left = `${tab.canvasOffsetX + node.x + 10}px`;
+                input.style.top = `${tab.canvasOffsetY + node.y + node.height/2 - 15}px`;
+                input.style.width = `${node.width - 20}px`;
+                document.body.appendChild(input); input.focus(); input.select();
+                const finish = () => { node.text = input.value.trim() || '节点'; document.body.removeChild(input); render(tab); saveAllToLocal(); };
+                input.addEventListener('blur', finish);
+                input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); if (e.key === 'Escape') { input.value = node.text || ''; input.blur(); } });
+            }
+
+            function editEdgeLabel(tab, edge) {
+                const input = document.createElement('input');
+                input.type = 'text'; input.value = edge.label || '';
+                input.style.cssText = 'position:fixed;z-index:1001;border:2px solid #f59e0b;border-radius:10px;padding:4px 10px;font-size:13px;background:#1a1f2e;color:#fff;outline:none;';
+                const fromNode = getNodeById(tab, edge.from), toNode = getNodeById(tab, edge.to);
+                if (fromNode && toNode) {
+                    const fromC = getNodeCenter(fromNode), toC = getNodeCenter(toNode);
+                    let lx, ly;
+                    if (edge.polyline && edge.bendPoints?.length === 2) { lx = (edge.bendPoints[0].x + edge.bendPoints[1].x) / 2; ly = (edge.bendPoints[0].y + edge.bendPoints[1].y) / 2; }
+                    else { lx = (fromC.x + toC.x) / 2; ly = (fromC.y + toC.y) / 2; }
+                    input.style.left = `${tab.canvasOffsetX + lx - 50}px`;
+                    input.style.top = `${tab.canvasOffsetY + ly - 18}px`;
+                    input.style.width = '100px';
+                }
+                document.body.appendChild(input); input.focus(); input.select();
+                const finish = () => { edge.label = input.value.trim(); document.body.removeChild(input); render(tab); saveAllToLocal(); };
+                input.addEventListener('blur', finish);
+                input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); if (e.key === 'Escape') { input.value = edge.label || ''; input.blur(); } });
+            }
+
+            function exportTabJson(tab) {
+                return {
+                    version: '2.0', canvasName: tab.name,
+                    canvasOffset: { x: tab.canvasOffsetX, y: tab.canvasOffsetY },
+                    nodes: tab.nodes.map(n => ({ id: n.id, type: n.type, text: n.text || '', x: n.x, y: n.y, width: n.width, height: n.height })),
+                    edges: tab.edges.map(e => ({
+                        id: e.id, from: e.from, to: e.to, type: e.polyline ? 'polyline' : 'straight',
+                        label: e.label || '', bendPoints: e.polyline ? e.bendPoints : null, manualBend: e.manualBend || false
+                    }))
+                };
+            }
+
+            function downloadJSON(data, filename) {
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob); const a = document.createElement('a');
+                a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
+            }
+
+            async function exportTabImage(tab) {
+                try {
+                    const canvas = await html2canvas(tab.wrapper, { backgroundColor: '#0a0f1f', scale: 2 });
+                    const link = document.createElement('a'); link.download = `flowchart_${tab.name}_${Date.now()}.png`;
+                    link.href = canvas.toDataURL(); link.click(); showTip('图片已导出');
+                } catch(e) { showTip('导出失败'); }
+            }
+
+            function importTabJson(tab, jsonStr) {
+                try {
+                    const data = JSON.parse(jsonStr);
+                    if (!data.nodes || !Array.isArray(data.nodes) || !data.edges || !Array.isArray(data.edges)) { showTip('无效JSON'); return; }
+                    tab.nodes = data.nodes.map(n => ({ id: n.id, type: n.type || 'rect', text: n.text || '节点', x: Number(n.x) || 100, y: Number(n.y) || 100, width: Number(n.width) || 150, height: Number(n.height) || 60 }));
+                    tab.edges = data.edges.map(e => { const isPolyline = e.type === 'polyline'; return { id: e.id, from: e.from, to: e.to, label: e.label || '', polyline: isPolyline, bendPoints: isPolyline ? (e.bendPoints || []) : null, manualBend: e.manualBend || false }; });
+                    tab.canvasOffsetX = data.canvasOffset?.x || 0; tab.canvasOffsetY = data.canvasOffset?.y || 0;
+                    tab.selectedNodeId = null; tab.selectedEdgeId = null; render(tab); saveAllToLocal(); showTip('导入成功');
+                } catch(e) { showTip('JSON解析失败'); }
+            }
+
+            function initMenu() {
+                const wrapper = document.getElementById('accordionMenuWrapper');
+                const triggerZone = document.getElementById('menuTriggerZone');
+                let hideTimeout = null;
+                triggerZone.addEventListener('mouseenter', () => { clearTimeout(hideTimeout); wrapper.classList.add('menu-visible'); });
+                triggerZone.addEventListener('mouseleave', () => { hideTimeout = setTimeout(() => wrapper.classList.remove('menu-visible'), 200); });
+                wrapper.addEventListener('mouseenter', () => { clearTimeout(hideTimeout); wrapper.classList.add('menu-visible'); });
+                wrapper.addEventListener('mouseleave', () => { hideTimeout = setTimeout(() => wrapper.classList.remove('menu-visible'), 300); });
+                document.addEventListener('mousemove', (e) => { if (e.clientX <= 60 && e.clientY > 60 && e.clientY < window.innerHeight - 20) { clearTimeout(hideTimeout); wrapper.classList.add('menu-visible'); } });
+            }
+
+            function initContextMenu() {
+                const menu = document.getElementById('contextMenu');
+                document.addEventListener('contextmenu', (e) => {
+                    e.preventDefault(); menu.style.display = 'block';
+                    menu.style.left = Math.min(e.clientX, window.innerWidth - 200) + 'px';
+                    menu.style.top = Math.min(e.clientY, window.innerHeight - 120) + 'px';
+                    const closeMenu = () => { menu.style.display = 'none'; document.removeEventListener('click', closeMenu); };
+                    setTimeout(() => document.addEventListener('click', closeMenu), 10);
+                });
+                document.getElementById('ctxExportJson').addEventListener('click', () => { const tab = getActiveTab(); if (tab) downloadJSON(exportTabJson(tab), `flowchart_${tab.name}_${Date.now()}.json`); menu.style.display = 'none'; });
+                document.getElementById('ctxExportPng').addEventListener('click', () => { const tab = getActiveTab(); if (tab) exportTabImage(tab); menu.style.display = 'none'; });
+            }
+
+            function init() {
+                initMenu(); initContextMenu();
+                const loaded = loadFromLocal();
+                if (!loaded || tabs.length === 0) {
+                    const tab = createNewTab('默认画布');
+                }
+                document.getElementById('addTabBtn').addEventListener('click', () => createNewTab());
+                document.getElementById('addRectBtn').addEventListener('click', () => { const tab = getActiveTab(); if (tab) addNode(tab, 'rect', 300 + Math.random()*100, 200 + Math.random()*100, '矩形节点'); });
+                document.getElementById('addCircleBtn').addEventListener('click', () => { const tab = getActiveTab(); if (tab) addNode(tab, 'circle', 300 + Math.random()*100, 200 + Math.random()*100, '开始/结束'); });
+                document.getElementById('addDiamondBtn').addEventListener('click', () => { const tab = getActiveTab(); if (tab) addNode(tab, 'diamond', 300 + Math.random()*100, 200 + Math.random()*100, '分支'); });
+                document.getElementById('straightLineBtn').addEventListener('click', () => { const tab = getActiveTab(); if (tab) { tab.connectMode = tab.connectMode === 'straight' ? null : 'straight'; tab.connectSourceNodeId = null; updateMenuButtons(tab); render(tab); } });
+                document.getElementById('polylineBtn').addEventListener('click', () => { const tab = getActiveTab(); if (tab) { tab.connectMode = tab.connectMode === 'polyline' ? null : 'polyline'; tab.connectSourceNodeId = null; updateMenuButtons(tab); render(tab); } });
+                document.getElementById('deleteSelectedBtn').addEventListener('click', () => { const tab = getActiveTab(); if (tab) deleteSelected(tab); });
+                document.getElementById('exportJsonBtn').addEventListener('click', () => { const tab = getActiveTab(); if (tab) downloadJSON(exportTabJson(tab), `flowchart_${tab.name}_${Date.now()}.json`); });
+                document.getElementById('importJsonBtn').addEventListener('click', () => document.getElementById('fileInput').click());
+                document.getElementById('fileInput').addEventListener('change', (e) => { const tab = getActiveTab(); const file = e.target.files[0]; if (file && tab) { const reader = new FileReader(); reader.onload = (ev) => importTabJson(tab, ev.target.result); reader.readAsText(file); } e.target.value = ''; });
+                document.getElementById('clearBtn').addEventListener('click', () => { const tab = getActiveTab(); if (tab && confirm('确定清空当前画布？')) clearTab(tab); });
+                window.addEventListener('resize', () => { tabs.forEach(t => { resizeCanvas(t); render(t); }); });
+                window.addEventListener('keydown', (e) => { if ((e.key === 'Delete' || e.key === 'Backspace') && document.activeElement === document.body) { const tab = getActiveTab(); if (tab) deleteSelected(tab); } });
+            }
+
+            init();
+        })();
+    </script>
+</body>
+</html>
