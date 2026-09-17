@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <!--
 
@@ -13,7 +14,7 @@
 
         个人可免费使用，严禁用于商业目的。
 
-        商业授权请联系：xxuuyyuunn@sina.com
+        商业授权请联系：xxuuyuunn@sina.com
 
     -->
 
@@ -23,6 +24,7 @@
         | 版本号 | 过程节点说明 | 修订人 | 修订日期 | 修订内容 |
         | :----- | :----------- | :----- | :------- | :------- |
         | V0.1.0 | 初稿创建     | 徐昀 | 2026-08-26 | 根据用户需求生成 |
+        | V0.1.1 | 功能新增     | 徐昀 | 2026-09-16 | 修复线端指向圆形节点不显示箭头的问题，增加缩放 |
     -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
@@ -45,7 +47,13 @@
             --success: #10b981;
             --warning: #f59e0b;
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Segoe UI', 'Roboto', sans-serif;
             background: var(--bg-primary);
@@ -57,6 +65,7 @@
             color: var(--text-primary);
             user-select: none;
         }
+
         .tabs-header {
             background: var(--bg-secondary);
             padding: 8px 16px 0 16px;
@@ -71,8 +80,17 @@
             flex-shrink: 0;
             min-height: 46px;
         }
-        .tabs-header::-webkit-scrollbar { height: 4px; background: transparent; }
-        .tabs-header::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 8px; }
+
+        .tabs-header::-webkit-scrollbar {
+            height: 4px;
+            background: transparent;
+        }
+
+        .tabs-header::-webkit-scrollbar-thumb {
+            background: var(--accent);
+            border-radius: 8px;
+        }
+
         .tab-item {
             background: #1f2937;
             color: #cbd5e6;
@@ -91,45 +109,170 @@
             transition: all 0.15s;
             flex-shrink: 0;
         }
+
         .tab-item.active {
             background: var(--bg-primary);
             color: white;
             border-top: 2px solid var(--accent);
             border-bottom: 1px solid var(--bg-primary);
         }
-        .tab-name { display: inline-block; cursor: pointer; padding: 0 2px; border-radius: 4px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
-        .tab-name:hover { background: rgba(76, 154, 255, 0.2); }
-        .close-tab { background: rgba(255,255,255,0.1); border-radius: 30px; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; transition: 0.2s; flex-shrink: 0; }
-        .close-tab:hover { background: var(--danger); color: white; }
-        .add-tab-btn { background: var(--border-color); border: none; color: var(--text-secondary); padding: 6px 16px; border-radius: 20px; margin-left: 6px; cursor: pointer; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
-        .add-tab-btn:hover { background: var(--accent); color: white; }
-        .tab-name-input { background: #2a3a60; border: 1px solid var(--accent); border-radius: 6px; padding: 2px 6px; font-size: 12px; color: white; outline: none; width: 100px; }
-        .canvas-container { flex: 1; position: relative; background: var(--bg-primary); overflow: hidden; }
-        .canvas-wrapper { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; cursor: grab; }
-        .canvas-wrapper.active-canvas { display: block; }
-        canvas { display: block; position: absolute; top: 0; left: 0; cursor: crosshair; }
-        .menu-trigger-zone { position: fixed; left: 0; top: 60px; width: 80px; height: calc(100vh - 80px); z-index: 98; pointer-events: none; }
+
+        .tab-name {
+            display: inline-block;
+            cursor: pointer;
+            padding: 0 2px;
+            border-radius: 4px;
+            max-width: 160px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tab-name:hover {
+            background: rgba(76, 154, 255, 0.2);
+        }
+
+        .close-tab {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 30px;
+            width: 18px;
+            height: 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+            flex-shrink: 0;
+        }
+
+        .close-tab:hover {
+            background: var(--danger);
+            color: white;
+        }
+
+        .add-tab-btn {
+            background: var(--border-color);
+            border: none;
+            color: var(--text-secondary);
+            padding: 6px 16px;
+            border-radius: 20px;
+            margin-left: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .add-tab-btn:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .tab-name-input {
+            background: #2a3a60;
+            border: 1px solid var(--accent);
+            border-radius: 6px;
+            padding: 2px 6px;
+            font-size: 12px;
+            color: white;
+            outline: none;
+            width: 100px;
+        }
+
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            background: var(--bg-primary);
+            overflow: hidden;
+        }
+
+        .canvas-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            cursor: grab;
+        }
+
+        .canvas-wrapper.active-canvas {
+            display: block;
+        }
+
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: crosshair;
+        }
+
+        .menu-trigger-zone {
+            position: fixed;
+            left: 0;
+            top: 60px;
+            width: 80px;
+            height: calc(100vh - 80px);
+            z-index: 98;
+            pointer-events: none;
+        }
+
         .accordion-menu-wrapper {
-            position: fixed; left: 0; top: 60px; z-index: 100;
-            height: calc(100vh - 80px); display: flex; align-items: flex-start;
-            transition: transform 0.3s cubic-bezier(0.22,1,0.36,1);
+            position: fixed;
+            left: 0;
+            top: 60px;
+            z-index: 100;
+            height: calc(100vh - 80px);
+            display: flex;
+            align-items: flex-start;
+            transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
             transform: translateX(-100%);
         }
-        .accordion-menu-wrapper.menu-visible { transform: translateX(0); }
-        .accordion-menu {
-            width: 280px; background: rgba(20,26,44,0.95); backdrop-filter: blur(16px);
-            border-radius: 0 20px 20px 0; border: 1px solid rgba(76,154,255,0.4);
-            border-left: none; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-            height: 100%; display: flex; flex-direction: column; flex-shrink: 0;
+
+        .accordion-menu-wrapper.menu-visible {
+            transform: translateX(0);
         }
-        .accordion-scroll { flex: 1; overflow-y: auto; padding-bottom: 12px; }
-        .accordion-scroll::-webkit-scrollbar { width: 4px; }
-        .accordion-scroll::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 8px; }
+
+        .accordion-menu {
+            width: 280px;
+            background: rgba(20, 26, 44, 0.95);
+            backdrop-filter: blur(16px);
+            border-radius: 0 20px 20px 0;
+            border: 1px solid rgba(76, 154, 255, 0.4);
+            border-left: none;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .accordion-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 12px;
+        }
+
+        .accordion-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .accordion-scroll::-webkit-scrollbar-thumb {
+            background: var(--accent);
+            border-radius: 8px;
+        }
+
         .menu-section {
             border-bottom: 1px solid var(--border-color);
             padding: 12px 0;
         }
-        .menu-section:last-child { border-bottom: none; }
+
+        .menu-section:last-child {
+            border-bottom: none;
+        }
+
         .section-title {
             color: #b9d0ff;
             font-size: 11px;
@@ -137,12 +280,14 @@
             font-weight: 500;
             padding: 0 14px;
         }
+
         .menu-inner {
             padding: 0 14px;
             display: flex;
             flex-direction: column;
             gap: 8px;
         }
+
         .menu-btn {
             background: var(--border-color);
             border: none;
@@ -158,20 +303,87 @@
             width: 100%;
             justify-content: center;
         }
-        .menu-btn:hover { background: var(--accent-hover); }
-        .menu-btn-danger { background: #5a2a2a; }
-        .menu-btn-danger:hover { background: var(--danger); }
-        .context-menu {
-            position: fixed; background: rgba(30,35,55,0.98); backdrop-filter: blur(12px);
-            border: 1px solid var(--accent); border-radius: 12px; padding: 6px 0;
-            min-width: 180px; z-index: 1000; box-shadow: 0 8px 20px rgba(0,0,0,0.4); display: none;
+
+        .menu-btn:hover {
+            background: var(--accent-hover);
         }
-        .context-menu-item { padding: 8px 18px; font-size: 13px; color: #e0e0e0; cursor: pointer; transition: 0.1s; display: flex; align-items: center; gap: 10px; }
-        .context-menu-item:hover { background: var(--accent); color: white; }
-        .context-menu-divider { height: 1px; background: var(--border-color); margin: 4px 0; }
-        .status-tip { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(76,154,255,0.85); padding: 6px 16px; border-radius: 20px; font-size: 12px; color: white; pointer-events: none; z-index: 99; display: none; }
+
+        .menu-btn-danger {
+            background: #5a2a2a;
+        }
+
+        .menu-btn-danger:hover {
+            background: var(--danger);
+        }
+
+        .context-menu {
+            position: fixed;
+            background: rgba(30, 35, 55, 0.98);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--accent);
+            border-radius: 12px;
+            padding: 6px 0;
+            min-width: 180px;
+            z-index: 1000;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+            display: none;
+        }
+
+        .context-menu-item {
+            padding: 8px 18px;
+            font-size: 13px;
+            color: #e0e0e0;
+            cursor: pointer;
+            transition: 0.1s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .context-menu-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .context-menu-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 4px 0;
+        }
+
+        .status-tip {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(76, 154, 255, 0.85);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: white;
+            pointer-events: none;
+            z-index: 99;
+            display: none;
+        }
+
+        .zoom-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(20, 26, 44, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            pointer-events: none;
+            z-index: 99;
+            font-variant-numeric: tabular-nums;
+        }
     </style>
 </head>
+
 <body>
     <div class="tabs-header" id="tabsHeader">
         <button class="add-tab-btn" id="addTabBtn">+ 新建页签</button>
@@ -193,10 +405,15 @@
                         <button class="menu-btn" id="straightLineBtn">📏 直线连线</button>
                         <button class="menu-btn" id="polylineBtn">📐 折线连线</button>
                         <div style="height:6px;"></div>
+                        <div class="section-title">视图操作</div>
+                        <button class="menu-btn" id="zoomInBtn">🔍 放大</button>
+                        <button class="menu-btn" id="zoomOutBtn">🔎 缩小</button>
+                        <button class="menu-btn" id="resetViewBtn">🎯 重置视图</button>
+                        <div style="height:6px;"></div>
                         <div class="section-title">其他操作</div>
                         <button class="menu-btn" id="deleteSelectedBtn">🗑️ 删除选中</button>
-                        <button class="menu-btn" id="exportJsonBtn">📤 导出JSON</button>
                         <button class="menu-btn" id="importJsonBtn">📥 导入JSON</button>
+                        <button class="menu-btn" id="exportJsonBtn">📤 导出JSON</button>
                         <button class="menu-btn menu-btn-danger" id="clearBtn">清空画布</button>
                         <input type="file" id="fileInput" accept=".json" style="display:none;">
                     </div>
@@ -210,20 +427,31 @@
         <div class="context-menu-item" id="ctxExportPng">📸 导出图片 (PNG)</div>
     </div>
     <div id="statusTip" class="status-tip"></div>
+    <div id="zoomIndicator" class="zoom-indicator">缩放：100%</div>
 
     <script>
-        (function() {
+        (function () {
             let tabs = [];
             let activeTabId = null;
             let nextTabId = 1;
             const STORAGE_KEY = 'flowchart_multitab_v4';
             let mousePos = { x: 0, y: 0 };
 
+            const MIN_SCALE = 0.2;
+            const MAX_SCALE = 5;
+            const WHEEL_FACTOR = 1.1;
+
             function showTip(msg, duration = 1500) {
                 const tip = document.getElementById('statusTip');
                 tip.textContent = msg; tip.style.display = 'block';
                 clearTimeout(tip._timer);
                 tip._timer = setTimeout(() => { tip.style.display = 'none'; }, duration);
+            }
+
+            function updateZoomIndicator(tab) {
+                const el = document.getElementById('zoomIndicator');
+                if (!tab) { el.textContent = '缩放：100%'; return; }
+                el.textContent = `缩放：${Math.round(tab.scale * 100)}%`;
             }
 
             function createTab(name = null) {
@@ -233,6 +461,7 @@
                     id, name: tabName, nodes: [], edges: [],
                     nextNodeId: 1, nextEdgeId: 1,
                     canvasOffsetX: 0, canvasOffsetY: 0,
+                    scale: 1,
                     connectMode: null, connectSourceNodeId: null,
                     selectedNodeId: null, selectedEdgeId: null,
                     wrapper: null, canvas: null, ctx: null,
@@ -308,7 +537,7 @@
                 activeTabId = tabId;
                 document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
                 document.querySelector(`.tab-item[data-tab-id="${tabId}"]`)?.classList.add('active');
-                resizeCanvas(tab); render(tab); saveAllToLocal();
+                resizeCanvas(tab); render(tab); updateZoomIndicator(tab); saveAllToLocal();
             }
 
             function closeTab(tabId) {
@@ -329,9 +558,14 @@
 
             function saveAllToLocal() {
                 try {
-                    const data = tabs.map(t => ({ id: t.id, name: t.name, nodes: t.nodes, edges: t.edges, nextNodeId: t.nextNodeId, nextEdgeId: t.nextEdgeId, canvasOffsetX: t.canvasOffsetX, canvasOffsetY: t.canvasOffsetY }));
+                    const data = tabs.map(t => ({
+                        id: t.id, name: t.name, nodes: t.nodes, edges: t.edges,
+                        nextNodeId: t.nextNodeId, nextEdgeId: t.nextEdgeId,
+                        canvasOffsetX: t.canvasOffsetX, canvasOffsetY: t.canvasOffsetY,
+                        scale: t.scale
+                    }));
                     localStorage.setItem(STORAGE_KEY, JSON.stringify({ tabs: data, activeTabId, nextTabId }));
-                } catch(e) {}
+                } catch (e) { }
             }
 
             function loadFromLocal() {
@@ -344,13 +578,14 @@
                         tab.id = t.id; tab.nodes = t.nodes || []; tab.edges = t.edges || [];
                         tab.nextNodeId = t.nextNodeId || 1; tab.nextEdgeId = t.nextEdgeId || 1;
                         tab.canvasOffsetX = t.canvasOffsetX || 0; tab.canvasOffsetY = t.canvasOffsetY || 0;
+                        tab.scale = t.scale || 1;
                         createCanvasDOM(tab); addTabButton(tab);
                     });
                     nextTabId = data.nextTabId || (tabs.length + 1);
                     if (data.activeTabId && tabs.find(t => t.id === data.activeTabId)) switchTab(parseInt(data.activeTabId));
                     else if (tabs.length) switchTab(tabs[0].id);
                     return true;
-                } catch(e) { return false; }
+                } catch (e) { return false; }
             }
 
             function getNodeById(tab, id) { return tab.nodes.find(n => n.id === id); }
@@ -424,9 +659,7 @@
                 const left = rect.x, right = rect.x + rect.width;
                 const top = rect.y, bottom = rect.y + rect.height;
                 const dx = x2 - x1, dy = y2 - y1;
-                let tMin = 1, tMax = 0;
                 const candidates = [];
-                // 与四条边的交点
                 const edges = [
                     { x1: left, y1: top, x2: right, y2: top },
                     { x1: right, y1: top, x2: right, y2: bottom },
@@ -440,7 +673,6 @@
                     }
                 }
                 if (candidates.length === 0) return null;
-                // 选择离起点最远的交点（即进入矩形的点）
                 let tMaxVal = Math.max(...candidates);
                 return { x: x1 + tMaxVal * dx, y: y1 + tMaxVal * dy, t: tMaxVal };
             }
@@ -459,20 +691,25 @@
                 return null;
             }
 
-            // 计算直线与圆的交点
+            // 计算直线与圆的交点（返回线段的第一个交点，即进入点）
             function intersectCircle(x1, y1, x2, y2, cx, cy, r) {
                 const dx = x2 - x1, dy = y2 - y1;
                 const fx = x1 - cx, fy = y1 - cy;
                 const a = dx * dx + dy * dy;
+                if (a < 1e-10) return null;
                 const b = 2 * (fx * dx + fy * dy);
                 const c = fx * fx + fy * fy - r * r;
-                let discriminant = b * b - 4 * a * c;
-                if (discriminant < 0) return null;
-                discriminant = Math.sqrt(discriminant);
-                const t1 = (-b - discriminant) / (2 * a);
-                const t2 = (-b + discriminant) / (2 * a);
-                let t = Math.max(t1, t2);
-                if (t < 0 || t > 1) return null;
+                let disc = b * b - 4 * a * c;
+                if (disc < 0) return null;
+
+                disc = Math.sqrt(disc);
+                const t1 = (-b - disc) / (2 * a);
+                const t2 = (-b + disc) / (2 * a);
+
+                const valid = [t1, t2].filter(t => t >= 0 && t <= 1);
+                if (valid.length === 0) return null;
+                const t = Math.min(...valid);
+
                 return { x: x1 + t * dx, y: y1 + t * dy, t: t };
             }
 
@@ -480,8 +717,6 @@
             function intersectDiamond(x1, y1, x2, y2, node) {
                 const cx = node.x + node.width / 2;
                 const cy = node.y + node.height / 2;
-                const hw = node.width / 2, hh = node.height / 2;
-                // 菱形四个顶点
                 const pts = [
                     { x: cx, y: node.y },
                     { x: node.x + node.width, y: cy },
@@ -502,11 +737,9 @@
                 return { x: x1 + tMaxVal * (x2 - x1), y: y1 + tMaxVal * (y2 - y1), t: tMaxVal };
             }
 
-            // 计算连线与目标节点的交叉点
             function getIntersection(tab, edge, fromC, toC) {
                 const toNode = getNodeById(tab, edge.to);
                 if (!toNode) return null;
-                // 获取连线最后一段的起点（对于折线，最后一段从最后一个折点到目标节点）
                 let startX = fromC.x, startY = fromC.y;
                 if (edge.polyline && edge.bendPoints && edge.bendPoints.length === 2) {
                     startX = edge.bendPoints[1].x;
@@ -569,7 +802,8 @@
                 tab.nodes = []; tab.edges = []; tab.selectedNodeId = null; tab.selectedEdgeId = null;
                 tab.connectMode = null; tab.connectSourceNodeId = null;
                 tab.canvasOffsetX = 0; tab.canvasOffsetY = 0;
-                updateMenuButtons(tab); render(tab); saveAllToLocal();
+                tab.scale = 1;
+                updateMenuButtons(tab); render(tab); updateZoomIndicator(tab); saveAllToLocal();
             }
 
             function updateMenuButtons(tab) {
@@ -584,14 +818,18 @@
                 ctx.fillStyle = '#0a0f1f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.strokeStyle = 'rgba(42,52,82,0.4)'; ctx.lineWidth = 1;
                 const step = 30;
-                const offX = tab.canvasOffsetX % step, offY = tab.canvasOffsetY % step;
-                for (let x = offX; x <= canvas.width; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
-                for (let y = offY; y <= canvas.height; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke(); }
+                // 网格随 offset 和 scale 变化，保持视觉密度
+                const gridStep = step * tab.scale;
+                const offX = ((tab.canvasOffsetX % gridStep) + gridStep) % gridStep;
+                const offY = ((tab.canvasOffsetY % gridStep) + gridStep) % gridStep;
+                for (let x = offX; x <= canvas.width; x += gridStep) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
+                for (let y = offY; y <= canvas.height; y += gridStep) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke(); }
 
                 ctx.save();
                 ctx.translate(tab.canvasOffsetX, tab.canvasOffsetY);
+                ctx.scale(tab.scale, tab.scale);
 
-                // 绘制连线（先画线，不画箭头）
+                // 绘制连线
                 tab.edges.forEach(edge => {
                     const fromNode = getNodeById(tab, edge.from);
                     const toNode = getNodeById(tab, edge.to);
@@ -613,7 +851,6 @@
                         }
                     }
 
-                    // 计算与目标节点的交叉点，用于截断连线
                     const intersection = getIntersection(tab, edge, fromC, toC);
                     let endX = toC.x, endY = toC.y;
                     if (intersection && intersection.t < 1) {
@@ -704,7 +941,7 @@
                     ctx.restore();
                 });
 
-                // 绘制箭头（在节点之上，基于交叉点位置）
+                // 绘制箭头
                 tab.edges.forEach(edge => {
                     const fromNode = getNodeById(tab, edge.from);
                     const toNode = getNodeById(tab, edge.to);
@@ -713,16 +950,13 @@
                     const toC = getNodeCenter(toNode);
                     const isSelected = tab.selectedEdgeId === edge.id;
 
-                    // 获取交叉点
                     const intersection = getIntersection(tab, edge, fromC, toC);
                     if (!intersection) return;
 
-                    // 计算箭头方向（从交叉点指向节点中心的方向，即连线进入节点的方向）
                     const angle = Math.atan2(toC.y - intersection.y, toC.x - intersection.x);
                     const arrowSize = 14;
                     const tipX = intersection.x;
                     const tipY = intersection.y;
-                    // 箭头基部（从尖端往回退）
                     const baseX = tipX - arrowSize * Math.cos(angle);
                     const baseY = tipY - arrowSize * Math.sin(angle);
                     const wingOff = arrowSize * 0.45;
@@ -743,7 +977,7 @@
                     ctx.stroke();
                 });
 
-                // 临时连线（带虚线箭头）
+                // 临时连线
                 if (tab.connectMode && tab.connectSourceNodeId) {
                     const sourceNode = getNodeById(tab, tab.connectSourceNodeId);
                     if (sourceNode) {
@@ -762,7 +996,6 @@
                         }
                         ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2;
                         ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
-                        // 临时箭头
                         const angle = Math.atan2(canvasPos.y - sourceC.y, canvasPos.x - sourceC.x);
                         const tipX = canvasPos.x, tipY = canvasPos.y;
                         const baseX = tipX - 14 * Math.cos(angle);
@@ -781,7 +1014,12 @@
                 ctx.restore();
             }
 
-            function screenToCanvas(tab, sx, sy) { return { x: sx - tab.canvasOffsetX, y: sy - tab.canvasOffsetY }; }
+            function screenToCanvas(tab, sx, sy) {
+                return {
+                    x: (sx - tab.canvasOffsetX) / tab.scale,
+                    y: (sy - tab.canvasOffsetY) / tab.scale
+                };
+            }
             function getActiveTab() { return tabs.find(t => t.id === activeTabId); }
 
             function initCanvasEvents(tab) {
@@ -875,15 +1113,37 @@
                     if (node) editNodeText(tab, node); else if (edge) editEdgeLabel(tab, edge);
                 });
                 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+                // 滚轮缩放
+                canvas.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    const { sx, sy } = getEventPos(e);
+
+                    // 鼠标在画布坐标系中的位置（缩放前）
+                    const before = screenToCanvas(tab, sx, sy);
+
+                    const zoomFactor = e.deltaY < 0 ? WHEEL_FACTOR : 1 / WHEEL_FACTOR;
+                    const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, tab.scale * zoomFactor));
+                    if (newScale === tab.scale) return;
+                    tab.scale = newScale;
+
+                    // 调整 offset，使鼠标下的点保持不动
+                    tab.canvasOffsetX = sx - before.x * tab.scale;
+                    tab.canvasOffsetY = sy - before.y * tab.scale;
+
+                    render(tab);
+                    updateZoomIndicator(tab);
+                    saveAllToLocal();
+                }, { passive: false });
             }
 
             function editNodeText(tab, node) {
                 const input = document.createElement('input');
                 input.type = 'text'; input.value = node.text || '';
                 input.style.cssText = 'position:fixed;z-index:1001;border:2px solid #3b82f6;border-radius:10px;padding:6px 12px;font-size:14px;background:#1a1f2e;color:#fff;outline:none;';
-                input.style.left = `${tab.canvasOffsetX + node.x + 10}px`;
-                input.style.top = `${tab.canvasOffsetY + node.y + node.height/2 - 15}px`;
-                input.style.width = `${node.width - 20}px`;
+                input.style.left = `${tab.canvasOffsetX + (node.x + 10) * tab.scale}px`;
+                input.style.top = `${tab.canvasOffsetY + (node.y + node.height / 2 - 15) * tab.scale}px`;
+                input.style.width = `${Math.max(60, (node.width - 20) * tab.scale)}px`;
                 document.body.appendChild(input); input.focus(); input.select();
                 const finish = () => { node.text = input.value.trim() || '节点'; document.body.removeChild(input); render(tab); saveAllToLocal(); };
                 input.addEventListener('blur', finish);
@@ -900,9 +1160,9 @@
                     let lx, ly;
                     if (edge.polyline && edge.bendPoints?.length === 2) { lx = (edge.bendPoints[0].x + edge.bendPoints[1].x) / 2; ly = (edge.bendPoints[0].y + edge.bendPoints[1].y) / 2; }
                     else { lx = (fromC.x + toC.x) / 2; ly = (fromC.y + toC.y) / 2; }
-                    input.style.left = `${tab.canvasOffsetX + lx - 50}px`;
-                    input.style.top = `${tab.canvasOffsetY + ly - 18}px`;
-                    input.style.width = '100px';
+                    input.style.left = `${tab.canvasOffsetX + (lx - 50) * tab.scale}px`;
+                    input.style.top = `${tab.canvasOffsetY + (ly - 18) * tab.scale}px`;
+                    input.style.width = `${Math.max(60, 100 * tab.scale)}px`;
                 }
                 document.body.appendChild(input); input.focus(); input.select();
                 const finish = () => { edge.label = input.value.trim(); document.body.removeChild(input); render(tab); saveAllToLocal(); };
@@ -914,6 +1174,7 @@
                 return {
                     version: '2.0', canvasName: tab.name,
                     canvasOffset: { x: tab.canvasOffsetX, y: tab.canvasOffsetY },
+                    scale: tab.scale,
                     nodes: tab.nodes.map(n => ({ id: n.id, type: n.type, text: n.text || '', x: n.x, y: n.y, width: n.width, height: n.height })),
                     edges: tab.edges.map(e => ({
                         id: e.id, from: e.from, to: e.to, type: e.polyline ? 'polyline' : 'straight',
@@ -933,7 +1194,7 @@
                     const canvas = await html2canvas(tab.wrapper, { backgroundColor: '#0a0f1f', scale: 2 });
                     const link = document.createElement('a'); link.download = `flowchart_${tab.name}_${Date.now()}.png`;
                     link.href = canvas.toDataURL(); link.click(); showTip('图片已导出');
-                } catch(e) { showTip('导出失败'); }
+                } catch (e) { showTip('导出失败'); }
             }
 
             function importTabJson(tab, jsonStr) {
@@ -943,8 +1204,10 @@
                     tab.nodes = data.nodes.map(n => ({ id: n.id, type: n.type || 'rect', text: n.text || '节点', x: Number(n.x) || 100, y: Number(n.y) || 100, width: Number(n.width) || 150, height: Number(n.height) || 60 }));
                     tab.edges = data.edges.map(e => { const isPolyline = e.type === 'polyline'; return { id: e.id, from: e.from, to: e.to, label: e.label || '', polyline: isPolyline, bendPoints: isPolyline ? (e.bendPoints || []) : null, manualBend: e.manualBend || false }; });
                     tab.canvasOffsetX = data.canvasOffset?.x || 0; tab.canvasOffsetY = data.canvasOffset?.y || 0;
-                    tab.selectedNodeId = null; tab.selectedEdgeId = null; render(tab); saveAllToLocal(); showTip('导入成功');
-                } catch(e) { showTip('JSON解析失败'); }
+                    tab.scale = data.scale || 1;
+                    tab.selectedNodeId = null; tab.selectedEdgeId = null;
+                    render(tab); updateZoomIndicator(tab); saveAllToLocal(); showTip('导入成功');
+                } catch (e) { showTip('JSON解析失败'); }
             }
 
             function initMenu() {
@@ -971,6 +1234,33 @@
                 document.getElementById('ctxExportPng').addEventListener('click', () => { const tab = getActiveTab(); if (tab) exportTabImage(tab); menu.style.display = 'none'; });
             }
 
+            // 以视图中心为锚点缩放
+            function zoomByFactor(tab, factor) {
+                if (!tab) return;
+                const canvas = tab.canvas;
+                const sx = canvas.width / 2;
+                const sy = canvas.height / 2;
+                const before = screenToCanvas(tab, sx, sy);
+                const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, tab.scale * factor));
+                if (newScale === tab.scale) return;
+                tab.scale = newScale;
+                tab.canvasOffsetX = sx - before.x * tab.scale;
+                tab.canvasOffsetY = sy - before.y * tab.scale;
+                render(tab);
+                updateZoomIndicator(tab);
+                saveAllToLocal();
+            }
+
+            function resetView(tab) {
+                if (!tab) return;
+                tab.scale = 1;
+                tab.canvasOffsetX = 0;
+                tab.canvasOffsetY = 0;
+                render(tab);
+                updateZoomIndicator(tab);
+                saveAllToLocal();
+            }
+
             function init() {
                 initMenu(); initContextMenu();
                 const loaded = loadFromLocal();
@@ -978,11 +1268,14 @@
                     const tab = createNewTab('默认画布');
                 }
                 document.getElementById('addTabBtn').addEventListener('click', () => createNewTab());
-                document.getElementById('addRectBtn').addEventListener('click', () => { const tab = getActiveTab(); if (tab) addNode(tab, 'rect', 300 + Math.random()*100, 200 + Math.random()*100, '矩形节点'); });
-                document.getElementById('addCircleBtn').addEventListener('click', () => { const tab = getActiveTab(); if (tab) addNode(tab, 'circle', 300 + Math.random()*100, 200 + Math.random()*100, '开始/结束'); });
-                document.getElementById('addDiamondBtn').addEventListener('click', () => { const tab = getActiveTab(); if (tab) addNode(tab, 'diamond', 300 + Math.random()*100, 200 + Math.random()*100, '分支'); });
+                document.getElementById('addRectBtn').addEventListener('click', () => { const tab = getActiveTab(); if (tab) addNode(tab, 'rect', 300 + Math.random() * 100, 200 + Math.random() * 100, '矩形节点'); });
+                document.getElementById('addCircleBtn').addEventListener('click', () => { const tab = getActiveTab(); if (tab) addNode(tab, 'circle', 300 + Math.random() * 100, 200 + Math.random() * 100, '开始/结束'); });
+                document.getElementById('addDiamondBtn').addEventListener('click', () => { const tab = getActiveTab(); if (tab) addNode(tab, 'diamond', 300 + Math.random() * 100, 200 + Math.random() * 100, '分支'); });
                 document.getElementById('straightLineBtn').addEventListener('click', () => { const tab = getActiveTab(); if (tab) { tab.connectMode = tab.connectMode === 'straight' ? null : 'straight'; tab.connectSourceNodeId = null; updateMenuButtons(tab); render(tab); } });
                 document.getElementById('polylineBtn').addEventListener('click', () => { const tab = getActiveTab(); if (tab) { tab.connectMode = tab.connectMode === 'polyline' ? null : 'polyline'; tab.connectSourceNodeId = null; updateMenuButtons(tab); render(tab); } });
+                document.getElementById('zoomInBtn').addEventListener('click', () => { const tab = getActiveTab(); if (tab) zoomByFactor(tab, WHEEL_FACTOR); });
+                document.getElementById('zoomOutBtn').addEventListener('click', () => { const tab = getActiveTab(); if (tab) zoomByFactor(tab, 1 / WHEEL_FACTOR); });
+                document.getElementById('resetViewBtn').addEventListener('click', () => { const tab = getActiveTab(); if (tab) resetView(tab); });
                 document.getElementById('deleteSelectedBtn').addEventListener('click', () => { const tab = getActiveTab(); if (tab) deleteSelected(tab); });
                 document.getElementById('exportJsonBtn').addEventListener('click', () => { const tab = getActiveTab(); if (tab) downloadJSON(exportTabJson(tab), `flowchart_${tab.name}_${Date.now()}.json`); });
                 document.getElementById('importJsonBtn').addEventListener('click', () => document.getElementById('fileInput').click());
@@ -996,4 +1289,5 @@
         })();
     </script>
 </body>
+
 </html>

@@ -29,6 +29,7 @@
         | V0.1.2 | 新增状态边框 | 徐昀 | 2026-05-29 | 增加status属性，支持边框颜色映射与管理，鼠标悬停显示所有props属性 |
         | V0.1.3 | 修复页签重命名 | 徐昀 | 2026-06-02 | 修复双击修改页签名后不立即显示的问题 |
         | V0.1.4 | 主菜单自动隐藏 | 徐昀 | 2026-08-10 | 主菜单自动隐藏，不占用页面空间 |
+        | V0.2.0 | 物理参数面板 | 徐昀 | 2026-09-16 | 新增右侧物理参数菜单，常用参数可调，高级参数只读折叠 |
     -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
@@ -554,6 +555,236 @@
         .accordion-menu-wrapper {
             transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
         }
+
+        /* ================= 右侧物理参数菜单 ================= */
+        .physics-menu-wrapper {
+            position: fixed;
+            right: 0;
+            top: 70px;
+            z-index: 100;
+            height: calc(100vh - 90px);
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-end;
+            transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+            transform: translateX(100%);
+        }
+
+        .physics-menu-wrapper.menu-visible {
+            transform: translateX(0);
+        }
+
+        .physics-trigger-zone {
+            position: fixed;
+            right: 0;
+            top: 70px;
+            width: 100px;
+            height: calc(100vh - 90px);
+            z-index: 99;
+            background: transparent;
+            pointer-events: none;
+        }
+
+        .physics-menu {
+            width: 300px;
+            background: rgba(20, 26, 44, 0.95);
+            backdrop-filter: blur(16px);
+            border-radius: 20px 0 0 20px;
+            border: 1px solid rgba(76, 154, 255, 0.4);
+            border-right: none;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .phys-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .phys-label {
+            font-size: 12px;
+            color: #b9d0ff;
+        }
+
+        .phys-select {
+            background: #0b0f1a;
+            border: 1px solid #2a3452;
+            border-radius: 8px;
+            padding: 5px 8px;
+            color: white;
+            font-size: 11px;
+            outline: none;
+            flex: 1;
+            max-width: 170px;
+        }
+
+        .phys-param {
+            margin-bottom: 14px;
+        }
+
+        .phys-param.disabled {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        .phys-param-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .phys-value {
+            font-family: monospace;
+            font-size: 11px;
+            color: #4c9aff;
+            background: #0b0f1a;
+            padding: 2px 7px;
+            border-radius: 8px;
+            min-width: 46px;
+            text-align: center;
+        }
+
+        .phys-range {
+            width: 100%;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 4px;
+            border-radius: 4px;
+            background: #2a3452;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .phys-range::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #4c9aff;
+            cursor: pointer;
+            box-shadow: 0 0 6px rgba(76, 154, 255, 0.7);
+        }
+
+        .phys-range::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border: none;
+            border-radius: 50%;
+            background: #4c9aff;
+            cursor: pointer;
+        }
+
+        .phys-hint {
+            font-size: 10px;
+            color: #6b7a94;
+            margin-top: 4px;
+            line-height: 1.35;
+        }
+
+        .phys-btns {
+            display: flex;
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        .phys-btns button {
+            flex: 1;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 38px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider-sw {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: #2a3452;
+            border-radius: 20px;
+            transition: 0.2s;
+        }
+
+        .slider-sw:before {
+            content: "";
+            position: absolute;
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            bottom: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: 0.2s;
+        }
+
+        .switch input:checked + .slider-sw {
+            background: #4c9aff;
+        }
+
+        .switch input:checked + .slider-sw:before {
+            transform: translateX(18px);
+        }
+
+        .phys-note {
+            font-size: 10px;
+            color: #6b7a94;
+            background: rgba(76, 154, 255, 0.08);
+            border-left: 2px solid #4c9aff;
+            padding: 6px 8px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            line-height: 1.45;
+        }
+
+        .adv-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .adv-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 8px;
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 8px;
+            border: 1px dashed #2a3452;
+        }
+
+        .adv-label {
+            font-size: 11px;
+            color: #9aa9c1;
+            cursor: help;
+        }
+
+        .adv-value {
+            font-family: monospace;
+            font-size: 11px;
+            color: #7a8ba8;
+            background: #0b0f1a;
+            padding: 2px 7px;
+            border-radius: 6px;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 
@@ -616,6 +847,35 @@
         </div>
     </div>
 
+    <!-- 右侧物理菜单感应区 -->
+    <div class="physics-trigger-zone" id="physicsTriggerZone"></div>
+
+    <!-- 右侧物理菜单 -->
+    <div class="physics-menu-wrapper" id="physicsMenuWrapper">
+        <div class="physics-menu">
+            <div class="accordion-scroll">
+                <div class="accordion-item">
+                    <div class="accordion-header" data-target="physicsMain">
+                        <span>⚙️ 物理参数</span>
+                        <span class="accordion-icon">▼</span>
+                    </div>
+                    <div class="accordion-content open" id="contentPhysicsMain">
+                        <div class="menu-inner" id="physicsPanelContent"></div>
+                    </div>
+                </div>
+                <div class="accordion-item">
+                    <div class="accordion-header" data-target="physicsAdvanced">
+                        <span>🔒 高级参数（推荐值·只读）</span>
+                        <span class="accordion-icon">▼</span>
+                    </div>
+                    <div class="accordion-content" id="contentPhysicsAdvanced">
+                        <div class="menu-inner" id="physicsAdvancedContent"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="statusTip" class="status-tip" style="display: none;"></div>
     <div id="contextMenu" class="context-menu">
         <div class="context-menu-item" id="exportDataBtn">📤 导出数据 (JSON)</div>
@@ -659,6 +919,144 @@
             globalStatusBorderStyles.set("默认", "#95a5a6");
         }
         initDefaultStyles();
+
+        /* ================= 物理参数配置 ================= */
+
+        // 高级/危险参数：仅展示推荐值，不开放修改
+        const PHYSICS_ADV = {
+            timestep: 0.5,
+            minVelocity: 0.1,
+            maxVelocity: 50,
+            adaptiveTimestep: true
+        };
+
+        // 各求解器可调参数定义（驱动 UI 自动生成，便于扩展）
+        const SOLVER_INFO = {
+            barnesHut: {
+                label: 'BarnesHut（通用·推荐）',
+                params: {
+                    gravitationalConstant: { label: '斥力强度', min: -10000, max: -200, step: 50, def: -2000, invert: true, hint: '越负斥力越强，节点越分散' },
+                    centralGravity:        { label: '中心引力', min: 0, max: 2,   step: 0.01, def: 0.3,  hint: '越大越向中心聚拢' },
+                    springLength:          { label: '弹簧长度', min: 20, max: 500, step: 5,   def: 95,   hint: '边的理想长度' },
+                    springConstant:        { label: '弹簧刚度', min: 0, max: 0.5, step: 0.01, def: 0.04, hint: '越大边越硬' },
+                    damping:               { label: '阻尼',     min: 0, max: 1,   step: 0.01, def: 0.09, hint: '越大越稳定但移动越慢' },
+                    avoidOverlap:          { label: '防重叠',   min: 0, max: 1,   step: 0.05, def: 0,    hint: '越大节点越不重叠' }
+                }
+            },
+            forceAtlas2Based: {
+                label: 'ForceAtlas2Based（大图/默认）',
+                params: {
+                    gravitationalConstant: { label: '斥力强度', min: -2000, max: -5, step: 5,   def: -100, invert: true, hint: '越负斥力越强' },
+                    centralGravity:        { label: '中心引力', min: 0, max: 1,   step: 0.005, def: 0.01, hint: '将网络拉回中心' },
+                    springLength:          { label: '弹簧长度', min: 20, max: 500, step: 5,   def: 100,  hint: '边的理想长度' },
+                    springConstant:        { label: '弹簧刚度', min: 0, max: 1,   step: 0.01, def: 0.05, hint: '越大边越硬' },
+                    damping:               { label: '阻尼',     min: 0, max: 1,   step: 0.01, def: 0.4,  hint: '越大越稳定' },
+                    avoidOverlap:          { label: '防重叠',   min: 0, max: 1,   step: 0.05, def: 0,    hint: '越大节点越不重叠' }
+                }
+            },
+            repulsion: {
+                label: 'Repulsion（排斥力模型）',
+                params: {
+                    nodeDistance:   { label: '节点间距', min: 10, max: 500, step: 5,   def: 100,  hint: '斥力影响范围' },
+                    centralGravity: { label: '中心引力', min: 0, max: 2,   step: 0.01, def: 0.2,  hint: '' },
+                    springLength:   { label: '弹簧长度', min: 20, max: 500, step: 5,   def: 200,  hint: '' },
+                    springConstant: { label: '弹簧刚度', min: 0, max: 0.5, step: 0.01, def: 0.05, hint: '' },
+                    damping:        { label: '阻尼',     min: 0, max: 1,   step: 0.01, def: 0.09, hint: '' }
+                }
+            },
+            hierarchicalRepulsion: {
+                label: 'HierarchicalRepulsion（分层）',
+                params: {
+                    nodeDistance:   { label: '节点间距', min: 10, max: 500, step: 5,   def: 120,  hint: '' },
+                    centralGravity: { label: '中心引力', min: 0, max: 2,   step: 0.01, def: 0.0,  hint: '' },
+                    springLength:   { label: '弹簧长度', min: 20, max: 500, step: 5,   def: 100,  hint: '' },
+                    springConstant: { label: '弹簧刚度', min: 0, max: 0.5, step: 0.01, def: 0.01, hint: '' },
+                    damping:        { label: '阻尼',     min: 0, max: 1,   step: 0.01, def: 0.09, hint: '' }
+                }
+            }
+        };
+
+        // 高级参数展示列表（只读，便于后续开放）
+        const ADVANCED_PHYSICS_PARAMS = [
+            { label: 'Theta（BH 精度）', value: '0.5',   desc: 'BarnesHut 远近作用力边界，越大越快误差越大' },
+            { label: '时间步长 timestep', value: '0.5',  desc: '过大可能不稳定，过小则移动缓慢' },
+            { label: '最小速度 minVelocity', value: '0.1', desc: '低于此速度模拟停止' },
+            { label: '最大速度 maxVelocity', value: '50', desc: '限制单帧最大位移，防止飞出视野' },
+            { label: '自适应步长 adaptiveTimestep', value: 'true', desc: '稳定化阶段自动调整步长加速收敛' },
+            { label: '稳定化更新间隔 updateInterval', value: '25', desc: '稳定化期间 UI 刷新频率' },
+            { label: '稳定化后自适应 fit', value: 'true', desc: '稳定化完成后自动缩放到可见范围' },
+            { label: '风力 wind', value: '{x: 0, y: 0}', desc: '对非固定节点施加恒定推力，谨慎使用' }
+        ];
+
+        let physicsState = {
+            enabled: true,
+            solver: 'forceAtlas2Based',
+            iterations: 100,
+            params: {}
+        };
+
+        function ensurePhysicsDefaults() {
+            for (const solver in SOLVER_INFO) {
+                if (!physicsState.params[solver]) physicsState.params[solver] = {};
+                for (const key in SOLVER_INFO[solver].params) {
+                    if (typeof physicsState.params[solver][key] !== 'number') {
+                        physicsState.params[solver][key] = SOLVER_INFO[solver].params[key].def;
+                    }
+                }
+            }
+        }
+        ensurePhysicsDefaults();
+
+        function resetPhysicsToDefault() {
+            physicsState.enabled = true;
+            physicsState.solver = 'forceAtlas2Based';
+            physicsState.iterations = 100;
+            physicsState.params = {};
+            ensurePhysicsDefaults();
+        }
+
+        // 生成 vis-network 的 physics 配置对象
+        function buildPhysicsOptions() {
+            const solver = physicsState.solver;
+            const opts = {
+                enabled: physicsState.enabled,
+                solver: solver,
+                timestep: PHYSICS_ADV.timestep,
+                minVelocity: PHYSICS_ADV.minVelocity,
+                maxVelocity: PHYSICS_ADV.maxVelocity,
+                adaptiveTimestep: PHYSICS_ADV.adaptiveTimestep,
+                stabilization: {
+                    enabled: true,
+                    iterations: physicsState.iterations,
+                    updateInterval: 25,
+                    fit: true
+                }
+            };
+            opts[solver] = Object.assign({}, physicsState.params[solver]);
+            return opts;
+        }
+
+        function applyPhysicsToAllTabs() {
+            const opts = buildPhysicsOptions();
+            tabs.forEach(tab => {
+                if (tab.network) tab.network.setOptions({ physics: opts });
+            });
+        }
+
+        function formatNum(n) {
+            if (typeof n !== 'number' || isNaN(n)) return '—';
+            if (Number.isInteger(n)) return String(n);
+            return Math.abs(n) >= 100 ? n.toFixed(0) : n.toFixed(2);
+        }
+
+        let physDebounceTimer = null;
+        function schedulePhysicsApply() {
+            clearTimeout(physDebounceTimer);
+            physDebounceTimer = setTimeout(() => {
+                applyPhysicsToAllTabs();
+                saveAllToLocal();
+            }, 150);
+        }
 
         function shadeColor(color, percent) {
             if (!color || !color.startsWith('#')) return '#666666';
@@ -1298,18 +1696,7 @@
                         background: null
                     }
                 },
-                physics: {
-                    enabled: true,
-                    stabilization: { fit: true, iterations: 100 },
-                    timestep: 0.1,
-                    solver: 'forceAtlas2Based',
-                    forceAtlas2Based: {
-                        gravitationalConstant: -100,
-                        springLength: 100,
-                        springConstant: 0.05,
-                        dampingConstant: 0.5
-                    }
-                },
+                physics: buildPhysicsOptions(),
                 interaction: {
                     dragNodes: true,
                     dragView: true,
@@ -1692,7 +2079,12 @@
                 statusBorderStyles: Array.from(globalStatusBorderStyles.entries()),
                 relationStyles: Array.from(globalRelationStyles.entries())
             };
-            localStorage.setItem(STORAGE_KEY, JSON.stringify({ tabs: data, styles: styleData, activeTabId }));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                tabs: data,
+                styles: styleData,
+                physics: physicsState,
+                activeTabId
+            }));
         }
 
         function loadFromLocal() {
@@ -1708,6 +2100,13 @@
                     saved.styles.vertexFillStyles?.forEach(([k, v]) => globalVertexFillStyles.set(k, v));
                     saved.styles.statusBorderStyles?.forEach(([k, v]) => globalStatusBorderStyles.set(k, v));
                     saved.styles.relationStyles?.forEach(([k, v]) => globalRelationStyles.set(k, v));
+                }
+                if (saved.physics) {
+                    physicsState.enabled = typeof saved.physics.enabled === 'boolean' ? saved.physics.enabled : true;
+                    physicsState.solver = saved.physics.solver || 'forceAtlas2Based';
+                    physicsState.iterations = typeof saved.physics.iterations === 'number' ? saved.physics.iterations : 100;
+                    physicsState.params = saved.physics.params || {};
+                    ensurePhysicsDefaults();
                 }
                 const savedTabs = saved.tabs || [];
                 const container = document.getElementById('globalGraphContainer');
@@ -1770,11 +2169,14 @@
                 return;
             }
             const menuWrapper = document.getElementById('accordionMenuWrapper');
+            const physicsWrapper = document.getElementById('physicsMenuWrapper');
             const tip = document.getElementById('statusTip');
             const originalMenuTransform = menuWrapper.style.transform;
+            const originalPhysicsTransform = physicsWrapper.style.transform;
             const originalTipOpacity = tip.style.opacity;
             // 隐藏菜单（移出视野）
             menuWrapper.style.transform = 'translateX(-100%)';
+            physicsWrapper.style.transform = 'translateX(100%)';
             tip.style.opacity = '0';
             try {
                 const canvas = await html2canvas(tab.container, { backgroundColor: '#0a0e1a', scale: 2 });
@@ -1787,6 +2189,7 @@
                 showTip("导出图片失败");
             } finally {
                 menuWrapper.style.transform = originalMenuTransform;
+                physicsWrapper.style.transform = originalPhysicsTransform;
                 tip.style.opacity = originalTipOpacity;
             }
         }
@@ -1917,6 +2320,209 @@
             });
         }
 
+        /* ================= 物理参数面板渲染 ================= */
+        function renderPhysicsPanel() {
+            const container = document.getElementById('physicsPanelContent');
+            if (!container) return;
+            const solver = physicsState.solver;
+            const info = SOLVER_INFO[solver];
+            const disabledCls = physicsState.enabled ? '' : ' disabled';
+
+            let html = '';
+
+            // 启用开关
+            html += `<div class="phys-row">
+                <span class="phys-label">启用物理模拟</span>
+                <label class="switch">
+                    <input type="checkbox" id="physEnabled" ${physicsState.enabled ? 'checked' : ''}>
+                    <span class="slider-sw"></span>
+                </label>
+            </div>`;
+
+            // 求解器
+            html += `<div class="phys-row">
+                <span class="phys-label">求解器</span>
+                <select id="physSolver" class="phys-select">
+                    ${Object.keys(SOLVER_INFO).map(k =>
+                        `<option value="${k}" ${k === solver ? 'selected' : ''}>${SOLVER_INFO[k].label}</option>`
+                    ).join('')}
+                </select>
+            </div>`;
+
+            // 动态参数
+            for (const [key, def] of Object.entries(info.params)) {
+                const val = physicsState.params[solver][key];
+                const inverted = !!def.invert;
+                const displayVal = inverted ? Math.abs(val) : val;
+                const min = inverted ? Math.abs(def.min) : def.min;
+                const max = inverted ? Math.abs(def.max) : def.max;
+                html += `<div class="phys-param${disabledCls}">
+                    <div class="phys-param-head">
+                        <span class="phys-label">${def.label}</span>
+                        <span class="phys-value" id="val-${key}">${formatNum(displayVal)}</span>
+                    </div>
+                    <input type="range" class="phys-range"
+                           id="range-${key}"
+                           min="${min}" max="${max}" step="${def.step}" value="${displayVal}"
+                           data-solver="${solver}" data-key="${key}" data-invert="${inverted}">
+                    ${def.hint ? `<div class="phys-hint">${def.hint}</div>` : ''}
+                </div>`;
+            }
+
+            // 稳定化迭代
+            html += `<div class="phys-param${disabledCls}">
+                <div class="phys-param-head">
+                    <span class="phys-label">稳定化迭代次数</span>
+                    <span class="phys-value" id="val-iterations">${physicsState.iterations}</span>
+                </div>
+                <input type="range" class="phys-range" id="range-iterations"
+                       min="0" max="3000" step="50" value="${physicsState.iterations}">
+                <div class="phys-hint">初次布局的收敛迭代数，越大布局越稳定但耗时更久</div>
+            </div>`;
+
+            // 按钮
+            html += `<div class="phys-btns">
+                <button id="physResetBtn">↺ 恢复默认</button>
+                <button id="physApplyBtn" style="background:#2a5a3e;">✓ 重新稳定</button>
+            </div>`;
+
+            container.innerHTML = html;
+            bindPhysicsPanelEvents();
+        }
+
+        function bindPhysicsPanelEvents() {
+            // 启用开关
+            document.getElementById('physEnabled')?.addEventListener('change', (e) => {
+                physicsState.enabled = e.target.checked;
+                applyPhysicsToAllTabs();
+                saveAllToLocal();
+                renderPhysicsPanel();
+            });
+
+            // 求解器切换
+            document.getElementById('physSolver')?.addEventListener('change', (e) => {
+                physicsState.solver = e.target.value;
+                applyPhysicsToAllTabs();
+                saveAllToLocal();
+                renderPhysicsPanel();
+                showTip(`已切换求解器: ${SOLVER_INFO[physicsState.solver].label}`, 1500);
+            });
+
+            // 各可调参数滑块
+            document.querySelectorAll('.phys-range[data-key]').forEach(input => {
+                const key = input.dataset.key;
+                const solver = input.dataset.solver;
+                const inverted = input.dataset.invert === 'true';
+
+                input.addEventListener('input', (e) => {
+                    const raw = parseFloat(e.target.value);
+                    const valEl = document.getElementById(`val-${key}`);
+                    if (valEl) valEl.textContent = formatNum(raw);
+                    physicsState.params[solver][key] = inverted ? -raw : raw;
+                    schedulePhysicsApply();
+                });
+
+                input.addEventListener('change', () => {
+                    applyPhysicsToAllTabs();
+                    saveAllToLocal();
+                });
+            });
+
+            // 迭代次数
+            const iterInput = document.getElementById('range-iterations');
+            if (iterInput) {
+                iterInput.addEventListener('input', (e) => {
+                    physicsState.iterations = parseInt(e.target.value, 10);
+                    const el = document.getElementById('val-iterations');
+                    if (el) el.textContent = e.target.value;
+                    schedulePhysicsApply();
+                });
+                iterInput.addEventListener('change', () => {
+                    applyPhysicsToAllTabs();
+                    saveAllToLocal();
+                });
+            }
+
+            // 恢复默认
+            document.getElementById('physResetBtn')?.addEventListener('click', () => {
+                resetPhysicsToDefault();
+                renderPhysicsPanel();
+                applyPhysicsToAllTabs();
+                saveAllToLocal();
+                showTip('物理参数已恢复默认', 1500);
+            });
+
+            // 重新稳定
+            document.getElementById('physApplyBtn')?.addEventListener('click', () => {
+                const tab = tabs.find(t => t.id === activeTabId);
+                if (tab && tab.network) {
+                    applyPhysicsToAllTabs();
+                    tab.network.stabilize();
+                    showTip('已重新计算布局', 1500);
+                }
+            });
+        }
+
+        function renderAdvancedPanel() {
+            const container = document.getElementById('physicsAdvancedContent');
+            if (!container) return;
+            let html = `<div class="phys-note">以下为当前采用的推荐值，暂不开放修改，将在后续版本中逐步开放。如需调整请联系开发者。</div>`;
+            html += `<div class="adv-list">`;
+            ADVANCED_PHYSICS_PARAMS.forEach(p => {
+                html += `<div class="adv-row">
+                    <span class="adv-label" title="${escapeHtml(p.desc)}">${escapeHtml(p.label)}</span>
+                    <span class="adv-value" title="推荐值（只读）">${escapeHtml(p.value)}</span>
+                </div>`;
+            });
+            html += `</div>`;
+            container.innerHTML = html;
+        }
+
+        /* ================= 右侧菜单触发 ================= */
+        function initPhysicsMenuTrigger() {
+            const wrapper = document.getElementById('physicsMenuWrapper');
+            const triggerZone = document.getElementById('physicsTriggerZone');
+            let hideTimeout = null;
+            let isVisible = false;
+
+            function show() {
+                if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
+                wrapper.classList.add('menu-visible');
+                isVisible = true;
+            }
+
+            function hide(delay) {
+                if (hideTimeout) clearTimeout(hideTimeout);
+                hideTimeout = setTimeout(() => {
+                    wrapper.classList.remove('menu-visible');
+                    isVisible = false;
+                    hideTimeout = null;
+                }, delay);
+            }
+
+            document.addEventListener('mousemove', (e) => {
+                const tRect = triggerZone.getBoundingClientRect();
+                const overTrigger = e.clientX >= tRect.left && e.clientX <= tRect.right &&
+                                    e.clientY >= tRect.top && e.clientY <= tRect.bottom;
+
+                if (overTrigger) {
+                    show();
+                    return;
+                }
+
+                if (isVisible) {
+                    const mRect = wrapper.getBoundingClientRect();
+                    const overMenu = e.clientX >= mRect.left && e.clientX <= mRect.right &&
+                                     e.clientY >= mRect.top && e.clientY <= mRect.bottom;
+                    if (!overMenu && !hideTimeout) hide(300);
+                }
+            });
+
+            wrapper.addEventListener('mouseenter', () => {
+                if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
+            });
+        }
+
         document.getElementById('jsonInput').addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -1965,7 +2571,10 @@
 
         initAccordion();
         initMenuTrigger();
+        initPhysicsMenuTrigger();
         loadFromLocal();
+        renderPhysicsPanel();
+        renderAdvancedPanel();
     </script>
 </body>
 

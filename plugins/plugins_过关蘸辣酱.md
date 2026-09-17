@@ -22,6 +22,7 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 | ---------- | ---------------- | ---------- | ------------ | ------------------------------------------------------------ |
 | V0.1.0     | 初稿创建         | 盘古开插件 | 2026-08-12   | 完成插件初始版本撰写                                         |
 | V0.1.1     | 功能增强         | 徐昀       | 2026-08-18   | 增加对千里绘江山的可选依赖，配色步骤增加定制分支；增加加载时依赖检测与提示机制 |
+| V0.1.2     | 交互修复         | 盘古开插件 | 2026-09-16   | 修复任务卡选中失效问题；新增 Markdown 轻量渲染（表格/列表/加粗/代码）；补充配套样式 |
 
 ## 插件名称
 
@@ -67,6 +68,7 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 - **无数据则提示输入/上传**：如上下文中无任务内容，直接提示用户输入或上传文件
 - **步骤固化**：严格按以下流程推进，不跳步、不省略
 - **配色可选**：支持内置十套配色方案 + 调用千里绘江山定制配色（可选依赖）
+- **内容渲染**：任务详情中的 Markdown 内容（表格、列表、加粗、行内代码等）由模板内置的轻量解析器自动转换为 HTML，用户无需手动处理
 
 ## 三、执行流程
 
@@ -131,6 +133,11 @@ const missionsData = [
             {
                 text: "任务标题",
                 detail: "<p>任务详细说明</p>",
+                // detail 字段支持 Markdown 语法，渲染时自动转换：
+                // 表格 | a | b |  → <table>
+                // 列表 - item / 1. item → <ul>/<ol>
+                // 加粗 **text** → <strong>
+                // 行内代码 `code` → <code>
                 // 如开启旁白，则增加以下字段：
                 speaker: "角色名",
                 speakerEmoji: "📸",
@@ -141,18 +148,166 @@ const missionsData = [
 ];
 ```
 
-### 固化交互逻辑
+### Markdown 轻量渲染器（必须内置）
+
+```javascript
+// 轻量 Markdown → HTML 转换
+// 支持：表格、有序/无序列表、加粗、行内代码、段落分隔
+// 不依赖任何外部库，纯正则实现
+function renderMarkdown(md) {
+    if (!md) return '';
+    let html = md;
+
+    // 1. 表格：| a | b |\n| :--- | :--- |\n| c | d |
+    html = html.replace(/((?:^\|.*\|\s*$\n?)+)/gm, function(block) {
+        const lines = block.trim().split('\n').filter(l => l.trim());
+        if (lines.length < 2) return block;
+        const headerCells = lines[0].split('|').map(c => c.trim()).filter(c => c);
+        const bodyRows = lines.slice(2).map(line =>
+            line.split('|').map(c => c.trim()).filter(c => c)
+        );
+        let table = '<table><thead><tr>';
+        headerCells.forEach(c => table += `<th>${c}</th>`);
+        table += '</tr></thead><tbody>';
+        bodyRows.forEach(row => {
+            table += '<tr>';
+            row.forEach(c => table += `<td>${c}</td>`);
+            table += '</tr>';
+        });
+        table += '</tbody></table>';
+        return table;
+    });
+
+    // 2. 无序列表：- item 或 * item
+    html = html.replace(/(?:^[-*]\s+.+(?:\n|$))+/gm, function(block) {
+        const items = block.trim().split('\n').map(l => l.replace(/^[-*]\s+/, '').trim());
+        return '<ul>' + items.map(i => `<li>${i}</li>`).join('') + '</ul>';
+    });
+
+    // 3. 有序列表：1. item
+    html = html.replace(/(?:^\d+\.\s+.+(?:\n|$))+/gm, function(block) {
+        const items = block.trim().split('\n').map(l => l.replace(/^\d+\.\s+/, '').trim());
+        return '<ol>' + items.map(i => `<li>${i}</li>`).join('') + '</ol>';
+    });
+
+    // 4. 行内格式
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+    // 5. 段落：连续非空行，且不是已处理的块级标签
+    html = html.split(/\n{2,}/).map(para => {
+        const trimmed = para.trim();
+        if (!trimmed) return '';
+        if (/^<(table|ul|ol|p|div|h\d)/.test(trimmed)) return trimmed;
+        return `<p>${trimmed.replace(/\n/g, '<br>')}</p>`;
+    }).join('');
+
+    return html;
+}
+```
+
+### 固化交互逻辑（修复版）
 
 | 功能          | 实现方式                                                     |
 | ------------- | ------------------------------------------------------------ |
 | 进度条与统计  | 动态计算 `done` 比例，更新 `.progress-bar` 宽度和 `.stats` 文本 |
 | 大组折叠/展开 | `currentOpenGroup` 控制同一时间只展开一个大组                |
-| 任务详情展开  | `groupOpenTaskIndex` 控制同组内只展开一个任务详情            |
-| 勾选逻辑      | 点击圆圈切换 `done` 状态，自动保存                           |
+| 任务详情展开  | `groupOpenTaskIndex` 控制同组内只展开一个任务详情；**仅在点击标题行时触发** |
+| 勾选逻辑      | **仅点击圆圈**切换 `done` 状态，自动保存                     |
+| 详情区选中    | 详情区元素绑定 `stopPropagation()`，选中、划词、复制不影响展开状态 |
 | 完成自动跳转  | 勾选后自动展开同组下一个未完成任务                           |
 | 本地存储      | 所有状态写入 `localStorage`，刷新页面不丢                    |
 | 彩蛋触发      | 全部完成后显示庆祝信息                                       |
 | 重置功能      | 一键重置所有任务状态                                         |
+
+### 关键代码修复说明
+
+**修复1：移除全局点击监听**
+
+```javascript
+// ❌ 旧版本：全局监听，选中文字会被误判为点击
+document.addEventListener('click', function(e) {
+    const task = e.target.closest('.task');
+    ...
+});
+
+// ✅ 新版本：不注册全局监听，改由元素自身的 onclick 控制
+// 圆圈：onclick="toggleDone(gi, ti, event)"
+// 标题行：onclick="toggleDetail(gi, ti, event)"
+// 详情区：onclick="event.stopPropagation()"
+```
+
+**修复2：详情区阻止冒泡**
+
+```html
+<div class="task-detail" onclick="event.stopPropagation()">
+    ${renderMarkdown(task.detail)}
+</div>
+```
+
+**修复3：渲染时调用 renderMarkdown**
+
+```javascript
+// 旧版本：直接输出原始文本
+${task.detail}
+
+// 新版本：转为 HTML
+${renderMarkdown(task.detail)}
+```
+
+### 配套样式（Markdown 渲染结果）
+
+```css
+/* 表格 */
+.task-detail table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.6rem 0;
+    font-size: 0.78rem;
+}
+.task-detail th,
+.task-detail td {
+    border: 1px solid #1e2d4a;
+    padding: 0.4rem 0.6rem;
+    text-align: left;
+}
+.task-detail th {
+    background: #1a2545;
+    color: #e8edf5;
+    font-weight: 600;
+}
+.task-detail tr:nth-child(even) {
+    background: rgba(30,45,74,0.3);
+}
+
+/* 列表 */
+.task-detail ul,
+.task-detail ol {
+    margin: 0.5rem 0 0.5rem 1.2rem;
+    line-height: 1.8;
+}
+.task-detail li {
+    margin-bottom: 0.2rem;
+}
+
+/* 行内元素 */
+.task-detail code {
+    background: #1a2545;
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    color: #40d0e0;
+}
+.task-detail strong {
+    color: #e8edf5;
+}
+
+/* 详情区选中 */
+.task-detail {
+    user-select: text;
+    cursor: text;
+}
+```
 
 ### 配色应用方式
 
@@ -166,15 +321,17 @@ const missionsData = [
 
 ## 七、关键原则
 
-| **原则**       | **说明**                                 |
-| -------------- | ---------------------------------------- |
-| **检索优先**   | 不预设数据，先听用户说过什么             |
-| **确认机制**   | 任何数据未确认前，不生成HTML             |
-| **步骤固化**   | 找任务→确认→旁白→配色→HTML，不跳步       |
-| **配色可选**   | 内置十套预设 + 可选调用千里绘江山定制    |
-| **可选依赖**   | 千里绘江山为可选依赖，未加载时不阻塞流程 |
-| **与团队解耦** | 插件本身不依赖人设，旁白仅作为风格化文本 |
-| **直接产出**   | 产出物为纯HTML源码                       |
+| **原则**         | **说明**                                            |
+| ---------------- | --------------------------------------------------- |
+| **检索优先**     | 不预设数据，先听用户说过什么                        |
+| **确认机制**     | 任何数据未确认前，不生成HTML                        |
+| **步骤固化**     | 找任务→确认→旁白→配色→HTML，不跳步                  |
+| **配色可选**     | 内置十套预设 + 可选调用千里绘江山定制               |
+| **可选依赖**     | 千里绘江山为可选依赖，未加载时不阻塞流程            |
+| **与团队解耦**   | 插件本身不依赖人设，旁白仅作为风格化文本            |
+| **Markdown直转** | 任务详情中的 Markdown 内容由内置解析器自动转为 HTML |
+| **选中友好**     | 详情区可自由选中、划词、复制，不被折叠逻辑打断      |
+| **直接产出**     | 产出物为纯HTML源码                                  |
 
 ## 八、加载方式
 

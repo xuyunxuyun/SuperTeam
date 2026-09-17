@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
     <!--
 
@@ -26,455 +25,70 @@
         | V0.1.1 | 功能增强     | 徐昀 | 2026-05-28 | 图表JSON持久显示，增加导出JSON功能 |
         | V0.1.2 | 右键菜单升级 | 徐昀 | 2026-05-29 | 右键菜单分别导出JSON和PNG |
         | V0.1.3 | 主菜单调整   | 徐昀 | 2026-08-10 | 主菜单水平居中，不妨碍图表操作 |
+        | V0.1.4 | 功能增强     | 徐昀 | 2026-09-16 | 增加地图、省区图、二线以上城市图 |
     -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>西斯廷看板</title>
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js">
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack.min.css" />
-    <script src="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack-all.js">
-    </script>
-    <!-- html2canvas 用于导出PNG -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js">
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack-all.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', 'Roboto', sans-serif;
-            background: #0a0f1f;
-            height: 100vh;
-            width: 100vw;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            color: #eef2ff;
-        }
-
-        .tabs-header {
-            background: #111827;
-            padding: 6px 20px 0 20px;
-            display: flex;
-            gap: 6px;
-            align-items: flex-end;
-            overflow-x: auto;
-            flex-shrink: 0;
-            border-bottom: 1px solid #2d3a5e;
-        }
-
-        .tabs-header::-webkit-scrollbar {
-            height: 4px;
-        }
-
-        .tab-item {
-            background: #1f2937;
-            color: #cbd5e6;
-            padding: 6px 16px;
-            border-radius: 12px 12px 0 0;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            border: 1px solid #2d3a5e;
-            border-bottom: none;
-        }
-
-        .tab-item.active {
-            background: #0f172f;
-            color: white;
-            border-top: 2px solid #3b82f6;
-        }
-
-        .tab-name {
-            display: inline-block;
-            cursor: pointer;
-            max-width: 180px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .close-tab {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 30px;
-            width: 20px;
-            height: 20px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            cursor: pointer;
-        }
-
-        .close-tab:hover {
-            background: #ef4444;
-            color: white;
-        }
-
-        .add-tab-btn {
-            background: #2d3a5e;
-            border: none;
-            color: #cbd5e6;
-            padding: 4px 16px;
-            border-radius: 30px;
-            margin-left: 6px;
-            cursor: pointer;
-        }
-
-        .add-tab-btn:hover {
-            background: #3b82f6;
-            color: white;
-        }
-
-        .screens-container {
-            flex: 1;
-            position: relative;
-            background: #0a0f1f;
-            overflow: hidden;
-        }
-
-        .screen-pane {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: none;
-            padding: 16px;
-            overflow: auto;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-        }
-
-        .screen-pane::-webkit-scrollbar {
-            display: none;
-        }
-
-        .screen-pane.active-screen {
-            display: block;
-        }
-
-        .grid-stack {
-            background: #0a0f1f;
-            min-height: 100%;
-        }
-
-        .grid-stack-item {
-            background: rgba(18, 25, 45, 0.9);
-            backdrop-filter: blur(6px);
-            border-radius: 16px;
-            border: 1px solid rgba(59, 130, 246, 0.35);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-            transition: border 0.2s;
-        }
-
-        .grid-stack-item:hover {
-            border-color: #3b82f6;
-        }
-
-        /* 卡片头部 - 默认半透明，悬浮时完全显示 */
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 6px 10px;
-            background: rgba(0, 0, 0, 0.35);
-            border-bottom: 1px solid #2d3a5e;
-            cursor: grab;
-            transition: opacity 0.2s ease, background 0.2s;
-            opacity: 0.45;
-        }
-
-        .grid-stack-item:hover .card-header {
-            opacity: 1;
-            background: rgba(0, 0, 0, 0.6);
-        }
-
-        .card-header:active {
-            cursor: grabbing;
-        }
-
-        .card-title {
-            font-weight: 600;
-            font-size: 0.8rem;
-            background: linear-gradient(135deg, #e0f2fe, #60a5fa);
-            background-clip: text;
-            -webkit-background-clip: text;
-            color: transparent;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .card-actions {
-            display: flex;
-            gap: 6px;
-            opacity: 0.85;
-        }
-
-        .card-actions button {
-            background: rgba(45, 58, 94, 0.9);
-            border: none;
-            color: #cbd5e6;
-            border-radius: 20px;
-            padding: 3px 8px;
-            font-size: 10px;
-            cursor: pointer;
-            transition: 0.1s;
-        }
-
-        .card-actions button:hover {
-            background: #ef4444;
-            color: white;
-        }
-
-        .chart-container {
-            width: 100%;
-            height: calc(100% - 34px);
-            padding: 6px 8px 8px 8px;
-            overflow: hidden;
-        }
-
-        .chart-placeholder {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 12px;
-            color: #8ba0c0;
-            font-size: 12px;
-            gap: 10px;
-            padding: 20px;
-        }
-
-        .import-json-btn {
-            background: #3b82f6;
-            border: none;
-            color: white;
-            border-radius: 30px;
-            padding: 6px 16px;
-            font-size: 11px;
-            cursor: pointer;
-        }
-
-        .import-json-btn:hover {
-            background: #2563eb;
-        }
-
-        /* 右下角主按钮区域 - 改为底部居中，略微上移 */
-        .edit-toolbar {
-            position: fixed;
-            bottom: 40px;
-            /* 从20px改为40px，往上移动一点 */
-            left: 50%;
-            transform: translateX(-50%);
-            background: #111827e6;
-            backdrop-filter: blur(12px);
-            border-radius: 40px;
-            padding: 6px 16px;
-            display: flex;
-            gap: 10px;
-            z-index: 200;
-            border: 1px solid #3b82f6;
-            transition: opacity 0.2s, transform 0.2s;
-            opacity: 0;
-            pointer-events: none;
-            transform: translateX(-50%) translateY(10px);
-            /* 保留垂直微调 */
-        }
-
-        .edit-toolbar.visible {
-            opacity: 1;
-            pointer-events: auto;
-            transform: translateX(-50%) translateY(0);
-        }
-
-        .edit-toolbar button {
-            background: #1e293b;
-            border: none;
-            color: white;
-            border-radius: 30px;
-            padding: 6px 14px;
-            font-size: 12px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .edit-toolbar button:hover {
-            background: #3b82f6;
-        }
-
-        .status-toast {
-            position: fixed;
-            bottom: 25px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #2d3a5ecc;
-            backdrop-filter: blur(8px);
-            padding: 4px 16px;
-            border-radius: 30px;
-            font-size: 12px;
-            color: white;
-            pointer-events: none;
-            z-index: 300;
-        }
-
-        .modal-mask {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(4px);
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal-panel {
-            background: #0f172f;
-            border-radius: 24px;
-            width: 680px;
-            max-width: 92%;
-            padding: 20px;
-            border: 1px solid #3b82f6;
-        }
-
-        .modal-panel textarea {
-            width: 100%;
-            background: #0b0f1a;
-            border: 1px solid #2d3a5e;
-            border-radius: 16px;
-            padding: 12px;
-            color: #e2e8f0;
-            font-family: 'JetBrains Mono', 'Fira Code', monospace;
-            font-size: 12px;
-            margin: 12px 0;
-            line-height: 1.4;
-        }
-
-        .modal-buttons {
-            display: flex;
-            justify-content: flex-end;
-            gap: 12px;
-            margin-top: 16px;
-        }
-
-        .file-upload-label,
-        .export-json-label {
-            background: #2d3a5e;
-            border-radius: 30px;
-            padding: 6px 14px;
-            font-size: 12px;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            transition: 0.2s;
-        }
-
-        .file-upload-label:hover,
-        .export-json-label:hover {
-            background: #3b82f6;
-        }
-
-        input[type="file"] {
-            display: none;
-        }
-
-        .btn-secondary {
-            background: #2d3a5e;
-            border: none;
-            padding: 6px 16px;
-            border-radius: 30px;
-            color: white;
-            cursor: pointer;
-        }
-
-        .btn-primary {
-            background: #3b82f6;
-            border: none;
-            padding: 6px 16px;
-            border-radius: 30px;
-            color: white;
-            cursor: pointer;
-        }
-
-        .toolbar-json-group {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 8px;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-
-        hr {
-            border-color: #2d3a5e;
-            margin: 8px 0;
-        }
-
-        /* 右键菜单 - 与最后的图谱风格一致 */
-        .context-menu {
-            position: fixed;
-            background: rgba(30, 35, 55, 0.98);
-            backdrop-filter: blur(12px);
-            border: 1px solid #3b82f6;
-            border-radius: 12px;
-            padding: 6px 0;
-            min-width: 180px;
-            z-index: 10000;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
-            display: none;
-        }
-
-        .context-menu-item {
-            padding: 8px 18px;
-            font-size: 13px;
-            color: #e0e0e0;
-            cursor: pointer;
-            transition: 0.1s;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .context-menu-item i {
-            width: 18px;
-            font-size: 12px;
-            color: #60a5fa;
-        }
-
-        .context-menu-item:hover {
-            background: #3b82f6;
-            color: white;
-        }
-
-        .context-menu-item:hover i {
-            color: white;
-        }
-
-        .context-menu-divider {
-            height: 1px;
-            background: #2a3452;
-            margin: 4px 0;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', 'Roboto', sans-serif; background: #0a0f1f; height: 100vh; width: 100vw; overflow: hidden; display: flex; flex-direction: column; color: #eef2ff; }
+        .tabs-header { background: #111827; padding: 6px 20px 0 20px; display: flex; gap: 6px; align-items: flex-end; overflow-x: auto; flex-shrink: 0; border-bottom: 1px solid #2d3a5e; }
+        .tabs-header::-webkit-scrollbar { height: 4px; }
+        .tab-item { background: #1f2937; color: #cbd5e6; padding: 6px 16px; border-radius: 12px 12px 0 0; font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; border: 1px solid #2d3a5e; border-bottom: none; }
+        .tab-item.active { background: #0f172f; color: white; border-top: 2px solid #3b82f6; }
+        .tab-name { display: inline-block; cursor: pointer; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+        .close-tab { background: rgba(255, 255, 255, 0.1); border-radius: 30px; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; }
+        .close-tab:hover { background: #ef4444; color: white; }
+        .add-tab-btn { background: #2d3a5e; border: none; color: #cbd5e6; padding: 4px 16px; border-radius: 30px; margin-left: 6px; cursor: pointer; }
+        .add-tab-btn:hover { background: #3b82f6; color: white; }
+        .screens-container { flex: 1; position: relative; background: #0a0f1f; overflow: hidden; }
+        .screen-pane { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; padding: 16px; overflow: auto; scrollbar-width: none; -ms-overflow-style: none; }
+        .screen-pane::-webkit-scrollbar { display: none; }
+        .screen-pane.active-screen { display: block; }
+        .grid-stack { background: #0a0f1f; min-height: 100%; }
+        .grid-stack-item { background: rgba(18, 25, 45, 0.9); backdrop-filter: blur(6px); border-radius: 16px; border: 1px solid rgba(59, 130, 246, 0.35); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); overflow: hidden; transition: border 0.2s; }
+        .grid-stack-item:hover { border-color: #3b82f6; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: rgba(0, 0, 0, 0.35); border-bottom: 1px solid #2d3a5e; cursor: grab; transition: opacity 0.2s ease, background 0.2s; opacity: 0.45; }
+        .grid-stack-item:hover .card-header { opacity: 1; background: rgba(0, 0, 0, 0.6); }
+        .card-header:active { cursor: grabbing; }
+        .card-title { font-weight: 600; font-size: 0.8rem; background: linear-gradient(135deg, #e0f2fe, #60a5fa); background-clip: text; -webkit-background-clip: text; color: transparent; display: flex; align-items: center; gap: 5px; }
+        .card-actions { display: flex; gap: 6px; opacity: 0.85; }
+        .card-actions button { background: rgba(45, 58, 94, 0.9); border: none; color: #cbd5e6; border-radius: 20px; padding: 3px 8px; font-size: 10px; cursor: pointer; transition: 0.1s; }
+        .card-actions button:hover { background: #ef4444; color: white; }
+        .chart-container { width: 100%; height: calc(100% - 34px); padding: 6px 8px 8px 8px; overflow: hidden; }
+        .chart-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: rgba(0, 0, 0, 0.2); border-radius: 12px; color: #8ba0c0; font-size: 12px; gap: 10px; padding: 20px; }
+        .import-json-btn { background: #3b82f6; border: none; color: white; border-radius: 30px; padding: 6px 16px; font-size: 11px; cursor: pointer; }
+        .import-json-btn:hover { background: #2563eb; }
+        .edit-toolbar { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: #111827e6; backdrop-filter: blur(12px); border-radius: 40px; padding: 6px 16px; display: flex; gap: 10px; z-index: 200; border: 1px solid #3b82f6; transition: opacity 0.2s, transform 0.2s; opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(10px); }
+        .edit-toolbar.visible { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+        .edit-toolbar button { background: #1e293b; border: none; color: white; border-radius: 30px; padding: 6px 14px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+        .edit-toolbar button:hover { background: #3b82f6; }
+        .status-toast { position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); background: #2d3a5ecc; backdrop-filter: blur(8px); padding: 4px 16px; border-radius: 30px; font-size: 12px; color: white; pointer-events: none; z-index: 300; }
+        .modal-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+        .modal-panel { background: #0f172f; border-radius: 24px; width: 680px; max-width: 92%; padding: 20px; border: 1px solid #3b82f6; }
+        .modal-panel textarea { width: 100%; background: #0b0f1a; border: 1px solid #2d3a5e; border-radius: 16px; padding: 12px; color: #e2e8f0; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 12px; margin: 12px 0; line-height: 1.4; }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px; }
+        .file-upload-label, .export-json-label { background: #2d3a5e; border-radius: 30px; padding: 6px 14px; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: 0.2s; }
+        .file-upload-label:hover, .export-json-label:hover { background: #3b82f6; }
+        input[type="file"] { display: none; }
+        .btn-secondary { background: #2d3a5e; border: none; padding: 6px 16px; border-radius: 30px; color: white; cursor: pointer; }
+        .btn-primary { background: #3b82f6; border: none; padding: 6px 16px; border-radius: 30px; color: white; cursor: pointer; }
+        .toolbar-json-group { display: flex; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; align-items: center; }
+        hr { border-color: #2d3a5e; margin: 8px 0; }
+        .context-menu { position: fixed; background: rgba(30, 35, 55, 0.98); backdrop-filter: blur(12px); border: 1px solid #3b82f6; border-radius: 12px; padding: 6px 0; min-width: 180px; z-index: 10000; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5); display: none; }
+        .context-menu-item { padding: 8px 18px; font-size: 13px; color: #e0e0e0; cursor: pointer; transition: 0.1s; display: flex; align-items: center; gap: 10px; }
+        .context-menu-item i { width: 18px; font-size: 12px; color: #60a5fa; }
+        .context-menu-item:hover { background: #3b82f6; color: white; }
+        .context-menu-item:hover i { color: white; }
+        .context-menu-divider { height: 1px; background: #2a3452; margin: 4px 0; }
     </style>
 </head>
-
 <body>
     <div class="tabs-header" id="tabsHeader">
         <button class="add-tab-btn" id="addTabBtn"><i class="fas fa-plus"></i> 新建大屏</button>
@@ -487,304 +101,437 @@
         <button id="globalExportPngBtn"><i class="fas fa-camera"></i> 导出PNG</button>
     </div>
     <div id="statusToast" class="status-toast" style="display: none;"></div>
-
-    <!-- 自定义右键菜单 -->
     <div id="contextMenu" class="context-menu">
-        <div class="context-menu-item" id="ctxExportJson">
-            <i class="fas fa-file-code"></i> 导出大屏 (JSON)
-        </div>
+        <div class="context-menu-item" id="ctxExportJson"><i class="fas fa-file-code"></i> 导出大屏 (JSON)</div>
         <div class="context-menu-divider"></div>
-        <div class="context-menu-item" id="ctxExportPng">
-            <i class="fas fa-camera"></i> 导出截图 (PNG)
-        </div>
+        <div class="context-menu-item" id="ctxExportPng"><i class="fas fa-camera"></i> 导出截图 (PNG)</div>
     </div>
 
     <script>
-        // ==================== 增强 JSON 解析 ====================
-        function looseJsonParse(str) {
-            str = str.trim();
-            str = str.replace(/\/\*[\s\S]*?\*\//g, '');
-            str = str.replace(/\/\/.*/g, '');
-            str = str.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
-            str = str.replace(/'/g, '"');
-            str = str.replace(/,\s*}/g, '}');
-            str = str.replace(/,\s*\]/g, ']');
+    // ==================== 地图动态加载系统 ====================
+    // 地图名 → 行政区划代码（adcode）映射表
+    // 数据源：geo.datav.aliyun.com/areas_v3/bound/{adcode}_full.json
+    var MAP_ALIAS = {
+        // ========== 全国 ==========
+        "中国": "100000", "全国": "100000",
+        // ========== 直辖市 ==========
+        "北京": "110000", "北京市": "110000",
+        "天津": "120000", "天津市": "120000",
+        "上海": "310000", "上海市": "310000",
+        "重庆": "500000", "重庆市": "500000",
+        // ========== 省 / 自治区 / 特别行政区 ==========
+        "河北": "130000", "河北省": "130000",
+        "山西": "140000", "山西省": "140000",
+        "辽宁": "210000", "辽宁省": "210000",
+        "吉林": "220000", "吉林省": "220000",
+        "黑龙江": "230000", "黑龙江省": "230000",
+        "江苏": "320000", "江苏省": "320000",
+        "浙江": "330000", "浙江省": "330000",
+        "安徽": "340000", "安徽省": "340000",
+        "福建": "350000", "福建省": "350000",
+        "江西": "360000", "江西省": "360000",
+        "山东": "370000", "山东省": "370000",
+        "河南": "410000", "河南省": "410000",
+        "湖北": "420000", "湖北省": "420000",
+        "湖南": "430000", "湖南省": "430000",
+        "广东": "440000", "广东省": "440000",
+        "海南": "460000", "海南省": "460000",
+        "四川": "510000", "四川省": "510000",
+        "贵州": "520000", "贵州省": "520000",
+        "云南": "530000", "云南省": "530000",
+        "陕西": "610000", "陕西省": "610000",
+        "甘肃": "620000", "甘肃省": "620000",
+        "青海": "630000", "青海省": "630000",
+        "台湾": "710000", "台湾省": "710000",
+        "内蒙古": "150000", "内蒙古自治区": "150000",
+        "广西": "450000", "广西壮族自治区": "450000",
+        "西藏": "540000", "西藏自治区": "540000",
+        "宁夏": "640000", "宁夏回族自治区": "640000",
+        "新疆": "650000", "新疆维吾尔自治区": "650000",
+        "香港": "810000", "香港特别行政区": "810000",
+        "澳门": "820000", "澳门特别行政区": "820000",
+
+        // ========== 一线城市 ==========
+        "广州": "440100", "广州市": "440100",
+        "深圳": "440300", "深圳市": "440300",
+        // 北京/上海/天津/重庆的市级 adcode 与省级相同，上面已覆盖
+
+        // ========== 新一线城市 ==========
+        "成都": "510100", "成都市": "510100",
+        "杭州": "330100", "杭州市": "330100",
+        "西安": "610100", "西安市": "610100",
+        "苏州": "320500", "苏州市": "320500",
+        "武汉": "420100", "武汉市": "420100",
+        "南京": "320100", "南京市": "320100",
+        "郑州": "410100", "郑州市": "410100",
+        "长沙": "430100", "长沙市": "430100",
+        "东莞": "441900", "东莞市": "441900",
+        "佛山": "440600", "佛山市": "440600",
+        "宁波": "330200", "宁波市": "330200",
+        "青岛": "370200", "青岛市": "370200",
+        "沈阳": "210100", "沈阳市": "210100",
+
+        // ========== 二线城市 ==========
+        "昆明": "530100", "昆明市": "530100",
+        "福州": "350100", "福州市": "350100",
+        "无锡": "320200", "无锡市": "320200",
+        "厦门": "350200", "厦门市": "350200",
+        "哈尔滨": "230100", "哈尔滨市": "230100",
+        "长春": "220100", "长春市": "220100",
+        "南昌": "360100", "南昌市": "360100",
+        "济南": "370100", "济南市": "370100",
+        "大连": "210200", "大连市": "210200",
+        "贵阳": "520100", "贵阳市": "520100",
+        "温州": "330300", "温州市": "330300",
+        "石家庄": "130100", "石家庄市": "130100",
+        "泉州": "350500", "泉州市": "350500",
+        "南宁": "450100", "南宁市": "450100",
+        "金华": "330700", "金华市": "330700",
+        "常州": "320400", "常州市": "320400",
+        "珠海": "440400", "珠海市": "440400",
+        "惠州": "441300", "惠州市": "441300",
+        "嘉兴": "330400", "嘉兴市": "330400",
+        "南通": "320600", "南通市": "320600",
+        "中山": "442000", "中山市": "442000",
+        "保定": "130600", "保定市": "130600",
+        "兰州": "620100", "兰州市": "620100",
+        "台州": "331000", "台州市": "331000",
+        "徐州": "320300", "徐州市": "320300",
+        "太原": "140100", "太原市": "140100",
+        "绍兴": "330600", "绍兴市": "330600",
+        "烟台": "370600", "烟台市": "370600",
+        "廊坊": "131000", "廊坊市": "131000"
+    };
+
+    // 地图数据源前缀（可换成本地路径，如 "./geo/"）
+    var MAP_URL_BASE = "https://geo.datav.aliyun.com/areas_v3/bound/";
+    var MAP_URL_SUFFIX = "_full.json";
+
+    // 归一：不管配置写"广东"还是"广东省"，都拿到同一份 adcode
+    function resolveMapKey(name) {
+        if (!name) return null;
+        return MAP_ALIAS[name] || null;
+    }
+
+    // 按需加载地图并注册
+    function ensureMapLoaded(mapName, callback) {
+        if (!mapName) { callback(); return; }
+        if (echarts.getMap(mapName)) { callback(); return; }
+
+        var adcode = resolveMapKey(mapName);
+        if (!adcode) {
+            console.warn("【地图系统】未识别的名称：" + mapName);
+            callback();
+            return;
+        }
+
+        var url = MAP_URL_BASE + adcode + MAP_URL_SUFFIX;
+        fetch(url)
+            .then(function (r) {
+                if (!r.ok) throw new Error("HTTP " + r.status);
+                return r.json();
+            })
+            .then(function (geoJSON) {
+                // 用配置里写的名字注册，保证 series.data.name 对得上
+                echarts.registerMap(mapName, geoJSON);
+                console.log("【地图系统】已加载：" + mapName + " → " + adcode);
+                callback();
+            })
+            .catch(function (err) {
+                console.warn("【地图系统】加载失败：" + mapName + " → " + url + "（" + err.message + "）");
+                callback();
+            });
+    }
+
+    // 从 option 里探测是否是地图配置，是的话返回 map 名
+    function detectMapName(option) {
+        if (!option || !option.series) return null;
+        var seriesArr = Array.isArray(option.series) ? option.series : [option.series];
+        for (var i = 0; i < seriesArr.length; i++) {
+            if (seriesArr[i] && seriesArr[i].type === "map" && seriesArr[i].map) {
+                return seriesArr[i].map;
+            }
+        }
+        return null;
+    }
+    // ==================== 地图系统结束 ====================
+
+    // ==================== 增强 JSON 解析 ====================
+    function looseJsonParse(str) {
+        str = str.trim();
+        str = str.replace(/\/\*[\s\S]*?\*\//g, '');
+        str = str.replace(/\/\/.*/g, '');
+        str = str.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
+        str = str.replace(/'/g, '"');
+        str = str.replace(/,\s*}/g, '}');
+        str = str.replace(/,\s*\]/g, ']');
+        try {
+            return JSON.parse(str);
+        } catch (e) {
             try {
-                return JSON.parse(str);
-            } catch (e) {
-                try {
-                    const fn = new Function('return (' + str + ')');
-                    const obj = fn();
-                    return JSON.parse(JSON.stringify(obj));
-                } catch (e2) {
-                    throw new Error('无法解析为有效的图表配置: ' + e2.message);
-                }
+                const fn = new Function('return (' + str + ')');
+                const obj = fn();
+                return JSON.parse(JSON.stringify(obj));
+            } catch (e2) {
+                throw new Error('无法解析为有效的图表配置: ' + e2.message);
             }
         }
+    }
 
-        function enhanceChartOption(originalOpt) {
-            if (!originalOpt || typeof originalOpt !== 'object') return originalOpt;
-            let opt = JSON.parse(JSON.stringify(originalOpt));
-            if (opt.title) {
-                if (typeof opt.title === 'string') opt.title = { text: opt.title };
-                if (!opt.title.textStyle) {
-                    opt.title.textStyle = {
-                        color: '#c7e9ff',
-                        fontSize: 16,
-                        fontWeight: 'bold',
-                        textShadow: '0 0 8px #3b82f6, 0 0 2px #1e3a8a',
-                        fontFamily: 'inherit'
-                    };
-                }
-                if (opt.title.left === undefined && opt.title.right === undefined) opt.title.left = 'left';
+    function enhanceChartOption(originalOpt) {
+        if (!originalOpt || typeof originalOpt !== 'object') return originalOpt;
+        let opt = JSON.parse(JSON.stringify(originalOpt));
+        if (opt.title) {
+            if (typeof opt.title === 'string') opt.title = { text: opt.title };
+            if (!opt.title.textStyle) {
+                opt.title.textStyle = { color: '#c7e9ff', fontSize: 16, fontWeight: 'bold', textShadow: '0 0 8px #3b82f6, 0 0 2px #1e3a8a', fontFamily: 'inherit' };
             }
-            if (opt.legend === undefined) {
-                opt.legend = { orient: 'horizontal', left: 'center', top: 'bottom' };
-            } else if (typeof opt.legend === 'string') {
-                opt.legend = { orient: 'horizontal', left: 'center', top: 'bottom' };
-            } else {
-                if (!opt.legend.textStyle) opt.legend.textStyle = {};
-                if (opt.legend.textStyle.color === undefined) opt.legend.textStyle.color = '#cbd5e6';
-                if (opt.legend.backgroundColor === undefined) opt.legend.backgroundColor = 'rgba(0,0,0,0.2)';
-                if (opt.legend.borderRadius === undefined) opt.legend.borderRadius = 8;
-                if (opt.legend.padding === undefined) opt.legend.padding = [4, 12, 4, 12];
-                if (opt.legend.left === undefined && opt.legend.right === undefined && opt.legend.top === undefined) {
-                    opt.legend.left = 'center';
-                    opt.legend.top = 'bottom';
-                }
-            }
-            if (opt.grid === undefined) {
-                opt.grid = { bottom: '12%', containLabel: true };
-            } else if (typeof opt.grid === 'object' && opt.grid.bottom === undefined) {
-                opt.grid.bottom = '12%';
-            }
-            return opt;
+            if (opt.title.left === undefined && opt.title.right === undefined) opt.title.left = 'left';
         }
-
-        let screens = [];
-        let activeScreenId = null;
-        let nextScreenId = 1;
-        let nextCardId = 100;
-        let gridStackMap = new Map();
-        let chartInstanceMap = new Map();
-        let gridSaveDebounceTimer = null;
-
-        function showTip(msg, duration = 2000) {
-            const toast = document.getElementById('statusToast');
-            toast.innerText = msg;
-            toast.style.display = 'block';
-            setTimeout(() => toast.style.display = 'none', duration);
-        }
-
-        function createCardConfig() {
-            return { id: nextCardId++, chartOption: null, w: 4, h: 5, x: 0, y: 0 };
-        }
-
-        function buildCardWidgetHtml(card, screenId) {
-            const hasChart = card.chartOption && typeof card.chartOption === 'object';
-            let titleText = '未配置图表';
-            if (hasChart && card.chartOption.title?.text) titleText = card.chartOption.title.text;
-            else if (hasChart) titleText = '图表卡片';
-            if (titleText.length > 28) titleText = titleText.slice(0, 25) + '...';
-            const innerContent = hasChart ?
-                `<div id="chart-${screenId}-${card.id}" class="chart-container"></div>` :
-                `<div class="chart-placeholder" id="placeholder-${screenId}-${card.id}">
-                <i class="fas fa-chart-line" style="font-size: 24px; opacity:0.6;"></i>
-                <span style="font-size:12px;">暂无数据，请导入 JSON</span>
-                <button class="import-json-btn" data-card-id="${card.id}" data-screen-id="${screenId}"><i class="fas fa-upload"></i> 导入JSON</button>
-            </div>`;
-            return `<div class="grid-stack-item" data-card-id="${card.id}" data-screen-id="${screenId}">
-                    <div class="grid-stack-item-content">
-                        <div class="card-header">
-                            <div class="card-title"><i class="fas fa-chart-line"></i> <span class="card-title-text">${escapeHtml(titleText)}</span></div>
-                            <div class="card-actions">
-                                <button class="edit-json-btn" data-card-id="${card.id}" data-screen-id="${screenId}" title="编辑/导入JSON"><i class="fas fa-code"></i> JSON</button>
-                                <button class="delete-chart-btn" data-card-id="${card.id}" data-screen-id="${screenId}"><i class="fas fa-trash"></i> 删除</button>
-                            </div>
-                        </div>
-                        ${innerContent}
-                    </div>
-                </div>`;
-        }
-
-        function setupEventDelegation(screenId) {
-            const pane = document.getElementById(`screen-${screenId}`);
-            if (!pane) return;
-            if (pane._eventDelegate) pane.removeEventListener('click', pane._eventDelegate);
-            const delegateHandler = (e) => {
-                const target = e.target.closest('button');
-                if (!target) return;
-                if (target.classList.contains('edit-json-btn') || target.classList.contains('import-json-btn')) {
-                    e.preventDefault();
-                    const cardId = parseInt(target.getAttribute('data-card-id'));
-                    const screen = screens.find(s => s.id === screenId);
-                    if (screen) {
-                        const card = screen.cards.find(c => c.id === cardId);
-                        if (card) showJsonEditorModal(screen, card);
-                    }
-                } else if (target.classList.contains('delete-chart-btn')) {
-                    e.preventDefault();
-                    const cardId = parseInt(target.getAttribute('data-card-id'));
-                    const screen = screens.find(s => s.id === screenId);
-                    if (!screen) return;
-                    const card = screen.cards.find(c => c.id === cardId);
-                    if (card && confirm(`确定删除此图表卡片吗？`)) {
-                        const idx = screen.cards.findIndex(c => c.id === cardId);
-                        screen.cards.splice(idx, 1);
-                        const key = `${screen.id}_${cardId}`;
-                        if (chartInstanceMap.has(key)) chartInstanceMap.get(key).dispose();
-                        renderScreenGrid(screen);
-                        saveScreensToLocal();
-                        showTip("卡片已删除", 1000);
-                    }
-                }
-            };
-            pane.addEventListener('click', delegateHandler);
-            pane._eventDelegate = delegateHandler;
-        }
-
-        function cleanupScreenCharts(screenId) {
-            for (let [key, chart] of chartInstanceMap.entries()) {
-                if (key.startsWith(`${screenId}_`)) {
-                    chart.dispose();
-                    chartInstanceMap.delete(key);
-                }
+        if (opt.legend === undefined) {
+            opt.legend = { orient: 'horizontal', left: 'center', top: 'bottom' };
+        } else if (typeof opt.legend === 'string') {
+            opt.legend = { orient: 'horizontal', left: 'center', top: 'bottom' };
+        } else {
+            if (!opt.legend.textStyle) opt.legend.textStyle = {};
+            if (opt.legend.textStyle.color === undefined) opt.legend.textStyle.color = '#cbd5e6';
+            if (opt.legend.backgroundColor === undefined) opt.legend.backgroundColor = 'rgba(0,0,0,0.2)';
+            if (opt.legend.borderRadius === undefined) opt.legend.borderRadius = 8;
+            if (opt.legend.padding === undefined) opt.legend.padding = [4, 12, 4, 12];
+            if (opt.legend.left === undefined && opt.legend.right === undefined && opt.legend.top === undefined) {
+                opt.legend.left = 'center';
+                opt.legend.top = 'bottom';
             }
         }
-
-        function debouncedSaveScreens() {
-            if (gridSaveDebounceTimer) clearTimeout(gridSaveDebounceTimer);
-            gridSaveDebounceTimer = setTimeout(() => saveScreensToLocal(), 300);
+        if (opt.grid === undefined) {
+            opt.grid = { bottom: '12%', containLabel: true };
+        } else if (typeof opt.grid === 'object' && opt.grid.bottom === undefined) {
+            opt.grid.bottom = '12%';
         }
-
-        function renderScreenGrid(screen) {
-            const containerId = `grid-${screen.id}`;
-            let container = document.getElementById(containerId);
-            if (!container) {
-                const pane = document.getElementById(`screen-${screen.id}`);
-                if (!pane) return;
-                pane.innerHTML = `<div class="grid-stack" id="${containerId}"></div>`;
-                container = document.getElementById(containerId);
-            }
-            cleanupScreenCharts(screen.id);
-            if (gridStackMap.has(screen.id)) gridStackMap.get(screen.id).destroy(false);
-
-            // 关键修改: 吸附步长 (cellHeight 仍为70px, 但内部步长通过 column 和 单元格尺寸控制)
-            // GridStack 默认吸附基于单元格尺寸，通过设置 cellHeight 和 column 来控制。
-            // 为了达到“吸附点距离缩小为1/4”，我们将 cellHeight 改为原来的1/4 (70/4=17.5)，但为了保持视觉和可操作性，
-            // 同时调整内部的单位：实际上我们需要让每个“格子”更细密。采用 cellHeight: 17.5 会导致卡片高度基于17.5的倍数，
-            // 但卡片高度 w/h 也会变，这样用户调整时可以更精细。同时设置 margin 缩小为原来的1/4。
-            const grid = GridStack.init({
-                column: 12,
-                cellHeight: 17.5, // 原70px，现17.5px —— 吸附间距缩小为原来的1/4
-                margin: 2.5, // 原10px，现2.5px (1/4)
-                float: false,
-                draggable: { handle: '.card-header' },
-                resizable: { handles: 'se' }
-            }, container);
-
-            grid.removeAll();
-
-            if (screen.cards?.length) {
-                screen.cards.forEach(card => {
-                    // 注意: 卡片尺寸转换: 原w/h基于70px单元格，现基于17.5px单元格，所以尺寸数值需要相应调整以保持视觉大小相似
-                    // 原默认 w=4 占宽 4*70=280px，现需要 4*4=16 单元格 (16*17.5=280px)
-                    // 原默认 h=5 占高 5*70=350px，现需要 5*4=20 单元格 (20*17.5=350px)
-                    // 为了保证视觉尺寸不变，加载时对已有卡片尺寸进行放大4倍，新卡片使用原始宽高乘以4。
-                    let finalW = card.w * 4;
-                    let finalH = card.h * 4;
-                    let finalX = card.x * 4;
-                    let finalY = card.y * 4;
-                    const widget = grid.addWidget(buildCardWidgetHtml(card, screen.id), {
-                        w: finalW,
-                        h: finalH,
-                        x: finalX,
-                        y: finalY,
-                        id: `widget-${screen.id}-${card.id}`
-                    });
-                    widget.setAttribute('data-card-id', card.id);
-                    widget.setAttribute('data-screen-id', screen.id);
-                    // 存储原始逻辑尺寸用于保存时还原
-                    widget._origW = card.w;
-                    widget._origH = card.h;
-                    widget._origX = card.x;
-                    widget._origY = card.y;
-                });
-            }
-
-            grid.on('change', (event, items) => {
-                for (let item of items) {
-                    const cardId = parseInt(item.el.getAttribute('data-card-id'));
-                    if (!cardId) continue;
-                    const scr = screens.find(s => s.id === parseInt(item.el.getAttribute('data-screen-id')));
-                    if (scr) {
-                        const card = scr.cards.find(c => c.id === cardId);
-                        if (card) {
-                            // 修复：使用更精确的计算，保留原始精细度
-                            // 直接存储精细坐标，不用除以4再舍入
-                            // 或者使用 parseFloat 后四舍五入到小数点后1位
-                            let newW = item.w / 4;
-                            let newH = item.h / 4;
-                            let newX = item.x / 4;
-                            let newY = item.y / 4;
-
-                            // 四舍五入到小数点后2位，避免浮点误差
-                            card.w = Math.round(newW * 100) / 100;
-                            card.h = Math.round(newH * 100) / 100;
-                            card.x = Math.round(newX * 100) / 100;
-                            card.y = Math.round(newY * 100) / 100;
-
-                            // 确保最小尺寸为0.5（允许半格）
-                            if (card.w < 0.5) card.w = 0.5;
-                            if (card.h < 0.5) card.h = 0.5;
-                            if (card.x < 0) card.x = 0;
-                            if (card.y < 0) card.y = 0;
-                        }
-                    }
-                }
-                debouncedSaveScreens();
-                for (let item of items) {
-                    const key =
-                        `${parseInt(item.el.getAttribute('data-screen-id'))}_${parseInt(item.el.getAttribute('data-card-id'))}`;
-                    const chart = chartInstanceMap.get(key);
-                    if (chart) setTimeout(() => chart.resize(), 30);
+        // 地图配置补全
+        if (opt.series) {
+            var seriesArr = Array.isArray(opt.series) ? opt.series : [opt.series];
+            seriesArr.forEach(function (s) {
+                if (s && s.type === 'map') {
+                    if (!s.label) s.label = { show: true, color: '#eef2ff', fontSize: 10 };
+                    if (!s.itemStyle) s.itemStyle = {};
+                    if (s.itemStyle.areaColor === undefined) s.itemStyle.areaColor = '#1f2937';
+                    if (s.itemStyle.borderColor === undefined) s.itemStyle.borderColor = '#3b82f6';
+                    if (s.itemStyle.borderWidth === undefined) s.itemStyle.borderWidth = 1;
+                    if (!s.emphasis) s.emphasis = {};
+                    if (!s.emphasis.itemStyle) s.emphasis.itemStyle = {};
+                    if (s.emphasis.itemStyle.areaColor === undefined) s.emphasis.itemStyle.areaColor = '#60a5fa';
                 }
             });
-            gridStackMap.set(screen.id, grid);
+        }
+        return opt;
+    }
 
-            if (screen.cards?.length) {
-                screen.cards.forEach(card => {
-                    if (card.chartOption) {
-                        const containerDiv = document.getElementById(`chart-${screen.id}-${card.id}`);
-                        if (containerDiv) {
+    let screens = [];
+    let activeScreenId = null;
+    let nextScreenId = 1;
+    let nextCardId = 100;
+    let gridStackMap = new Map();
+    let chartInstanceMap = new Map();
+    let gridSaveDebounceTimer = null;
+
+    function showTip(msg, duration = 2000) {
+        const toast = document.getElementById('statusToast');
+        toast.innerText = msg;
+        toast.style.display = 'block';
+        setTimeout(() => toast.style.display = 'none', duration);
+    }
+
+    function createCardConfig() {
+        return { id: nextCardId++, chartOption: null, w: 4, h: 5, x: 0, y: 0 };
+    }
+
+    function buildCardWidgetHtml(card, screenId) {
+        const hasChart = card.chartOption && typeof card.chartOption === 'object';
+        let titleText = '未配置图表';
+        if (hasChart && card.chartOption.title?.text) titleText = card.chartOption.title.text;
+        else if (hasChart) titleText = '图表卡片';
+        if (titleText.length > 28) titleText = titleText.slice(0, 25) + '...';
+        const innerContent = hasChart ?
+            `<div id="chart-${screenId}-${card.id}" class="chart-container"></div>` :
+            `<div class="chart-placeholder" id="placeholder-${screenId}-${card.id}">
+            <i class="fas fa-chart-line" style="font-size: 24px; opacity:0.6;"></i>
+            <span style="font-size:12px;">暂无数据，请导入 JSON</span>
+            <button class="import-json-btn" data-card-id="${card.id}" data-screen-id="${screenId}"><i class="fas fa-upload"></i> 导入JSON</button>
+        </div>`;
+        return `<div class="grid-stack-item" data-card-id="${card.id}" data-screen-id="${screenId}">
+                <div class="grid-stack-item-content">
+                    <div class="card-header">
+                        <div class="card-title"><i class="fas fa-chart-line"></i> <span class="card-title-text">${escapeHtml(titleText)}</span></div>
+                        <div class="card-actions">
+                            <button class="edit-json-btn" data-card-id="${card.id}" data-screen-id="${screenId}" title="编辑/导入JSON"><i class="fas fa-code"></i> JSON</button>
+                            <button class="delete-chart-btn" data-card-id="${card.id}" data-screen-id="${screenId}"><i class="fas fa-trash"></i> 删除</button>
+                        </div>
+                    </div>
+                    ${innerContent}
+                </div>
+            </div>`;
+    }
+
+    function setupEventDelegation(screenId) {
+        const pane = document.getElementById(`screen-${screenId}`);
+        if (!pane) return;
+        if (pane._eventDelegate) pane.removeEventListener('click', pane._eventDelegate);
+        const delegateHandler = (e) => {
+            const target = e.target.closest('button');
+            if (!target) return;
+            if (target.classList.contains('edit-json-btn') || target.classList.contains('import-json-btn')) {
+                e.preventDefault();
+                const cardId = parseInt(target.getAttribute('data-card-id'));
+                const screen = screens.find(s => s.id === screenId);
+                if (screen) {
+                    const card = screen.cards.find(c => c.id === cardId);
+                    if (card) showJsonEditorModal(screen, card);
+                }
+            } else if (target.classList.contains('delete-chart-btn')) {
+                e.preventDefault();
+                const cardId = parseInt(target.getAttribute('data-card-id'));
+                const screen = screens.find(s => s.id === screenId);
+                if (!screen) return;
+                const card = screen.cards.find(c => c.id === cardId);
+                if (card && confirm(`确定删除此图表卡片吗？`)) {
+                    const idx = screen.cards.findIndex(c => c.id === cardId);
+                    screen.cards.splice(idx, 1);
+                    const key = `${screen.id}_${cardId}`;
+                    if (chartInstanceMap.has(key)) chartInstanceMap.get(key).dispose();
+                    renderScreenGrid(screen);
+                    saveScreensToLocal();
+                    showTip("卡片已删除", 1000);
+                }
+            }
+        };
+        pane.addEventListener('click', delegateHandler);
+        pane._eventDelegate = delegateHandler;
+    }
+
+    function cleanupScreenCharts(screenId) {
+        for (let [key, chart] of chartInstanceMap.entries()) {
+            if (key.startsWith(`${screenId}_`)) {
+                chart.dispose();
+                chartInstanceMap.delete(key);
+            }
+        }
+    }
+
+    function debouncedSaveScreens() {
+        if (gridSaveDebounceTimer) clearTimeout(gridSaveDebounceTimer);
+        gridSaveDebounceTimer = setTimeout(() => saveScreensToLocal(), 300);
+    }
+
+    function renderScreenGrid(screen) {
+        const containerId = `grid-${screen.id}`;
+        let container = document.getElementById(containerId);
+        if (!container) {
+            const pane = document.getElementById(`screen-${screen.id}`);
+            if (!pane) return;
+            pane.innerHTML = `<div class="grid-stack" id="${containerId}"></div>`;
+            container = document.getElementById(containerId);
+        }
+        cleanupScreenCharts(screen.id);
+        if (gridStackMap.has(screen.id)) gridStackMap.get(screen.id).destroy(false);
+
+        const grid = GridStack.init({
+            column: 12,
+            cellHeight: 17.5,
+            margin: 2.5,
+            float: false,
+            draggable: { handle: '.card-header' },
+            resizable: { handles: 'se' }
+        }, container);
+
+        grid.removeAll();
+
+        if (screen.cards?.length) {
+            screen.cards.forEach(card => {
+                let finalW = card.w * 4;
+                let finalH = card.h * 4;
+                let finalX = card.x * 4;
+                let finalY = card.y * 4;
+                const widget = grid.addWidget(buildCardWidgetHtml(card, screen.id), {
+                    w: finalW, h: finalH, x: finalX, y: finalY,
+                    id: `widget-${screen.id}-${card.id}`
+                });
+                widget.setAttribute('data-card-id', card.id);
+                widget.setAttribute('data-screen-id', screen.id);
+                widget._origW = card.w;
+                widget._origH = card.h;
+                widget._origX = card.x;
+                widget._origY = card.y;
+            });
+        }
+
+        grid.on('change', (event, items) => {
+            for (let item of items) {
+                const cardId = parseInt(item.el.getAttribute('data-card-id'));
+                if (!cardId) continue;
+                const scr = screens.find(s => s.id === parseInt(item.el.getAttribute('data-screen-id')));
+                if (scr) {
+                    const card = scr.cards.find(c => c.id === cardId);
+                    if (card) {
+                        card.w = Math.round((item.w / 4) * 100) / 100;
+                        card.h = Math.round((item.h / 4) * 100) / 100;
+                        card.x = Math.round((item.x / 4) * 100) / 100;
+                        card.y = Math.round((item.y / 4) * 100) / 100;
+                        if (card.w < 0.5) card.w = 0.5;
+                        if (card.h < 0.5) card.h = 0.5;
+                        if (card.x < 0) card.x = 0;
+                        if (card.y < 0) card.y = 0;
+                    }
+                }
+            }
+            debouncedSaveScreens();
+            for (let item of items) {
+                const key = `${parseInt(item.el.getAttribute('data-screen-id'))}_${parseInt(item.el.getAttribute('data-card-id'))}`;
+                const chart = chartInstanceMap.get(key);
+                if (chart) setTimeout(() => chart.resize(), 30);
+            }
+        });
+        gridStackMap.set(screen.id, grid);
+
+        // === 地图改造点 1：渲染时先确保地图加载 ===
+        if (screen.cards?.length) {
+            screen.cards.forEach(card => {
+                if (card.chartOption) {
+                    const containerDiv = document.getElementById(`chart-${screen.id}-${card.id}`);
+                    if (containerDiv) {
+                        const mapName = detectMapName(card.chartOption);
+                        ensureMapLoaded(mapName, function () {
                             let chart = echarts.init(containerDiv);
                             const key = `${screen.id}_${card.id}`;
                             if (chartInstanceMap.has(key)) chartInstanceMap.get(key).dispose();
                             const enhanced = enhanceChartOption(card.chartOption);
                             chart.setOption(enhanced, true);
                             chartInstanceMap.set(key, chart);
-                        }
+                        });
                     }
-                });
-            }
-            setupEventDelegation(screen.id);
-            updateTabCloseButtonState(screen.id);
+                }
+            });
         }
+        setupEventDelegation(screen.id);
+        updateTabCloseButtonState(screen.id);
+    }
 
-        function updateCardTitle(screen, card) {
-            const widgetDiv = document.querySelector(
-                `.grid-stack-item[data-card-id='${card.id}'][data-screen-id='${screen.id}']`);
-            if (widgetDiv) {
-                let titleText = '未配置图表';
-                if (card.chartOption?.title?.text) titleText = card.chartOption.title.text;
-                else if (card.chartOption) titleText = '图表卡片';
-                const titleSpan = widgetDiv.querySelector('.card-title-text');
-                if (titleSpan) titleSpan.innerText = titleText.length > 28 ? titleText.slice(0, 25) + '...' : titleText;
-            }
+    function updateCardTitle(screen, card) {
+        const widgetDiv = document.querySelector(`.grid-stack-item[data-card-id='${card.id}'][data-screen-id='${screen.id}']`);
+        if (widgetDiv) {
+            let titleText = '未配置图表';
+            if (card.chartOption?.title?.text) titleText = card.chartOption.title.text;
+            else if (card.chartOption) titleText = '图表卡片';
+            const titleSpan = widgetDiv.querySelector('.card-title-text');
+            if (titleSpan) titleSpan.innerText = titleText.length > 28 ? titleText.slice(0, 25) + '...' : titleText;
         }
+    }
 
-        function refreshChartFromOption(screen, card) {
-            if (card.chartOption) {
+    // === 地图改造点 2：刷新图表时先确保地图加载 ===
+    function refreshChartFromOption(screen, card) {
+        if (card.chartOption) {
+            const mapName = detectMapName(card.chartOption);
+            ensureMapLoaded(mapName, function () {
                 const containerDiv = document.getElementById(`chart-${screen.id}-${card.id}`);
                 const placeholderDiv = document.querySelector(`#placeholder-${screen.id}-${card.id}`);
                 if (placeholderDiv && !containerDiv) {
@@ -808,358 +555,344 @@
                     }
                 }
                 updateCardTitle(screen, card);
-            } else {
-                const chartDiv = document.getElementById(`chart-${screen.id}-${card.id}`);
-                if (chartDiv) {
-                    const key = `${screen.id}_${card.id}`;
-                    if (chartInstanceMap.has(key)) chartInstanceMap.get(key).dispose();
-                    chartInstanceMap.delete(key);
-                    const placeholderHtml = `<div class="chart-placeholder" id="placeholder-${screen.id}-${card.id}">
-                    <i class="fas fa-chart-line" style="font-size:24px;opacity:0.6;"></i>
-                    <span>暂无数据，请导入 JSON</span>
-                    <button class="import-json-btn" data-card-id="${card.id}" data-screen-id="${screen.id}">导入JSON</button>
-                </div>`;
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = placeholderHtml.trim();
-                    const newPlaceholder = tempDiv.firstChild;
-                    chartDiv.parentNode.replaceChild(newPlaceholder, chartDiv);
-                }
-                updateCardTitle(screen, card);
+            });
+        } else {
+            const chartDiv = document.getElementById(`chart-${screen.id}-${card.id}`);
+            if (chartDiv) {
+                const key = `${screen.id}_${card.id}`;
+                if (chartInstanceMap.has(key)) chartInstanceMap.get(key).dispose();
+                chartInstanceMap.delete(key);
+                const placeholderHtml = `<div class="chart-placeholder" id="placeholder-${screen.id}-${card.id}">
+                <i class="fas fa-chart-line" style="font-size:24px;opacity:0.6;"></i>
+                <span>暂无数据，请导入 JSON</span>
+                <button class="import-json-btn" data-card-id="${card.id}" data-screen-id="${screen.id}">导入JSON</button>
+            </div>`;
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = placeholderHtml.trim();
+                const newPlaceholder = tempDiv.firstChild;
+                chartDiv.parentNode.replaceChild(newPlaceholder, chartDiv);
             }
+            updateCardTitle(screen, card);
         }
+    }
 
-        function showJsonEditorModal(screen, card) { /* 保持原有完整实现，避免过长截断，但与原功能一致 */
-            const modalDiv = document.createElement('div');
-            modalDiv.className = 'modal-mask';
-            let currentJsonStr = '';
-            if (card.chartOption && typeof card.chartOption === 'object') {
-                try { currentJsonStr = JSON.stringify(card.chartOption, null, 2); } catch (e) { currentJsonStr = ''; }
-            }
-            modalDiv.innerHTML = `
-            <div class="modal-panel" style="width: 760px;">
-                <h3><i class="fas fa-chart-line"></i> 图表配置编辑器 · <span style="color:#60a5fa;">JSON源码</span></h3>
-                <p style="font-size:12px; color:#8ba0c0; margin:6px 0;">支持标准 ECharts 格式，属性名可无引号、注释。</p>
-                <div class="toolbar-json-group">
-                    <label class="file-upload-label" id="modalUploadLabel"><i class="fas fa-folder-open"></i> 上传JSON文件</label>
-                    <input type="file" id="modalJsonFileInput" accept=".json">
-                    <button id="modalExportJsonBtn" class="file-upload-label" style="background:#2563eb;"><i class="fas fa-download"></i> 导出JSON文件</button>
-                </div>
-                <textarea id="modalJsonEditor" rows="12" placeholder='粘贴或编辑 JSON 配置...'>${escapeTextarea(currentJsonStr)}</textarea>
-                <div class="modal-buttons">
-                    <button class="btn-secondary" id="cancelModalBtn">取消</button>
-                    <button class="btn-primary" id="applyJsonModalBtn">应用配置</button>
-                </div>
+    function showJsonEditorModal(screen, card) {
+        const modalDiv = document.createElement('div');
+        modalDiv.className = 'modal-mask';
+        let currentJsonStr = '';
+        if (card.chartOption && typeof card.chartOption === 'object') {
+            try { currentJsonStr = JSON.stringify(card.chartOption, null, 2); } catch (e) { currentJsonStr = ''; }
+        }
+        modalDiv.innerHTML = `
+        <div class="modal-panel" style="width: 760px;">
+            <h3><i class="fas fa-chart-line"></i> 图表配置编辑器 · <span style="color:#60a5fa;">JSON源码</span></h3>
+            <p style="font-size:12px; color:#8ba0c0; margin:6px 0;">支持标准 ECharts 格式，属性名可无引号、注释。</p>
+            <div class="toolbar-json-group">
+                <label class="file-upload-label" id="modalUploadLabel"><i class="fas fa-folder-open"></i> 上传JSON文件</label>
+                <input type="file" id="modalJsonFileInput" accept=".json">
+                <button id="modalExportJsonBtn" class="file-upload-label" style="background:#2563eb;"><i class="fas fa-download"></i> 导出JSON文件</button>
             </div>
-        `;
-            document.body.appendChild(modalDiv);
-            const textarea = modalDiv.querySelector('#modalJsonEditor');
-            const fileInput = modalDiv.querySelector('#modalJsonFileInput');
-            const uploadLabel = modalDiv.querySelector('#modalUploadLabel');
-            const exportBtn = modalDiv.querySelector('#modalExportJsonBtn');
-            uploadLabel.addEventListener('click', (e) => { e.preventDefault();
-                fileInput.click(); });
-            fileInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    try { const jsonObj = looseJsonParse(ev.target.result);
-                        textarea.value = JSON.stringify(jsonObj, null, 2);
-                        showTip("文件已加载", 1200); } catch (err) { alert("解析失败: " + err.message); }
-                };
-                reader.readAsText(file);
-                fileInput.value = '';
-            });
-            exportBtn.addEventListener('click', () => {
-                const rawJson = textarea.value.trim();
-                if (!rawJson) { alert("编辑器为空"); return; }
-                const blob = new Blob([rawJson], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `chart_${screen.name}_card_${card.id}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-                showTip("已导出JSON", 1500);
-            });
-            const closeModal = () => modalDiv.remove();
-            document.getElementById('cancelModalBtn').addEventListener('click', closeModal);
-            document.getElementById('applyJsonModalBtn').addEventListener('click', () => {
-                const raw = textarea.value.trim();
-                if (!raw) { alert("请输入 JSON 内容"); return; }
+            <textarea id="modalJsonEditor" rows="12" placeholder='粘贴或编辑 JSON 配置...'>${escapeTextarea(currentJsonStr)}</textarea>
+            <div class="modal-buttons">
+                <button class="btn-secondary" id="cancelModalBtn">取消</button>
+                <button class="btn-primary" id="applyJsonModalBtn">应用配置</button>
+            </div>
+        </div>
+    `;
+        document.body.appendChild(modalDiv);
+        const textarea = modalDiv.querySelector('#modalJsonEditor');
+        const fileInput = modalDiv.querySelector('#modalJsonFileInput');
+        const uploadLabel = modalDiv.querySelector('#modalUploadLabel');
+        const exportBtn = modalDiv.querySelector('#modalExportJsonBtn');
+        uploadLabel.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
                 try {
-                    let option = looseJsonParse(raw);
-                    card.chartOption = option;
-                    refreshChartFromOption(screen, card);
-                    saveScreensToLocal();
-                    showTip("图表已更新", 1500);
-                    closeModal();
-                } catch (e) { alert("配置无效: " + e.message); }
-            });
-        }
-
-        function escapeTextarea(str) { if (!str) return ''; return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(
-                />/g, '&gt;'); }
-
-        // 核心修改: 新增图表放置在最后 (不放在最上面)
-        function addCardToActiveScreen() {
-            if (!activeScreenId) { showTip("请先选择一个标签页", 1000); return; }
-            const screen = screens.find(s => s.id === activeScreenId);
-            if (!screen) return;
-            const newCard = createCardConfig();
-            // 计算新位置: 放在最下方 (y坐标取最大卡片底部位置)
-            let maxY = 0;
-            if (screen.cards.length > 0) {
-                maxY = Math.max(...screen.cards.map(c => (c.y || 0) + (c.h || 5)));
-            }
-            newCard.x = 0;
-            newCard.y = maxY;
-            screen.cards.push(newCard);
-            renderScreenGrid(screen);
-            saveScreensToLocal();
-            showTip("新卡片已添加在最后，点击「JSON」导入图表数据", 2000);
-        }
-
-        function exportFullDashboard() {
-            if (!activeScreenId) return showTip("请先选择一个标签页");
-            const screen = screens.find(s => s.id === activeScreenId);
-            const exportData = { version: "4.0", screenName: screen.name, cards: screen.cards.map(c => ({ id: c.id, w: c.w,
-                    h: c.h, x: c.x, y: c.y, chartOption: c.chartOption })) };
-            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                    const jsonObj = looseJsonParse(ev.target.result);
+                    textarea.value = JSON.stringify(jsonObj, null, 2);
+                    showTip("文件已加载", 1200);
+                } catch (err) { alert("解析失败: " + err.message); }
+            };
+            reader.readAsText(file);
+            fileInput.value = '';
+        });
+        exportBtn.addEventListener('click', () => {
+            const rawJson = textarea.value.trim();
+            if (!rawJson) { alert("编辑器为空"); return; }
+            const blob = new Blob([rawJson], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `dashboard_${screen.name}_备份.json`;
+            a.download = `chart_${screen.name}_card_${card.id}.json`;
             a.click();
             URL.revokeObjectURL(url);
-            showTip("大屏配置已导出", 1500);
-        }
+            showTip("已导出JSON", 1500);
+        });
+        const closeModal = () => modalDiv.remove();
+        document.getElementById('cancelModalBtn').addEventListener('click', closeModal);
+        document.getElementById('applyJsonModalBtn').addEventListener('click', () => {
+            const raw = textarea.value.trim();
+            if (!raw) { alert("请输入 JSON 内容"); return; }
+            try {
+                let option = looseJsonParse(raw);
+                card.chartOption = option;
+                refreshChartFromOption(screen, card);
+                saveScreensToLocal();
+                showTip("图表已更新", 1500);
+                closeModal();
+            } catch (e) { alert("配置无效: " + e.message); }
+        });
+    }
 
-        function importDashboardJson() { /* 保留完整逻辑，与原一致略缩减 */
-            if (!activeScreenId) return showTip("请先选择一个标签页");
-            const screen = screens.find(s => s.id === activeScreenId);
-            const fileInput = document.createElement('input');
-            fileInput.type = 'file';
-            fileInput.accept = '.json';
-            fileInput.onchange = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    try {
-                        const imported = JSON.parse(ev.target.result);
-                        if (!imported.cards) throw new Error("无效备份");
-                        const newCards = imported.cards.map(old => ({ id: nextCardId++, w: old.w ?? 4, h: old.h ?? 5,
-                            x: old.x ?? 0, y: old.y ?? 0, chartOption: old.chartOption || null }));
-                        if (confirm("替换现有所有图表?")) {
-                            screen.cards.forEach(c => { const key = `${screen.id}_${c.id}`; if (chartInstanceMap
-                                    .has(key)) chartInstanceMap.get(key).dispose(); });
-                            screen.cards = newCards;
-                        } else screen.cards.push(...newCards);
-                        if (imported.screenName && confirm("是否同时修改页签名?")) { screen.name = imported.screenName;
-                            const tabDiv = document.querySelector(
-                                `.tab-item[data-screen-id='${screen.id}'] .tab-name`); if (tabDiv) tabDiv
-                                .innerText = screen.name; }
-                        renderScreenGrid(screen);
-                        saveScreensToLocal();
-                        showTip(`导入 ${newCards.length} 个图表`, 2000);
-                    } catch (err) { alert("导入失败: " + err.message); }
-                };
-                reader.readAsText(file);
+    function escapeTextarea(str) { if (!str) return ''; return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+    function addCardToActiveScreen() {
+        if (!activeScreenId) { showTip("请先选择一个标签页", 1000); return; }
+        const screen = screens.find(s => s.id === activeScreenId);
+        if (!screen) return;
+        const newCard = createCardConfig();
+        let maxY = 0;
+        if (screen.cards.length > 0) {
+            maxY = Math.max(...screen.cards.map(c => (c.y || 0) + (c.h || 5)));
+        }
+        newCard.x = 0;
+        newCard.y = maxY;
+        screen.cards.push(newCard);
+        renderScreenGrid(screen);
+        saveScreensToLocal();
+        showTip("新卡片已添加在最后，点击「JSON」导入图表数据", 2000);
+    }
+
+    function exportFullDashboard() {
+        if (!activeScreenId) return showTip("请先选择一个标签页");
+        const screen = screens.find(s => s.id === activeScreenId);
+        const exportData = { version: "4.0", screenName: screen.name, cards: screen.cards.map(c => ({ id: c.id, w: c.w, h: c.h, x: c.x, y: c.y, chartOption: c.chartOption })) };
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `dashboard_${screen.name}_备份.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showTip("大屏配置已导出", 1500);
+    }
+
+    function importDashboardJson() {
+        if (!activeScreenId) return showTip("请先选择一个标签页");
+        const screen = screens.find(s => s.id === activeScreenId);
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.json';
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const imported = JSON.parse(ev.target.result);
+                    if (!imported.cards) throw new Error("无效备份");
+                    const newCards = imported.cards.map(old => ({ id: nextCardId++, w: old.w ?? 4, h: old.h ?? 5, x: old.x ?? 0, y: old.y ?? 0, chartOption: old.chartOption || null }));
+                    if (confirm("替换现有所有图表?")) {
+                        screen.cards.forEach(c => { const key = `${screen.id}_${c.id}`; if (chartInstanceMap.has(key)) chartInstanceMap.get(key).dispose(); });
+                        screen.cards = newCards;
+                    } else screen.cards.push(...newCards);
+                    if (imported.screenName && confirm("是否同时修改页签名?")) {
+                        screen.name = imported.screenName;
+                        const tabDiv = document.querySelector(`.tab-item[data-screen-id='${screen.id}'] .tab-name`);
+                        if (tabDiv) tabDiv.innerText = screen.name;
+                    }
+                    renderScreenGrid(screen);
+                    saveScreensToLocal();
+                    showTip(`导入 ${newCards.length} 个图表`, 2000);
+                } catch (err) { alert("导入失败: " + err.message); }
             };
-            fileInput.click();
+            reader.readAsText(file);
+        };
+        fileInput.click();
+    }
+
+    async function exportScreenAsPng() {
+        if (!activeScreenId) return showTip("请先选择页签");
+        const screen = screens.find(s => s.id === activeScreenId);
+        const container = document.getElementById(`screen-${screen.id}`);
+        if (!container) return;
+        showTip("生成截图...", 1500);
+        try {
+            const canvas = await html2canvas(container, { backgroundColor: '#0a0f1f', scale: 2 });
+            const link = document.createElement('a');
+            link.download = `dashboard_${screen.name}_${Date.now()}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+            showTip("截图已导出", 1500);
+        } catch (err) { showTip("截图失败", 2000); }
+    }
+
+    function setupToolbarHover() {
+        const toolbar = document.getElementById('editToolbar');
+        let timeoutId = null;
+        const showToolbar = () => { if (timeoutId) clearTimeout(timeoutId); toolbar.classList.add('visible'); };
+        const hideToolbar = () => { timeoutId = setTimeout(() => toolbar.classList.remove('visible'), 300); };
+        toolbar.addEventListener('mouseenter', showToolbar);
+        toolbar.addEventListener('mouseleave', hideToolbar);
+        document.addEventListener('mousemove', (e) => {
+            const rect = toolbar.getBoundingClientRect();
+            if (e.clientX > rect.left - 40 && e.clientX < rect.right + 40 && e.clientY > rect.top - 40 && e.clientY < rect.bottom + 40) showToolbar();
+            else if (!toolbar.matches(':hover')) hideToolbar();
+        });
+        setTimeout(() => toolbar.classList.add('visible'), 200);
+    }
+
+    function closeScreen(screenId) {
+        const screen = screens.find(s => s.id === screenId);
+        if (!screen) return;
+        if (screen.cards?.length && !confirm(`页签「${screen.name}」包含 ${screen.cards.length} 个图表，确定关闭？`)) return;
+        if (screens.length <= 1) { showTip("至少保留一个大屏页签", 1500); return; }
+        if (gridStackMap.has(screenId)) gridStackMap.get(screenId).destroy(false);
+        screen.cards.forEach(c => { const key = `${screen.id}_${c.id}`; if (chartInstanceMap.has(key)) chartInstanceMap.get(key).dispose(); });
+        const idx = screens.findIndex(s => s.id === screenId);
+        screens.splice(idx, 1);
+        document.getElementById(`screen-${screenId}`)?.remove();
+        document.querySelector(`.tab-item[data-screen-id='${screenId}']`)?.remove();
+        if (activeScreenId === screenId) switchToScreen(screens[0].id);
+        saveScreensToLocal();
+    }
+
+    function createNewScreen(name = null) {
+        const id = nextScreenId++;
+        const screenName = name || `大屏 ${id}`;
+        screens.push({ id, name: screenName, cards: [] });
+        addScreenTabButton(id, screenName);
+        createScreenPane(id);
+        switchToScreen(id);
+        saveScreensToLocal();
+    }
+
+    function createScreenPane(screenId) {
+        let pane = document.getElementById(`screen-${screenId}`);
+        if (pane) pane.remove();
+        pane = document.createElement('div');
+        pane.className = 'screen-pane';
+        pane.id = `screen-${screenId}`;
+        document.getElementById('screensContainer').appendChild(pane);
+        const screen = screens.find(s => s.id === screenId);
+        if (screen) { pane.innerHTML = `<div class="grid-stack" id="grid-${screenId}"></div>`; renderScreenGrid(screen); }
+    }
+
+    function addScreenTabButton(screenId, name) {
+        const header = document.getElementById('tabsHeader');
+        const addBtn = document.getElementById('addTabBtn');
+        const div = document.createElement('div');
+        div.className = 'tab-item';
+        div.setAttribute('data-screen-id', screenId);
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'tab-name';
+        nameSpan.innerText = name;
+        const closeSpan = document.createElement('span');
+        closeSpan.className = 'close-tab';
+        closeSpan.innerText = '✕';
+        div.appendChild(nameSpan);
+        div.appendChild(closeSpan);
+        nameSpan.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            const old = nameSpan.innerText;
+            const input = document.createElement('input');
+            input.value = old;
+            input.style.cssText = 'background:#1f2937;color:white;border:1px solid #3b82f6;border-radius:12px;padding:2px 8px;';
+            nameSpan.style.display = 'none';
+            nameSpan.parentNode.insertBefore(input, nameSpan);
+            input.focus();
+            const save = () => {
+                let newName = input.value.trim() || old;
+                if (newName !== old) {
+                    const s = screens.find(s => s.id === screenId);
+                    if (s) s.name = newName;
+                    nameSpan.innerText = newName;
+                    saveScreensToLocal();
+                } else nameSpan.innerText = old;
+                nameSpan.style.display = 'inline-block';
+                input.remove();
+            };
+            input.addEventListener('blur', save);
+            input.addEventListener('keypress', e => { if (e.key === 'Enter') save(); });
+        });
+        div.addEventListener('click', (e) => {
+            if (e.target === closeSpan || e.target.parentElement === closeSpan) closeScreen(screenId);
+            else switchToScreen(screenId);
+        });
+        header.insertBefore(div, addBtn);
+        updateTabCloseButtonState(screenId);
+    }
+
+    function switchToScreen(screenId) {
+        if (activeScreenId === screenId) return;
+        document.querySelectorAll('.screen-pane').forEach(p => p.classList.remove('active-screen'));
+        document.getElementById(`screen-${screenId}`)?.classList.add('active-screen');
+        document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+        document.querySelector(`.tab-item[data-screen-id='${screenId}']`)?.classList.add('active');
+        activeScreenId = screenId;
+        const screen = screens.find(s => s.id === screenId);
+        if (screen) renderScreenGrid(screen);
+        saveScreensToLocal();
+    }
+
+    function saveScreensToLocal() {
+        localStorage.setItem('drag_dashboards_v9', JSON.stringify(screens.map(s => ({ id: s.id, name: s.name, cards: s.cards.map(c => ({ id: c.id, w: c.w, h: c.h, x: c.x, y: c.y, chartOption: c.chartOption })) }))));
+        localStorage.setItem('nextScreenId_v9', nextScreenId);
+        localStorage.setItem('nextCardId_v9', nextCardId);
+    }
+
+    function loadFromLocal() {
+        const raw = localStorage.getItem('drag_dashboards_v9');
+        if (!raw) { createNewScreen("我的大屏"); return; }
+        try {
+            const loaded = JSON.parse(raw);
+            screens = loaded.map(s => ({ id: s.id, name: s.name, cards: s.cards.map(c => ({ id: c.id, w: c.w ?? 4, h: c.h ?? 5, x: c.x ?? 0, y: c.y ?? 0, chartOption: c.chartOption })) }));
+            screens.forEach(s => { addScreenTabButton(s.id, s.name); createScreenPane(s.id); });
+            nextScreenId = parseInt(localStorage.getItem('nextScreenId_v9') || (Math.max(...screens.map(s => s.id), 0) + 1));
+            nextCardId = parseInt(localStorage.getItem('nextCardId_v9') || (Math.max(...screens.flatMap(s => s.cards.map(c => c.id)), 99) + 1));
+            if (screens.length) switchToScreen(screens[0].id);
+            else createNewScreen("大屏");
+        } catch (e) { createNewScreen("大屏"); }
+    }
+
+    function updateTabCloseButtonState(screenId) {
+        const screen = screens.find(s => s.id === screenId);
+        const tabDiv = document.querySelector(`.tab-item[data-screen-id='${screenId}']`);
+        if (tabDiv && screen) {
+            const closeSpan = tabDiv.querySelector('.close-tab');
+            if (closeSpan) closeSpan.title = screen.cards?.length ? `包含 ${screen.cards.length} 个图表` : '';
         }
+    }
 
-        async function exportScreenAsPng() {
-            if (!activeScreenId) return showTip("请先选择页签");
-            const screen = screens.find(s => s.id === activeScreenId);
-            const container = document.getElementById(`screen-${screen.id}`);
-            if (!container) return;
-            showTip("生成截图...", 1500);
-            try {
-                const canvas = await html2canvas(container, { backgroundColor: '#0a0f1f', scale: 2 });
-                const link = document.createElement('a');
-                link.download = `dashboard_${screen.name}_${Date.now()}.png`;
-                link.href = canvas.toDataURL();
-                link.click();
-                showTip("截图已导出", 1500);
-            } catch (err) { showTip("截图失败", 2000); }
-        }
+    function escapeHtml(str) { return String(str).replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m])); }
 
-        function setupToolbarHover() {
-            const toolbar = document.getElementById('editToolbar');
-            let timeoutId = null;
-            const showToolbar = () => { if (timeoutId) clearTimeout(timeoutId);
-                toolbar.classList.add('visible'); };
-            const hideToolbar = () => { timeoutId = setTimeout(() => toolbar.classList.remove('visible'), 300); };
-            toolbar.addEventListener('mouseenter', showToolbar);
-            toolbar.addEventListener('mouseleave', hideToolbar);
-            document.addEventListener('mousemove', (e) => {
-                const rect = toolbar.getBoundingClientRect();
-                if (e.clientX > rect.left - 40 && e.clientX < rect.right + 40 && e.clientY > rect.top - 40 && e
-                    .clientY < rect.bottom + 40) showToolbar();
-                else if (!toolbar.matches(':hover')) hideToolbar();
-            });
-            setTimeout(() => toolbar.classList.add('visible'), 200);
-        }
+    function initContextMenu() {
+        const menu = document.getElementById('contextMenu');
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            menu.style.display = 'block';
+            menu.style.left = e.clientX + 'px';
+            menu.style.top = e.clientY + 'px';
+            const closeMenu = () => { menu.style.display = 'none'; document.removeEventListener('click', closeMenu); };
+            setTimeout(() => { document.addEventListener('click', closeMenu); }, 10);
+        });
+        document.getElementById('ctxExportJson').addEventListener('click', () => { exportFullDashboard(); menu.style.display = 'none'; });
+        document.getElementById('ctxExportPng').addEventListener('click', () => { exportScreenAsPng(); menu.style.display = 'none'; });
+    }
 
-        function closeScreen(screenId) { /* 略缩但保留完整功能 */
-            const screen = screens.find(s => s.id === screenId);
-            if (!screen) return;
-            if (screen.cards?.length && !confirm(`页签「${screen.name}」包含 ${screen.cards.length} 个图表，确定关闭？`)) return;
-            if (screens.length <= 1) { showTip("至少保留一个大屏页签", 1500); return; }
-            if (gridStackMap.has(screenId)) gridStackMap.get(screenId).destroy(false);
-            screen.cards.forEach(c => { const key = `${screen.id}_${c.id}`; if (chartInstanceMap.has(key)) chartInstanceMap
-                    .get(key).dispose(); });
-            const idx = screens.findIndex(s => s.id === screenId);
-            screens.splice(idx, 1);
-            document.getElementById(`screen-${screenId}`)?.remove();
-            document.querySelector(`.tab-item[data-screen-id='${screenId}']`)?.remove();
-            if (activeScreenId === screenId) switchToScreen(screens[0].id);
-            saveScreensToLocal();
-        }
+    document.getElementById('addTabBtn').addEventListener('click', () => createNewScreen());
+    document.getElementById('globalAddChartBtn').addEventListener('click', () => addCardToActiveScreen());
+    document.getElementById('globalExportDashboardBtn').addEventListener('click', () => exportFullDashboard());
+    document.getElementById('globalImportDashboardBtn').addEventListener('click', () => importDashboardJson());
+    document.getElementById('globalExportPngBtn').addEventListener('click', () => exportScreenAsPng());
 
-        function createNewScreen(name = null) {
-            const id = nextScreenId++;
-            const screenName = name || `大屏 ${id}`;
-            screens.push({ id, name: screenName, cards: [] });
-            addScreenTabButton(id, screenName);
-            createScreenPane(id);
-            switchToScreen(id);
-            saveScreensToLocal();
-        }
-
-        function createScreenPane(screenId) {
-            let pane = document.getElementById(`screen-${screenId}`);
-            if (pane) pane.remove();
-            pane = document.createElement('div');
-            pane.className = 'screen-pane';
-            pane.id = `screen-${screenId}`;
-            document.getElementById('screensContainer').appendChild(pane);
-            const screen = screens.find(s => s.id === screenId);
-            if (screen) { pane.innerHTML = `<div class="grid-stack" id="grid-${screenId}"></div>`; renderScreenGrid(
-                screen); }
-        }
-
-        function addScreenTabButton(screenId, name) {
-            const header = document.getElementById('tabsHeader');
-            const addBtn = document.getElementById('addTabBtn');
-            const div = document.createElement('div');
-            div.className = 'tab-item';
-            div.setAttribute('data-screen-id', screenId);
-            const nameSpan = document.createElement('span');
-            nameSpan.className = 'tab-name';
-            nameSpan.innerText = name;
-            const closeSpan = document.createElement('span');
-            closeSpan.className = 'close-tab';
-            closeSpan.innerText = '✕';
-            div.appendChild(nameSpan);
-            div.appendChild(closeSpan);
-            nameSpan.addEventListener('dblclick', (e) => { /* 重命名逻辑 */
-                e.stopPropagation();
-                const old = nameSpan.innerText;
-                const input = document.createElement('input');
-                input.value = old;
-                input.style.cssText =
-                    'background:#1f2937;color:white;border:1px solid #3b82f6;border-radius:12px;padding:2px 8px;';
-                nameSpan.style.display = 'none';
-                nameSpan.parentNode.insertBefore(input, nameSpan);
-                input.focus();
-                const save = () => { let newName = input.value.trim() || old; if (newName !== old) { const s =
-                        screens.find(s => s.id === screenId); if (s) s.name = newName;
-                        nameSpan.innerText = newName;
-                        saveScreensToLocal(); } else nameSpan.innerText = old;
-                    nameSpan.style.display = 'inline-block';
-                    input.remove(); };
-                input.addEventListener('blur', save);
-                input.addEventListener('keypress', e => { if (e.key === 'Enter') save(); });
-            });
-            div.addEventListener('click', (e) => { if (e.target === closeSpan || e.target.parentElement === closeSpan)
-                    closeScreen(screenId);
-                else switchToScreen(screenId); });
-            header.insertBefore(div, addBtn);
-            updateTabCloseButtonState(screenId);
-        }
-
-        function switchToScreen(screenId) {
-            if (activeScreenId === screenId) return;
-            document.querySelectorAll('.screen-pane').forEach(p => p.classList.remove('active-screen'));
-            document.getElementById(`screen-${screenId}`)?.classList.add('active-screen');
-            document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
-            document.querySelector(`.tab-item[data-screen-id='${screenId}']`)?.classList.add('active');
-            activeScreenId = screenId;
-            const screen = screens.find(s => s.id === screenId);
-            if (screen) renderScreenGrid(screen);
-            saveScreensToLocal();
-        }
-
-        function saveScreensToLocal() {
-            localStorage.setItem('drag_dashboards_v9', JSON.stringify(screens.map(s => ({ id: s.id, name: s.name,
-                cards: s.cards.map(c => ({ id: c.id, w: c.w, h: c.h, x: c.x, y: c.y, chartOption: c
-                        .chartOption })) }))));
-            localStorage.setItem('nextScreenId_v9', nextScreenId);
-            localStorage.setItem('nextCardId_v9', nextCardId);
-        }
-
-        function loadFromLocal() {
-            const raw = localStorage.getItem('drag_dashboards_v9');
-            if (!raw) { createNewScreen("我的大屏"); return; }
-            try {
-                const loaded = JSON.parse(raw);
-                screens = loaded.map(s => ({ id: s.id, name: s.name, cards: s.cards.map(c => ({ id: c.id, w: c.w ?? 4,
-                        h: c.h ?? 5, x: c.x ?? 0, y: c.y ?? 0, chartOption: c.chartOption })) }));
-                screens.forEach(s => { addScreenTabButton(s.id, s.name);
-                    createScreenPane(s.id); });
-                nextScreenId = parseInt(localStorage.getItem('nextScreenId_v9') || (Math.max(...screens.map(s => s.id),
-                    0) + 1));
-                nextCardId = parseInt(localStorage.getItem('nextCardId_v9') || (Math.max(...screens.flatMap(s => s.cards
-                    .map(c => c.id)), 99) + 1));
-                if (screens.length) switchToScreen(screens[0].id);
-                else createNewScreen("大屏");
-            } catch (e) { createNewScreen("大屏"); }
-        }
-
-        function updateTabCloseButtonState(screenId) {
-            const screen = screens.find(s => s.id === screenId);
-            const tabDiv = document.querySelector(`.tab-item[data-screen-id='${screenId}']`);
-            if (tabDiv && screen) {
-                const closeSpan = tabDiv.querySelector('.close-tab');
-                if (closeSpan) closeSpan.title = screen.cards?.length ? `包含 ${screen.cards.length} 个图表` : '';
-            }
-        }
-
-        function escapeHtml(str) { return String(str).replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' } [
-                m
-            ])); }
-
-        function initContextMenu() {
-            const menu = document.getElementById('contextMenu');
-            document.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                menu.style.display = 'block';
-                menu.style.left = e.clientX + 'px';
-                menu.style.top = e.clientY + 'px';
-                const closeMenu = () => { menu.style.display = 'none';
-                    document.removeEventListener('click', closeMenu); };
-                setTimeout(() => { document.addEventListener('click', closeMenu); }, 10);
-            });
-            document.getElementById('ctxExportJson').addEventListener('click', () => { exportFullDashboard();
-                menu.style.display = 'none'; });
-            document.getElementById('ctxExportPng').addEventListener('click', () => { exportScreenAsPng();
-                menu.style.display = 'none'; });
-        }
-
-        document.getElementById('addTabBtn').addEventListener('click', () => createNewScreen());
-        document.getElementById('globalAddChartBtn').addEventListener('click', () => addCardToActiveScreen());
-        document.getElementById('globalExportDashboardBtn').addEventListener('click', () => exportFullDashboard());
-        document.getElementById('globalImportDashboardBtn').addEventListener('click', () => importDashboardJson());
-        document.getElementById('globalExportPngBtn').addEventListener('click', () => exportScreenAsPng());
-
-        loadFromLocal();
-        setupToolbarHover();
-        initContextMenu();
-        window.addEventListener('resize', () => { for (let ch of chartInstanceMap.values()) ch.resize(); });
+    loadFromLocal();
+    setupToolbarHover();
+    initContextMenu();
+    window.addEventListener('resize', () => { for (let ch of chartInstanceMap.values()) ch.resize(); });
     </script>
 </body>
-
 </html>
