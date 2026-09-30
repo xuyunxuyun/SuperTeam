@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <!--
+        SPDX-License-Identifier: CC-BY-NC-SA-4.0
+        本文件是"汉末废柴堆 · 超级团队组建系统"的一部分。
+        完整项目受 CC BY-NC-SA 4.0 许可证保护，详见根目录 LICENSE 文件。
+        本项目核心设计思想、架构方案、方法论受 NOTICE 文件独立保护。
+        个人可免费使用，严禁用于商业目的。
+        商业授权请联系：xxuuyyuunn@sina.com
+    -->
+    <!--
+        **版本历史**
+        | 版本号 | 过程节点说明 | 修订人 | 修订日期 | 修订内容 |
+        | :----- | :----------- | :----- | :------- | :------- |
+        | V0.1.0 | 初稿创建     | 徐昀 | 2026-09-28 | 根据用户需求生成 |
+    -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>马克一直荡 · 多标签 · 本地保存</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked@15.0.6/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.21/dist/contrib/auto-render.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg-primary: #0a0f1f; --bg-sidebar: #111827; --bg-panel: #0f172f;
+            --border-color: #2d3a5e; --text-primary: #eef2ff; --text-secondary: #cbd5e6;
+            --text-muted: #8ba0c0; --accent-blue: #3b82f6; --accent-hover: #2563eb;
+            --success: #10b981; --radius: 12px; --radius-sm: 8px; --transition: 0.2s ease;
+        }
+        body {
+            font-family: 'Segoe UI', 'Roboto', sans-serif;
+            background: var(--bg-primary); height: 100vh;
+            display: flex; flex-direction: column; overflow: hidden;
+            color: var(--text-primary); user-select: none;
+        }
+
+        /* ===== 多标签栏（新增） ===== */
+        .tabs-header {
+            background: #141a2c; padding: 8px 16px 0 16px; display: flex; gap: 4px;
+            align-items: flex-end; overflow-x: auto; overflow-y: hidden;
+            scrollbar-width: thin; border-bottom: 1px solid #2a3452;
+            z-index: 20; flex-shrink: 0;
+        }
+        .tabs-header::-webkit-scrollbar { height: 4px; background: transparent; }
+        .tab-item {
+            background: #1e243b; color: #b9c7d9; padding: 8px 18px;
+            border-radius: 12px 12px 0 0; font-size: 13px; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 8px;
+            border: 1px solid #2a3452; border-bottom: none;
+            position: relative; margin-bottom: -1px; flex-shrink: 0;
+        }
+        .tab-item.active {
+            background: #0f1422; color: white; border-top: 2px solid #4c9aff;
+            border-bottom: 1px solid #0f1422;
+        }
+        .tab-name {
+            display: inline-block; cursor: pointer; padding: 0 2px;
+            border-radius: 4px; white-space: nowrap; max-width: 160px;
+            overflow: hidden; text-overflow: ellipsis;
+        }
+        .tab-name:hover { background: rgba(76, 154, 255, 0.2); }
+        .close-tab {
+            background: rgba(255, 255, 255, 0.1); border-radius: 30px;
+            width: 20px; height: 20px; display: inline-flex;
+            align-items: center; justify-content: center; font-size: 14px;
+            cursor: pointer; transition: 0.2s;
+        }
+        .close-tab:hover { background: #ff5c5c; color: white; }
+        .add-tab-btn {
+            background: #2a3452; border: none; color: #9aa9c1;
+            padding: 6px 18px; border-radius: 20px; margin-left: 8px;
+            cursor: pointer; flex-shrink: 0; font-size: 13px;
+        }
+        .add-tab-btn:hover { background: #4c9aff; color: white; }
+        .tab-name-input {
+            background: #2a3a60; border: 1px solid #4c9aff; border-radius: 6px;
+            padding: 2px 6px; font-size: 12px; color: white; outline: none;
+            width: 110px;
+        }
+
+        /* ===== 顶部工具栏（保留原样） ===== */
+        .top-bar {
+            background: var(--bg-sidebar); padding: 0.75rem 1.5rem;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 0.75rem; border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3); flex-shrink: 0; z-index: 10;
+        }
+        .top-bar h1 {
+            font-size: 1.35rem; font-weight: 600; color: #fff;
+            display: flex; align-items: center; gap: 10px; letter-spacing: 0.5px;
+        }
+        .top-bar h1 i { color: var(--accent-blue); font-size: 1.6rem; text-shadow: 0 0 12px rgba(59,130,246,0.6); }
+        .top-bar h1 .badge {
+            background: var(--accent-blue); padding: 0.15rem 0.6rem;
+            border-radius: 20px; font-size: 0.7rem; font-weight: 400;
+        }
+        .toolbar { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+        .file-label {
+            background: #2d3a4f; padding: 0.45rem 1rem; border-radius: 30px;
+            font-size: 0.85rem; cursor: pointer; display: inline-flex;
+            align-items: center; gap: 0.4rem; border: 1px solid #4b5a72;
+            transition: var(--transition); color: var(--text-secondary);
+        }
+        .file-label:hover { background: #3e4e66; color: #fff; }
+        .file-label input { display: none; }
+        .btn {
+            background: #2d3a4f; border: 1px solid #4b5a72; color: var(--text-secondary);
+            padding: 0.45rem 1rem; border-radius: 30px; font-size: 0.85rem;
+            cursor: pointer; transition: var(--transition);
+            display: inline-flex; align-items: center; gap: 0.4rem;
+        }
+        .btn:hover { background: #3e4e66; color: #fff; }
+        .btn.success { background: var(--success); border-color: #047857; color: #fff; }
+        .btn.success:hover { background: #047857; }
+        .btn.active {
+            background: var(--accent-blue); border-color: var(--accent-hover);
+            color: #fff; box-shadow: 0 0 10px rgba(59,130,246,0.5);
+        }
+        main { flex: 1; display: flex; overflow: hidden; position: relative; min-height: 0; }
+        .editor-pane, .preview-pane {
+            flex: 1 1 50%; min-width: 0;
+            display: flex; flex-direction: column;
+            background: var(--bg-panel); overflow: hidden;
+        }
+        .editor-pane { border-right: 1px solid var(--border-color); }
+        .pane-header {
+            padding: 0.6rem 1.2rem; background: #111827;
+            font-size: 0.85rem; font-weight: 600; color: var(--text-primary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex; justify-content: space-between; align-items: center;
+            flex-shrink: 0;
+        }
+        .pane-header .hint { font-weight: 400; font-size: 0.72rem; color: var(--text-muted); }
+        .pane-header .status-dot {
+            display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+            background: var(--success); box-shadow: 0 0 8px var(--success);
+            margin-right: 6px; animation: pulse 1.6s infinite;
+        }
+        @keyframes pulse { 0%{opacity:0.6} 50%{opacity:1} 100%{opacity:0.6} }
+        textarea {
+            flex: 1; width: 100%; padding: 1.2rem 1.5rem; border: none;
+            resize: none;
+            font-family: 'Fira Code', 'JetBrains Mono', monospace;
+            font-size: 0.92rem; line-height: 1.6; outline: none;
+            background: #0b1120; color: var(--text-primary);
+            tab-size: 2; overflow-y: auto; scrollbar-width: thin;
+        }
+        textarea::-webkit-scrollbar { width: 6px; }
+        textarea::-webkit-scrollbar-thumb { background: #2d3a5e; border-radius: 4px; }
+        textarea::-webkit-scrollbar-thumb:hover { background: var(--accent-blue); }
+        #preview {
+            flex: 1; padding: 1.2rem 1.8rem; overflow-y: auto;
+            line-height: 1.7; color: var(--text-secondary);
+            word-wrap: break-word; background: #0b1120;
+            scrollbar-width: thin; scroll-behavior: smooth;
+        }
+        #preview::-webkit-scrollbar { width: 6px; }
+        #preview::-webkit-scrollbar-thumb { background: #2d3a5e; border-radius: 4px; }
+        #preview::-webkit-scrollbar-thumb:hover { background: var(--accent-blue); }
+        #preview h1, #preview h2, #preview h3, #preview h4, #preview h5, #preview h6 {
+            margin-top: 1.3em; margin-bottom: 0.6em; font-weight: 600;
+            color: #fff; line-height: 1.3;
+        }
+        #preview h1 { font-size: 1.9em; border-bottom: 1px solid var(--border-color); padding-bottom: 0.25em; }
+        #preview h2 { font-size: 1.5em; border-bottom: 1px solid var(--border-color); padding-bottom: 0.2em; }
+        #preview h3 { font-size: 1.25em; }
+        #preview h4 { font-size: 1.1em; }
+        #preview p { margin: 0.85em 0; color: var(--text-secondary); }
+        #preview a { color: var(--accent-blue); text-decoration: none; border-bottom: 1px solid rgba(59,130,246,0.3); transition: var(--transition); }
+        #preview a:hover { border-bottom-color: var(--accent-blue); color: #60a5fa; }
+        #preview code {
+            background: #1a2332; padding: 0.2em 0.45em; border-radius: 6px;
+            font-family: 'Fira Code', monospace; font-size: 0.88em;
+            color: #60a5fa; border: 1px solid var(--border-color);
+        }
+        #preview pre {
+            background: #0f1422; padding: 1em 1.2em; border-radius: var(--radius);
+            overflow-x: auto; border: 1px solid var(--border-color);
+            margin: 1em 0; box-shadow: inset 0 0 20px rgba(0,0,0,0.3);
+        }
+        #preview pre code { background: none; padding: 0; font-size: 0.88em; color: #e2e8f0; border: none; }
+        #preview blockquote {
+            border-left: 4px solid var(--accent-blue); color: var(--text-muted);
+            margin: 1em 0; background: rgba(59,130,246,0.06);
+            padding: 0.6em 1.2em; border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+        }
+        #preview blockquote p { color: var(--text-muted); }
+        #preview table {
+            border-collapse: collapse; width: 100%; margin: 1em 0;
+            border-radius: var(--radius-sm); overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+        #preview th, #preview td {
+            border: 1px solid var(--border-color); padding: 0.55em 0.85em;
+            text-align: left; color: var(--text-secondary);
+        }
+        #preview th { background: #1a2332; font-weight: 600; color: #60a5fa; }
+        #preview tr:nth-child(even) td { background: rgba(26,35,50,0.4); }
+        #preview img { max-width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); }
+        #preview hr { margin: 1.5em 0; border: none; border-top: 1px solid var(--border-color); }
+        #preview ul, #preview ol { padding-left: 1.6em; margin: 0.6em 0; }
+        #preview li { margin: 0.3em 0; color: var(--text-secondary); }
+        #preview strong { color: #fff; }
+        .mermaid {
+            background: #0f1422; border-radius: var(--radius);
+            padding: 1.2rem; margin: 1.2rem 0;
+            border: 1px solid var(--border-color); overflow-x: auto;
+            text-align: center; box-shadow: inset 0 0 20px rgba(0,0,0,0.3);
+        }
+        .mermaid svg { max-width: 100%; height: auto; }
+        .katex-display {
+            margin: 1.2em 0; padding: 0.6em 1em;
+            overflow-x: auto; overflow-y: hidden;
+            background: rgba(26,35,50,0.3); border-radius: var(--radius-sm);
+        }
+        .katex { color: #e2e8f0; font-size: 1.05em; }
+        .cursor-target-flash { animation: cursorFlash 0.8s ease; }
+        @keyframes cursorFlash {
+            0% { background: rgba(59,130,246,0.18); }
+            100% { background: transparent; }
+        }
+        .status-toast {
+            position: fixed; bottom: 28px; left: 50%;
+            transform: translateX(-50%) translateY(8px);
+            background: rgba(17,24,39,0.95); backdrop-filter: blur(12px);
+            border: 1px solid var(--accent-blue); border-radius: 40px;
+            padding: 8px 22px; font-size: 0.82rem; color: var(--text-primary);
+            pointer-events: none; z-index: 999; opacity: 0;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            white-space: nowrap; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        }
+        .status-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        @media (max-width: 768px) {
+            .top-bar { padding: 0.6rem 1rem; flex-direction: column; align-items: stretch; }
+            .top-bar h1 { font-size: 1.1rem; justify-content: center; }
+            .toolbar { justify-content: center; }
+            main { flex-direction: column; }
+            .editor-pane, .preview-pane { flex: 1 1 50%; min-height: 0; }
+            .editor-pane { border-right: none; border-bottom: 1px solid var(--border-color); }
+        }
+    </style>
+</head>
+<body>
+    <!-- ===== 多标签栏（新增） ===== -->
+    <div class="tabs-header" id="tabsHeader">
+        <button class="add-tab-btn" id="addTabBtn">+ 新建标签</button>
+    </div>
+
+    <!-- ===== 顶部工具栏（保留原样，仅增加当前标签名显示） ===== -->
+    <div class="top-bar">
+        <h1>
+            <i>📝</i> 马克一直荡
+            <span class="badge">实时预览 · 公式 · 图表</span>
+        </h1>
+        <div class="toolbar">
+            <button class="btn active" id="followToggle" title="开启/关闭：编辑时光标对应预览内容自动滚动到中间">🎯 光标居中</button>
+            <label class="file-label">
+                📂 导入 MD
+                <input type="file" id="fileInput" accept=".md,.markdown,.txt,text/markdown">
+            </label>
+            <button class="btn success" id="exportBtn">📥 导出 MD</button>
+            <button class="btn" id="clearBtn">🗑️ 清空</button>
+        </div>
+    </div>
+
+    <!-- ===== 编辑区与预览区（保留原样） ===== -->
+    <main>
+        <div class="editor-pane">
+            <div class="pane-header">
+                <span><span class="status-dot"></span>✏️ Markdown 源码 <span id="currentTabLabel" style="color:#4c9aff;margin-left:6px;font-weight:400;">标签1</span></span>
+                <span class="hint">支持 $公式$ 与 ```mermaid</span>
+            </div>
+            <textarea id="editor" placeholder="在此输入或粘贴 Markdown 内容..."></textarea>
+        </div>
+
+        <div class="preview-pane">
+            <div class="pane-header">
+                <span>👁️ 实时预览 (含公式 & Mermaid)</span>
+                <span class="hint">光标跟随 · 居中显示</span>
+            </div>
+            <div id="preview"></div>
+        </div>
+    </main>
+
+    <div id="statusToast" class="status-toast"></div>
+
+    <script>
+        (function () {
+            // ========== DOM ==========
+            const editor = document.getElementById('editor');
+            const preview = document.getElementById('preview');
+            const fileInput = document.getElementById('fileInput');
+            const exportBtn = document.getElementById('exportBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const statusToast = document.getElementById('statusToast');
+            const followToggle = document.getElementById('followToggle');
+            // 多标签相关 DOM
+            const tabsHeader = document.getElementById('tabsHeader');
+            const addTabBtn = document.getElementById('addTabBtn');
+            const currentTabLabel = document.getElementById('currentTabLabel');
+
+            // ========== Toast ==========
+            let toastTimer = null;
+            function showTip(msg, duration = 2000) {
+                statusToast.textContent = msg;
+                statusToast.classList.add('show');
+                clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => statusToast.classList.remove('show'), duration);
+            }
+
+            // ========== 防抖 ==========
+            function debounce(fn, delay) {
+                let timer;
+                return function (...args) {
+                    clearTimeout(timer);
+                    timer = setTimeout(() => fn.apply(this, args), delay);
+                };
+            }
+
+            // ========== Mermaid 初始化 ==========
+            mermaid.initialize({
+                startOnLoad: false,
+                theme: 'dark',
+                themeVariables: {
+                    background: '#0f1422', primaryColor: '#1e293b',
+                    primaryTextColor: '#e2e8f0', primaryBorderColor: '#3b82f6',
+                    lineColor: '#3b82f6', fontSize: '14px',
+                    fontFamily: 'Segoe UI, Roboto, sans-serif',
+                    nodeBorder: '#3b82f6', clusterBkg: '#1e293b', clusterBorder: '#3b82f6',
+                    titleColor: '#e2e8f0', edgeLabelBackground: '#1a2332',
+                    labelBackground: '#1a2332',
+                },
+                securityLevel: 'loose',
+                fontFamily: 'Segoe UI, Roboto, sans-serif',
+            });
+
+            // ============================================================
+            // 块切分 + 锚点注入（全部基于原始文本）
+            // 返回：{ anchoredMarkdown, blocks }
+            //   anchoredMarkdown —— 每块前插入 <!--BLOCK:i--> 后的文本
+            //   blocks —— [{index, start, end}] 均为原始文本中的字符偏移
+            // ============================================================
+            function splitAndAnchor(markdown) {
+                const lines = markdown.split('\n');
+                const n = lines.length;
+
+                // 预计算每行在原始文本中的起始偏移
+                const lineOffsets = new Array(n);
+                let off = 0;
+                for (let k = 0; k < n; k++) {
+                    lineOffsets[k] = off;
+                    off += lines[k].length + 1; // +1 为换行符
+                }
+                const totalLen = markdown.length;
+
+                // 计算一个块（第 i 行到第 endLine 行）结束后的字符偏移（不含尾换行）
+                function blockEndOffset(endLine) {
+                    if (endLine < n - 1) {
+                        // 下一行起始偏移 - 1（减掉末尾换行）
+                        return lineOffsets[endLine + 1] - 1;
+                    }
+                    return totalLen;
+                }
+
+                const blocks = [];
+                const out = [];
+                let i = 0;
+                let blockIndex = 0;
+
+                while (i < n) {
+                    const line = lines[i];
+
+                    // 空行直接输出（不属于任何块）
+                    if (line.trim() === '') {
+                        out.push(line);
+                        i++;
+                        continue;
+                    }
+
+                    const blockStartOffset = lineOffsets[i];
+                    let blockEndLine;
+
+                    if (/^\s*```/.test(line)) {
+                        // 代码块：找到结束 ```
+                        let j = i + 1;
+                        while (j < n && !/^\s*```/.test(lines[j])) j++;
+                        blockEndLine = Math.min(j, n - 1);
+                    } else if (/^\s*\$\$/.test(line)) {
+                        // 块级公式
+                        const single = line.match(/^\s*\$\$(.*)\$\$\s*$/);
+                        if (single) {
+                            blockEndLine = i;
+                        } else {
+                            let j = i + 1;
+                            while (j < n && !/\$\$\s*$/.test(lines[j])) j++;
+                            blockEndLine = Math.min(j, n - 1);
+                        }
+                    } else {
+                        // 普通块：连续非空行（遇到 ``` 或 $$ 开头也停）
+                        let j = i;
+                        while (j < n &&
+                               lines[j].trim() !== '' &&
+                               !/^\s*```/.test(lines[j]) &&
+                               !/^\s*\$\$/.test(lines[j])) {
+                            j++;
+                        }
+                        blockEndLine = j - 1;
+                    }
+
+                    blocks.push({
+                        index: blockIndex,
+                        start: blockStartOffset,
+                        end: blockEndOffset(blockEndLine),
+                    });
+
+                    // 注入锚点注释 + 空行（空行防止与后续内容合并成同一 HTML 块）
+                    out.push(`<!--BLOCK:${blockIndex}-->`);
+                    out.push('');
+
+                    // 输出块内容
+                    for (let k = i; k <= blockEndLine; k++) {
+                        out.push(lines[k]);
+                    }
+
+                    blockIndex++;
+                    i = blockEndLine + 1;
+                }
+
+                return { anchoredMarkdown: out.join('\n'), blocks };
+            }
+
+            // ============================================================
+            // 块级公式保护（在锚点注入之后执行）
+            // ============================================================
+            function protectBlockMath(markdown) {
+                const blocks = [];
+                const regex = /\$\$([\s\S]*?)\$\$/g;
+                const protected_md = markdown.replace(regex, (match, inner) => {
+                    const id = `__MATH_BLOCK_${blocks.length}__`;
+                    blocks.push(inner);
+                    return `\n\n${id}\n\n`;
+                });
+                return { protected_md, blocks };
+            }
+
+            function restoreBlockMath(html, blocks) {
+                blocks.forEach((inner, index) => {
+                    const id = `__MATH_BLOCK_${index}__`;
+                    const mathHtml = `$$${inner}$$`;
+                    // 去掉被 marked 包上的 <p>
+                    html = html.replace(new RegExp(`<p>\\s*${id}\\s*<\\/p>`, 'g'), mathHtml);
+                    html = html.replace(new RegExp(id, 'g'), mathHtml);
+                });
+                return html;
+            }
+
+            // ============================================================
+            // 从预览 DOM 收集锚点注释 -> 元素映射
+            // ============================================================
+            function buildPreviewAnchorMap() {
+                const map = new Map();
+                const walker = document.createTreeWalker(
+                    preview,
+                    NodeFilter.SHOW_COMMENT,
+                    null,
+                    false
+                );
+                let commentNode;
+                while ((commentNode = walker.nextNode())) {
+                    const text = commentNode.nodeValue || '';
+                    const m = text.match(/BLOCK:(\d+)/);
+                    if (!m) continue;
+                    const blockIndex = parseInt(m[1], 10);
+
+                    // 找注释后的第一个元素兄弟
+                    let node = commentNode.nextSibling;
+                    while (node && node.nodeType === Node.TEXT_NODE && !node.nodeValue.trim()) {
+                        node = node.nextSibling;
+                    }
+                    if (node && node.nodeType === Node.ELEMENT_NODE) {
+                        map.set(blockIndex, node);
+                        continue;
+                    }
+
+                    // 兜底：注释前一个元素
+                    let prev = commentNode.previousSibling;
+                    while (prev && prev.nodeType === Node.TEXT_NODE && !prev.nodeValue.trim()) {
+                        prev = prev.previousSibling;
+                    }
+                    if (prev && prev.nodeType === Node.ELEMENT_NODE) {
+                        map.set(blockIndex, prev);
+                    }
+                }
+                return map;
+            }
+
+            // ============================================================
+            // 渲染 Markdown
+            // ============================================================
+            let currentBlocks = [];
+            let previewAnchorMap = new Map();
+
+            function renderMarkdown() {
+                const raw = editor.value;
+                if (!raw.trim()) {
+                    preview.innerHTML = '<p style="color:#6b7a94; text-align:center; margin-top:2rem;">✨ 开始输入 Markdown，这里会实时显示效果（支持 $公式$ 和 ```mermaid 图表）</p>';
+                    currentBlocks = [];
+                    previewAnchorMap = new Map();
+                    return;
+                }
+
+                try {
+                    // 1) 在原始文本上做块切分 + 锚点注入
+                    const { anchoredMarkdown, blocks } = splitAndAnchor(raw);
+                    currentBlocks = blocks;
+
+                    // 2) 再做公式保护（因为锚点已注入，不影响块偏移量）
+                    const { protected_md, blocks: mathBlocks } = protectBlockMath(anchoredMarkdown);
+
+                    // 3) marked 解析
+                    let html = marked.parse(protected_md, {
+                        breaks: true,
+                        gfm: true,
+                        headerIds: false,
+                        mangle: false,
+                    });
+
+                    // 4) 还原块级公式
+                    html = restoreBlockMath(html, mathBlocks);
+
+                    // 5) 写入预览区
+                    preview.innerHTML = html;
+
+                    // 6) 处理 mermaid
+                    const codeBlocks = preview.querySelectorAll('pre code');
+                    codeBlocks.forEach((codeEl) => {
+                        const className = codeEl.className || '';
+                        const text = codeEl.textContent.trim();
+                        if (className.includes('language-mermaid') ||
+                            (className.includes('mermaid') ||
+                             /^(graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|journey|gantt|pie|gitGraph|mindmap|timeline)/.test(text))) {
+                            const pre = codeEl.parentElement;
+                            if (pre && pre.tagName === 'PRE') {
+                                const mermaidCode = codeEl.textContent;
+                                const div = document.createElement('div');
+                                div.className = 'mermaid';
+                                div.textContent = mermaidCode;
+                                pre.parentNode.replaceChild(div, pre);
+                            }
+                        }
+                    });
+
+                    const allMermaidDivs = preview.querySelectorAll('.mermaid:not([data-processed])');
+                    if (allMermaidDivs.length > 0) {
+                        mermaid.run({
+                            nodes: allMermaidDivs,
+                            suppressErrors: true,
+                        }).catch((err) => console.warn('Mermaid 渲染异常:', err));
+                    }
+
+                    // 7) KaTeX
+                    renderMathInElement(preview, {
+                        delimiters: [
+                            { left: '$$', right: '$$', display: true },
+                            { left: '$', right: '$', display: false },
+                            { left: '\\(', right: '\\)', display: false },
+                            { left: '\\[', right: '\\]', display: true }
+                        ],
+                        throwOnError: false,
+                        errorColor: '#ef4444',
+                        ignoredTags: ['script','noscript','style','textarea','pre','code','svg','path'],
+                        ignoredClasses: ['mermaid','katex','no-math'],
+                    });
+
+                    // 8) 构建锚点映射
+                    previewAnchorMap = buildPreviewAnchorMap();
+
+                } catch (e) {
+                    console.error(e);
+                    preview.innerHTML = '<p style="color:#ef4444;">⚠️ 解析出错：' + e.message + '</p>';
+                    currentBlocks = [];
+                    previewAnchorMap = new Map();
+                }
+            }
+
+            const debouncedRender = debounce(renderMarkdown, 80);
+
+            // ============================================================
+            // 光标跟随居中
+            // ============================================================
+            let followEnabled = true;
+            let followRAF = null;
+
+            // 从后往前找：找到第一个 start <= cursorPos 的块
+            function findBlockIndexByCursor(cursorPos) {
+                if (!currentBlocks.length) return -1;
+                for (let i = currentBlocks.length - 1; i >= 0; i--) {
+                    if (cursorPos >= currentBlocks[i].start) {
+                        return currentBlocks[i].index;
+                    }
+                }
+                return currentBlocks[0].index;
+            }
+
+            function scrollPreviewToBlock(blockIndex) {
+                if (blockIndex < 0) return;
+                const el = previewAnchorMap.get(blockIndex);
+                if (!el) return;
+
+                el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+
+                el.classList.remove('cursor-target-flash');
+                void el.offsetWidth;
+                el.classList.add('cursor-target-flash');
+                setTimeout(() => el.classList.remove('cursor-target-flash'), 900);
+            }
+
+            function followCursor() {
+                if (!followEnabled) return;
+                if (!currentBlocks.length) return;
+                const cursorPos = editor.selectionStart;
+                const blockIndex = findBlockIndexByCursor(cursorPos);
+                if (blockIndex < 0) return;
+
+                if (followRAF) cancelAnimationFrame(followRAF);
+                followRAF = requestAnimationFrame(() => {
+                    scrollPreviewToBlock(blockIndex);
+                    followRAF = null;
+                });
+            }
+
+            const debouncedFollow = debounce(followCursor, 100);
+
+            editor.addEventListener('keyup', (e) => {
+                if (['Shift','Control','Alt','Meta','CapsLock'].includes(e.key)) return;
+                debouncedFollow();
+            });
+            editor.addEventListener('click', debouncedFollow);
+            editor.addEventListener('input', debouncedFollow);
+
+            followToggle.addEventListener('click', () => {
+                followEnabled = !followEnabled;
+                followToggle.classList.toggle('active', followEnabled);
+                showTip(followEnabled ? '🎯 光标居中已开启' : '🔓 光标居中已关闭', 1200);
+                if (followEnabled) followCursor();
+            });
+
+            // ========== 实时渲染 ==========
+            editor.addEventListener('input', debouncedRender);
+            editor.addEventListener('paste', () => {
+                setTimeout(renderMarkdown, 30);
+                setTimeout(followCursor, 250);
+            });
+
+            // 渲染完成后（含 mermaid 异步渲染），延迟再跟随一次
+            let renderFollowTimer = null;
+            const previewObserver = new MutationObserver(() => {
+                if (!followEnabled) return;
+                clearTimeout(renderFollowTimer);
+                renderFollowTimer = setTimeout(() => {
+                    // 重建锚点映射（mermaid 可能已替换 DOM）
+                    previewAnchorMap = buildPreviewAnchorMap();
+                    followCursor();
+                }, 180);
+            });
+            previewObserver.observe(preview, { childList: true, subtree: true });
+
+            // ============================================================
+            // ★★★ 多标签管理（新增） ★★★
+            // ============================================================
+            const STORAGE_KEY = 'markdown_multitab_v1';
+            let tabs = [];            // [{ id, name, content }]
+            let activeTabId = null;
+            let nextTabId = 1;
+
+            // 保存到 localStorage（防抖）
+            const debouncedSave = debounce(() => {
+                try {
+                    const data = {
+                        tabs: tabs.map(t => ({ id: t.id, name: t.name, content: t.content })),
+                        activeTabId
+                    };
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+                } catch (e) {
+                    console.warn('本地保存失败', e);
+                }
+            }, 300);
+
+            // 从 localStorage 加载
+            function loadTabsFromLocal() {
+                try {
+                    const raw = localStorage.getItem(STORAGE_KEY);
+                    if (!raw) return false;
+                    const saved = JSON.parse(raw);
+                    if (saved && Array.isArray(saved.tabs) && saved.tabs.length > 0) {
+                        tabs = saved.tabs.map(t => ({
+                            id: Number(t.id) || 1,
+                            name: String(t.name || `标签${t.id}`),
+                            content: String(t.content || '')
+                        }));
+                        nextTabId = Math.max(...tabs.map(t => t.id), 0) + 1;
+                        const savedActive = Number(saved.activeTabId);
+                        activeTabId = tabs.find(t => t.id === savedActive) ? savedActive : tabs[0].id;
+                        return true;
+                    }
+                } catch (e) {
+                    console.warn('本地读取失败', e);
+                }
+                return false;
+            }
+
+            // 渲染标签栏
+            function renderTabsHeader() {
+                // 移除所有 .tab-item（保留 addTabBtn）
+                const existing = tabsHeader.querySelectorAll('.tab-item');
+                existing.forEach(el => el.remove());
+
+                tabs.forEach(tab => {
+                    const div = document.createElement('div');
+                    div.className = 'tab-item' + (tab.id === activeTabId ? ' active' : '');
+                    div.dataset.tabId = tab.id;
+
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = 'tab-name';
+                    nameSpan.textContent = tab.name;
+
+                    const closeSpan = document.createElement('span');
+                    closeSpan.className = 'close-tab';
+                    closeSpan.textContent = '✕';
+
+                    div.appendChild(nameSpan);
+                    div.appendChild(closeSpan);
+
+                    // 双击重命名
+                    nameSpan.addEventListener('dblclick', (e) => {
+                        e.stopPropagation();
+                        startRenameTab(tab.id, nameSpan);
+                    });
+
+                    // 点击切换 / 关闭
+                    div.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('close-tab')) {
+                            e.stopPropagation();
+                            closeTab(tab.id);
+                        } else if (!e.target.classList.contains('tab-name-input')) {
+                            switchTab(tab.id);
+                        }
+                    });
+
+                    tabsHeader.insertBefore(div, addTabBtn);
+                });
+            }
+
+            // 开始重命名标签
+            function startRenameTab(tabId, nameSpan) {
+                const tab = tabs.find(t => t.id === tabId);
+                if (!tab) return;
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'tab-name-input';
+                input.value = tab.name;
+
+                nameSpan.style.display = 'none';
+                nameSpan.parentNode.insertBefore(input, nameSpan);
+                input.focus();
+                input.select();
+
+                const finish = (save) => {
+                    if (save) {
+                        const newName = input.value.trim();
+                        if (newName && newName !== tab.name) {
+                            tab.name = newName;
+                            nameSpan.textContent = newName;
+                            if (activeTabId === tab.id) {
+                                currentTabLabel.textContent = newName;
+                            }
+                            debouncedSave();
+                            showTip(`标签已改名为 "${newName}"`, 1200);
+                        } else {
+                            nameSpan.textContent = tab.name;
+                        }
+                    } else {
+                        nameSpan.textContent = tab.name;
+                    }
+                    nameSpan.style.display = '';
+                    input.remove();
+                };
+
+                input.addEventListener('blur', () => finish(true));
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        input.blur();
+                    } else if (e.key === 'Escape') {
+                        finish(false);
+                    }
+                });
+            }
+
+            // 切换标签
+            function switchTab(tabId) {
+                if (activeTabId === tabId) return;
+
+                // 保存当前标签内容
+                const current = tabs.find(t => t.id === activeTabId);
+                if (current) current.content = editor.value;
+
+                const target = tabs.find(t => t.id === tabId);
+                if (!target) return;
+
+                activeTabId = tabId;
+                editor.value = target.content || '';
+                currentTabLabel.textContent = target.name;
+
+                // 更新高亮
+                tabsHeader.querySelectorAll('.tab-item').forEach(el => {
+                    el.classList.toggle('active', Number(el.dataset.tabId) === tabId);
+                });
+
+                renderMarkdown();
+                debouncedSave();
+
+                editor.focus();
+                editor.setSelectionRange(editor.value.length, editor.value.length);
+                setTimeout(followCursor, 200);
+            }
+
+            // 新建标签
+            function createNewTab(name = null) {
+                // 保存当前标签内容
+                const current = tabs.find(t => t.id === activeTabId);
+                if (current) current.content = editor.value;
+
+                const id = nextTabId++;
+                const tabName = name || `标签${id}`;
+                const newTab = { id, name: tabName, content: '' };
+                tabs.push(newTab);
+
+                activeTabId = id;
+                editor.value = '';
+                currentTabLabel.textContent = tabName;
+
+                renderTabsHeader();
+                renderMarkdown();
+                debouncedSave();
+                showTip(`已新建 "${tabName}"`, 1200);
+
+                editor.focus();
+                setTimeout(followCursor, 200);
+            }
+
+            // 关闭标签
+            function closeTab(tabId) {
+                const tab = tabs.find(t => t.id === tabId);
+                if (!tab) return;
+
+                // 若是当前标签，先同步内容
+                if (tabId === activeTabId) {
+                    tab.content = editor.value;
+                }
+
+                if (tabs.length <= 1) {
+                    showTip('至少保留一个标签', 1500);
+                    return;
+                }
+
+                if (tab.content && tab.content.trim()) {
+                    if (!confirm(`标签 "${tab.name}" 有内容，确定关闭吗？`)) return;
+                }
+
+                const idx = tabs.findIndex(t => t.id === tabId);
+                tabs.splice(idx, 1);
+
+                if (activeTabId === tabId) {
+                    const newActive = tabs[Math.max(0, idx - 1)];
+                    activeTabId = newActive.id;
+                    editor.value = newActive.content || '';
+                    currentTabLabel.textContent = newActive.name;
+                    renderMarkdown();
+                }
+
+                renderTabsHeader();
+                debouncedSave();
+                showTip(`已关闭 "${tab.name}"`, 1200);
+                setTimeout(followCursor, 200);
+            }
+
+            // 新建标签按钮
+            addTabBtn.addEventListener('click', () => createNewTab());
+
+            // ============================================================
+            // 覆盖原有输入事件 —— 同时保存标签内容
+            // （保留原有的 debouncedRender / debouncedFollow）
+            // ============================================================
+            editor.addEventListener('input', () => {
+                const tab = tabs.find(t => t.id === activeTabId);
+                if (tab) tab.content = editor.value;
+                debouncedSave();
+            });
+
+            // ========== 导入 ==========
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    editor.value = ev.target.result;
+                    const tab = tabs.find(t => t.id === activeTabId);
+                    if (tab) tab.content = editor.value;
+                    renderMarkdown();
+                    debouncedSave();
+                    showTip(`已导入：${file.name}`, 1800);
+                    editor.focus();
+                    setTimeout(followCursor, 300);
+                };
+                reader.onerror = () => showTip('文件读取失败', 1500);
+                reader.readAsText(file, 'UTF-8');
+                fileInput.value = '';
+            });
+
+            // ========== 导出 ==========
+            exportBtn.addEventListener('click', () => {
+                const content = editor.value;
+                if (!content.trim()) {
+                    showTip('内容为空，无法导出', 1500);
+                    return;
+                }
+                const tab = tabs.find(t => t.id === activeTabId);
+                const tabName = tab ? tab.name : 'markdown';
+                const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const now = new Date();
+                const stamp = now.getFullYear() + '-' +
+                    String(now.getMonth() + 1).padStart(2, '0') + '-' +
+                    String(now.getDate()).padStart(2, '0') + '_' +
+                    String(now.getHours()).padStart(2, '0') + '-' +
+                    String(now.getMinutes()).padStart(2, '0') + '-' +
+                    String(now.getSeconds()).padStart(2, '0');
+                a.href = url;
+                a.download = `${tabName}_${stamp}.md`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showTip('✅ 文件已导出', 1500);
+            });
+
+            // ========== 清空（仅清空当前标签） ==========
+            clearBtn.addEventListener('click', () => {
+                if (!editor.value.trim()) {
+                    showTip('已经是空的了', 1200);
+                    return;
+                }
+                if (confirm('确定清空当前标签的所有内容吗？此操作不可撤销。')) {
+                    editor.value = '';
+                    const tab = tabs.find(t => t.id === activeTabId);
+                    if (tab) tab.content = '';
+                    renderMarkdown();
+                    debouncedSave();
+                    editor.focus();
+                    showTip('已清空当前标签', 1200);
+                }
+            });
+
+            // ============================================================
+            // 初始化
+            // ============================================================
+            function initApp() {
+                const loaded = loadTabsFromLocal();
+                if (!loaded) {
+                    // 首次使用，创建一个默认标签
+                    tabs = [{ id: 1, name: '标签1', content: '' }];
+                    activeTabId = 1;
+                    nextTabId = 2;
+                }
+
+                // 确保 activeTabId 有效
+                if (!tabs.find(t => t.id === activeTabId)) {
+                    activeTabId = tabs[0].id;
+                }
+
+                const activeTab = tabs.find(t => t.id === activeTabId);
+                editor.value = activeTab ? activeTab.content : '';
+                currentTabLabel.textContent = activeTab ? activeTab.name : '标签1';
+
+                renderTabsHeader();
+                renderMarkdown();
+
+                editor.focus();
+                editor.setSelectionRange(editor.value.length, editor.value.length);
+                setTimeout(followCursor, 300);
+            }
+
+            initApp();
+        })();
+    </script>
+</body>
+</html>

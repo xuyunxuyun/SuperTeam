@@ -1,0 +1,1313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+        <!--
+        SPDX-License-Identifier: CC-BY-NC-SA-4.0
+        本文件是"汉末废柴堆 · 超级团队组建系统"的一部分。
+        完整项目受 CC BY-NC-SA 4.0 许可证保护，详见根目录 LICENSE 文件。
+        本项目核心设计思想、架构方案、方法论受 NOTICE 文件独立保护。
+        个人可免费使用，严禁用于商业目的。
+        商业授权请联系：xxuuyyuunn@sina.com
+    -->
+    <!--
+        **版本历史**
+        | 版本号 | 过程节点说明 | 修订人 | 修订日期 | 修订内容 |
+        | :----- | :----------- | :----- | :------- | :------- |
+        | V0.1.0 | 初稿创建     | 徐昀 | 2026-09-28 | 根据用户需求生成 |
+    -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>告别屁屁疼</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+        --bg-deep: #0a0f1c;
+        --bg-panel: #0f1422;
+        --bg-card: #111827;
+        --bg-elevated: #1a1f2e;
+        --border-subtle: #2a3452;
+        --border-glow: rgba(76, 154, 255, 0.4);
+        --primary-blue: #4c9aff;
+        --primary-blue-dark: #3b82f6;
+        --primary-glow: rgba(76, 154, 255, 0.3);
+        --text-primary: #e0e0e0;
+        --text-secondary: #9aa9c1;
+        --text-muted: #6b7a8f;
+        --accent-success: #48bb78;
+        --accent-warning: #f39c12;
+        --accent-danger: #f56565;
+        --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+        background: var(--bg-deep);
+        color: var(--text-primary);
+        user-select: none;
+    }
+
+    .app {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        padding: 10px 14px;
+        gap: 8px;
+    }
+
+    .app-header {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 4px 6px;
+    }
+    .app-header h1 {
+        font-size: 1.05rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: linear-gradient(135deg, #e0f2fe, #60a5fa);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        letter-spacing: 0.3px;
+    }
+    .app-header h1 small {
+        font-size: 0.72rem;
+        font-weight: 400;
+        color: var(--text-muted);
+        -webkit-text-fill-color: var(--text-muted);
+        margin-left: 6px;
+    }
+
+    /* ========== 控制栏：左右两组，右侧页码组 flex:1 占满剩余宽度 ========== */
+    .control-bar {
+        flex-shrink: 0;
+        background: var(--bg-panel);
+        border: 1px solid var(--border-subtle);
+        border-radius: 14px;
+        padding: 8px 14px;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        box-shadow: var(--shadow-card);
+    }
+    .control-bar .field-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: nowrap;
+    }
+    .control-bar .field-group.file-group {
+        flex-shrink: 0;
+    }
+    .control-bar .field-group.page-group {
+        flex: 1 1 auto;
+        min-width: 0; /* 允许压缩 */
+    }
+    .control-bar label {
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        white-space: nowrap;
+    }
+
+    .file-btn {
+        background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
+        color: white;
+        padding: 5px 14px;
+        border-radius: 30px;
+        font-size: 0.78rem;
+        font-weight: 500;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: 0.15s;
+        border: none;
+        position: relative;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+    .file-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 14px var(--primary-glow);
+    }
+    .file-btn input[type="file"] {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+    }
+    .file-name {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* ========== 滑块容器：占据 page-group 的剩余宽度 ========== */
+    .slider-wrap {
+        flex: 1 1 auto;
+        min-width: 80px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        position: relative;
+    }
+
+    .page-slider {
+        width: 100%;
+        height: 4px;
+        -webkit-appearance: none;
+        appearance: none;
+        background: var(--border-subtle);
+        border-radius: 4px;
+        outline: none;
+        cursor: pointer;
+    }
+    .page-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--primary-blue);
+        cursor: pointer;
+        box-shadow: 0 0 8px var(--primary-glow);
+        transition: transform 0.1s;
+    }
+    .page-slider::-webkit-slider-thumb:hover {
+        transform: scale(1.15);
+    }
+    .page-slider::-moz-range-thumb {
+        width: 14px;
+        height: 14px;
+        border: none;
+        border-radius: 50%;
+        background: var(--primary-blue);
+        cursor: pointer;
+    }
+
+    /* 滑块刻度 */
+    .slider-ticks {
+        position: relative;
+        height: 12px;
+        margin-top: 2px;
+        width: 100%;
+    }
+    .slider-tick {
+        position: absolute;
+        top: 0;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        pointer-events: none;
+    }
+    .slider-tick::before {
+        content: '';
+        width: 1px;
+        height: 4px;
+        background: var(--border-subtle);
+        margin-bottom: 1px;
+    }
+    .slider-tick-label {
+        font-size: 0.6rem;
+        color: var(--text-muted);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+    .slider-tick.tick-active::before {
+        background: var(--primary-blue);
+        height: 6px;
+    }
+    .slider-tick.tick-active .slider-tick-label {
+        color: var(--primary-blue);
+        font-weight: 600;
+    }
+
+    .page-num-input {
+        width: 62px;
+        padding: 4px 6px;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border-subtle);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: 0.78rem;
+        outline: none;
+        text-align: center;
+        flex-shrink: 0;
+    }
+    .page-num-input:focus {
+        border-color: var(--primary-blue);
+        box-shadow: 0 0 0 2px var(--primary-glow);
+    }
+    .page-badge {
+        background: rgba(76, 154, 255, 0.12);
+        color: var(--primary-blue);
+        padding: 3px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .file-stats {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    .main-panel {
+        flex: 1 1 0;
+        min-height: 0;
+        display: flex;
+        gap: 10px;
+    }
+
+    .text-col {
+        flex: 1 1 0;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg-panel);
+        border: 1px solid var(--border-subtle);
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: var(--shadow-card);
+    }
+
+    .col-header {
+        flex-shrink: 0;
+        padding: 7px 12px;
+        background: rgba(26, 31, 46, 0.7);
+        border-bottom: 1px solid var(--border-subtle);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .col-title {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--primary-blue);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+    }
+    .col-actions {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+    }
+
+    .btn-sm {
+        background: var(--bg-elevated);
+        border: 1px solid var(--border-subtle);
+        color: var(--text-secondary);
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 0.72rem;
+        cursor: pointer;
+        transition: 0.15s;
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .btn-sm:hover {
+        background: rgba(76, 154, 255, 0.15);
+        border-color: var(--primary-blue);
+        color: var(--text-primary);
+    }
+    .btn-sm.primary {
+        background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
+        border-color: transparent;
+        color: white;
+    }
+    .btn-sm.primary:hover {
+        box-shadow: 0 4px 12px var(--primary-glow);
+        transform: translateY(-1px);
+    }
+
+    textarea {
+        flex: 1 1 0;
+        min-height: 0;
+        width: 100%;
+        border: none;
+        background: var(--bg-card);
+        color: var(--text-primary);
+        padding: 10px 12px;
+        font-family: 'Consolas', 'Monaco', 'Fira Code', monospace;
+        font-size: 0.76rem;
+        line-height: 1.5;
+        resize: none;
+        outline: none;
+        overflow: auto;
+    }
+    textarea::-webkit-scrollbar { width: 6px; height: 6px; }
+    textarea::-webkit-scrollbar-track { background: transparent; }
+    textarea::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 4px; }
+    textarea::-webkit-scrollbar-thumb:hover { background: var(--primary-blue); }
+
+    .log-section {
+        flex-shrink: 0;
+        background: var(--bg-panel);
+        border: 1px solid var(--border-subtle);
+        border-radius: 14px;
+        overflow: hidden;
+        transition: all 0.25s ease;
+    }
+    .log-header {
+        padding: 7px 14px;
+        background: rgba(26, 31, 46, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        user-select: none;
+    }
+    .log-header:hover {
+        background: rgba(76, 154, 255, 0.08);
+    }
+    .log-title {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--primary-blue);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .log-chevron {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        transition: transform 0.25s;
+        margin-left: 6px;
+    }
+    .log-header.open .log-chevron {
+        transform: rotate(90deg);
+        color: var(--primary-blue);
+    }
+    .log-body {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+    }
+    .log-body.open {
+        max-height: 150px;
+    }
+    .log-inner {
+        padding: 8px 14px;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 0.72rem;
+        line-height: 1.5;
+        color: #cbd5e6;
+        height: 142px;
+        overflow-y: auto;
+        background: var(--bg-card);
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    .log-inner::-webkit-scrollbar { width: 6px; }
+    .log-inner::-webkit-scrollbar-track { background: transparent; }
+    .log-inner::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 4px; }
+    .log-line { border-bottom: 1px solid rgba(42, 52, 82, 0.4); padding: 2px 0; }
+    .log-line.error { color: #f87171; }
+    .log-line.warn { color: #fbbf24; }
+    .log-line.success { color: #4ade80; }
+
+    /* ========== 小屏适配 ========== */
+    @media (max-width: 900px) {
+        .control-bar {
+            flex-wrap: wrap;
+            gap: 10px 14px;
+        }
+        .control-bar .field-group.page-group {
+            flex-basis: 100%;
+        }
+        .file-stats { display: none; }
+    }
+    @media (max-width: 860px) {
+        .main-panel { flex-direction: column; }
+    }
+</style>
+</head>
+<body>
+<div class="app">
+
+    <div class="app-header">
+        <h1>📄 告别屁屁疼 <small>纯前端 · PPT 单页 XML 复刻 · 浏览器内下载新 PPTX</small></h1>
+    </div>
+
+    <!-- 控制栏：左侧文件组固定宽度，右侧页码组 flex:1 占满剩余空间 -->
+    <div class="control-bar">
+        <div class="field-group file-group">
+            <label>模板：</label>
+            <label class="file-btn" for="fileInput">📂 上传 PPTX
+                <input type="file" id="fileInput" accept=".pptx">
+            </label>
+            <span class="file-name" id="fileNameDisplay">未选择文件</span>
+        </div>
+
+        <div class="field-group page-group">
+            <label>页码：</label>
+            <div class="slider-wrap">
+                <input type="range" class="page-slider" id="pageSlider" min="1" max="2" value="1" step="1">
+                <div class="slider-ticks" id="sliderTicks"></div>
+            </div>
+            <input type="number" class="page-num-input" id="pageNumber" min="1" max="2" value="1" step="1">
+            <span class="page-badge" id="pageLabel">第 1 页 / 共 ? 页</span>
+        </div>
+
+        <span class="file-stats" id="fileStats"></span>
+    </div>
+
+    <div class="main-panel">
+        <div class="text-col">
+            <div class="col-header">
+                <span class="col-title">📝 提示词（复制给 DeepSeek）</span>
+                <div class="col-actions">
+                    <button class="btn-sm" id="genPromptBtn">生成提示词</button>
+                    <button class="btn-sm" id="copyPromptBtn">复制</button>
+                    <button class="btn-sm" id="clearPromptBtn">清空</button>
+                </div>
+            </div>
+            <textarea id="promptArea" placeholder="点击「生成提示词」后在此显示..."></textarea>
+        </div>
+
+        <div class="text-col">
+            <div class="col-header">
+                <span class="col-title">💻 粘贴 DeepSeek 生成的 JS 代码（源码框内）</span>
+                <div class="col-actions">
+                    <button class="btn-sm" id="pasteCodeBtn">粘贴</button>
+                    <button class="btn-sm primary" id="runCodeBtn">▶ 运行代码</button>
+                    <button class="btn-sm" id="clearCodeBtn">清空</button>
+                </div>
+            </div>
+            <textarea id="codeArea" placeholder="在此粘贴纯 JavaScript 代码片段（不要 HTML、不要 ``` 包裹）..."></textarea>
+        </div>
+    </div>
+
+    <div class="log-section">
+        <div class="log-header" id="logHeader">
+            <span class="log-title">
+                📋 运行日志
+                <span class="log-chevron" id="logChevron">▶</span>
+            </span>
+            <button class="btn-sm" id="clearLogBtn">清空日志</button>
+        </div>
+        <div class="log-body" id="logBody">
+            <div class="log-inner" id="logArea">
+                <div class="log-line">等待操作...</div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+(function() {
+    const NS = {
+        a: 'http://schemas.openxmlformats.org/drawingml/2006/main',
+        p: 'http://schemas.openxmlformats.org/presentationml/2006/main',
+        r: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+        rel: 'http://schemas.openxmlformats.org/package/2006/relationships'
+    };
+
+    let currentFileBuffer = null;
+    let currentFileName = '';
+    let totalPages = 0;
+    let pageNumbers = [];
+    let isUpdating = false;
+
+    const fileInput = document.getElementById('fileInput');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    const fileStats = document.getElementById('fileStats');
+    const pageSlider = document.getElementById('pageSlider');
+    const pageNumber = document.getElementById('pageNumber');
+    const pageLabel = document.getElementById('pageLabel');
+    const sliderTicks = document.getElementById('sliderTicks');
+    const promptArea = document.getElementById('promptArea');
+    const codeArea = document.getElementById('codeArea');
+    const logArea = document.getElementById('logArea');
+    const logHeader = document.getElementById('logHeader');
+    const logBody = document.getElementById('logBody');
+
+    function log(msg, level) {
+        const div = document.createElement('div');
+        div.className = 'log-line' + (level ? ' ' + level : '');
+        div.textContent = msg;
+        logArea.appendChild(div);
+        logArea.scrollTop = logArea.scrollHeight;
+    }
+    function clearLog() {
+        logArea.innerHTML = '';
+        log('日志已清空');
+    }
+
+    logHeader.addEventListener('click', (e) => {
+        if (e.target.closest('#clearLogBtn')) return;
+        logHeader.classList.toggle('open');
+        logBody.classList.toggle('open');
+    });
+    document.getElementById('clearLogBtn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearLog();
+    });
+
+    // ========== 页码刻度：动态生成 ==========
+    // 根据当前 totalPages 生成 5 个均匀分布的刻度（或 totalPages+1 个，若页数 ≤ 10）
+    function renderSliderTicks() {
+        if (!sliderTicks) return;
+        sliderTicks.innerHTML = '';
+
+        const min = parseInt(pageSlider.min) || 1;
+        const max = parseInt(pageSlider.max) || 1;
+        if (max <= min) return;
+
+        // 决定刻度数量：页数少则每页一个，页数多则均匀 5 个
+        const span = max - min + 1;
+        let tickValues = [];
+        if (span <= 12) {
+            // 每页一个刻度
+            for (let v = min; v <= max; v++) tickValues.push(v);
+        } else {
+            // 均匀 5 个：min, 1/4, 1/2, 3/4, max
+            const q = (max - min) / 4;
+            tickValues = [
+                min,
+                Math.round(min + q),
+                Math.round(min + q * 2),
+                Math.round(min + q * 3),
+                max
+            ];
+            // 去重
+            tickValues = [...new Set(tickValues)];
+        }
+
+        tickValues.forEach(v => {
+            const pct = ((v - min) / (max - min)) * 100;
+            const tick = document.createElement('div');
+            tick.className = 'slider-tick';
+            tick.dataset.value = v;
+            tick.style.left = pct + '%';
+            // 判断是否"当前值"——当前值就在这个刻度附近就激活
+            const current = parseInt(pageSlider.value);
+            if (current === v) tick.classList.add('tick-active');
+            tick.innerHTML = `<span class="slider-tick-label">${v}</span>`;
+            sliderTicks.appendChild(tick);
+        });
+    }
+
+    // 更新刻度激活态（滑动时调用，不重建 DOM，性能好）
+    function updateTickActive() {
+        if (!sliderTicks) return;
+        const current = parseInt(pageSlider.value);
+        const ticks = sliderTicks.querySelectorAll('.slider-tick');
+        ticks.forEach(t => {
+            const v = parseInt(t.dataset.value);
+            t.classList.toggle('tick-active', v === current);
+        });
+    }
+
+    function applyPage(v) {
+        if (isUpdating) return;
+        isUpdating = true;
+        try {
+            if (totalPages > 0) v = Math.max(1, Math.min(v, totalPages));
+            else v = Math.max(1, v);
+            pageNumber.value = v;
+            pageSlider.value = v;
+            pageLabel.textContent = totalPages > 0
+                ? `第 ${v} 页 / 共 ${totalPages} 页`
+                : `第 ${v} 页 / 共 ? 页`;
+            updateTickActive();
+        } finally {
+            isUpdating = false;
+        }
+    }
+    pageSlider.addEventListener('input', (e) => applyPage(parseInt(e.target.value)));
+    pageNumber.addEventListener('change', () => {
+        const v = parseInt(pageNumber.value);
+        if (isNaN(v)) { applyPage(parseInt(pageNumber.value) || 1); return; }
+        applyPage(v);
+    });
+    pageNumber.addEventListener('blur', () => applyPage(parseInt(pageNumber.value) || 1));
+
+    // 窗口尺寸变化时，刻度自动重排（百分比 left 天然自适应，无需重算；
+    // 但如果想做得更精细，可在这里重排。这里只重建一次，靠 CSS 百分比即可）
+    window.addEventListener('resize', () => {
+        // 百分比定位在 CSS 中已自适应，无需重建。仅保证激活态正确。
+        updateTickActive();
+    });
+
+    fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        fileNameDisplay.textContent = file.name;
+        currentFileName = file.name;
+
+        try {
+            const buf = await file.arrayBuffer();
+            currentFileBuffer = buf;
+            const zip = await JSZip.loadAsync(buf);
+            const slideFiles = zip.file(/^ppt\/slides\/slide\d+\.xml$/);
+            const nums = slideFiles.map(f => {
+                const m = f.name.match(/slide(\d+)\.xml$/);
+                return m ? parseInt(m[1]) : null;
+            }).filter(n => n !== null).sort((a, b) => a - b);
+            const maxNum = nums.length ? Math.max(...nums) : 0;
+            totalPages = maxNum;
+            pageNumbers = nums;
+
+            if (maxNum > 0) {
+                pageSlider.min = 1; pageSlider.max = maxNum;
+                pageNumber.min = 1; pageNumber.max = maxNum;
+                applyPage(Math.min(1, maxNum));
+                renderSliderTicks();
+                log(`模板共 ${maxNum} 页（实际编号：${nums.join(', ')}）`, 'success');
+                if (nums.length && nums[nums.length - 1] !== maxNum) {
+                    log(`⚠️ slide 编号不连续，页码对应文件名 slideN.xml`, 'warn');
+                }
+            } else {
+                pageSlider.min = 1; pageSlider.max = 2;
+                pageNumber.min = 1; pageNumber.max = 2;
+                applyPage(1);
+                renderSliderTicks();
+                log('⚠️ 模板中未找到任何 slide', 'warn');
+            }
+            fileStats.textContent = `${(file.size / 1024).toFixed(1)} KB · 共 ${totalPages} 页`;
+            log(`已加载模板: ${file.name}`, 'success');
+        } catch (err) {
+            log(`❌ 解析文件失败: ${err.message}`, 'error');
+            currentFileBuffer = null;
+            totalPages = 0;
+            fileStats.textContent = '';
+        }
+    });
+
+    async function readSrcSlide(zip, page) {
+        const srcSlidePath = `ppt/slides/slide${page}.xml`;
+        const srcRelsPath = `ppt/slides/_rels/slide${page}.xml.rels`;
+
+        const slideFile = zip.file(srcSlidePath);
+        if (!slideFile) {
+            const slideFiles = zip.file(/^ppt\/slides\/slide\d+\.xml$/);
+            const nums = slideFiles.map(f => {
+                const m = f.name.match(/slide(\d+)\.xml$/);
+                return m ? m[1] : '';
+            }).filter(Boolean).sort((a, b) => parseInt(a) - parseInt(b));
+            throw new Error(`模板中不存在 ${srcSlidePath}。\n模板实际包含的 slide 编号：${nums.length ? nums.join(', ') : '（无）'}`);
+        }
+
+        const slideArrayBuffer = await slideFile.async('arraybuffer');
+        const slideXmlStr = new TextDecoder('utf-8').decode(slideArrayBuffer);
+
+        let relsXmlStr = null;
+        const relsFile = zip.file(srcRelsPath);
+        if (relsFile) {
+            const relsBuf = await relsFile.async('arraybuffer');
+            relsXmlStr = new TextDecoder('utf-8').decode(relsBuf);
+        }
+
+        const parser = new DOMParser();
+        const slideDoc = parser.parseFromString(slideXmlStr, 'application/xml');
+        const parseError = slideDoc.querySelector('parsererror');
+        if (parseError) throw new Error(`源页 XML 解析失败: ${parseError.textContent}`);
+
+        return { slideArrayBuffer, slideXmlStr, relsXmlStr, slideDoc };
+    }
+
+    function collectShapes(slideDoc) {
+        const shapes = [];
+        const spTree = slideDoc.getElementsByTagNameNS(NS.p, 'spTree')[0];
+        if (!spTree) return shapes;
+
+        for (const child of Array.from(spTree.children)) {
+            const tag = child.localName;
+            if (!['sp', 'pic', 'graphicFrame', 'grpSp'].includes(tag)) continue;
+
+            const cNvPr = child.getElementsByTagNameNS(NS.p, 'cNvPr')[0];
+            const name = cNvPr ? cNvPr.getAttribute('name') || '' : '';
+            const id = cNvPr ? cNvPr.getAttribute('id') || '' : '';
+
+            let x = '', y = '', cx = '', cy = '';
+            const xfrm = child.getElementsByTagNameNS(NS.a, 'xfrm')[0];
+            if (xfrm) {
+                const off = xfrm.getElementsByTagNameNS(NS.a, 'off')[0];
+                const ext = xfrm.getElementsByTagNameNS(NS.a, 'ext')[0];
+                if (off) { x = off.getAttribute('x') || ''; y = off.getAttribute('y') || ''; }
+                if (ext) { cx = ext.getAttribute('cx') || ''; cy = ext.getAttribute('cy') || ''; }
+            }
+
+            const texts = [];
+            for (const t of child.getElementsByTagNameNS(NS.a, 't')) {
+                if (t.textContent && t.textContent.trim()) texts.push(t.textContent);
+            }
+            shapes.push({ kind: tag, name, id, x, y, cx, cy, texts });
+        }
+        return shapes;
+    }
+
+    function collectATTexts(slideDoc) {
+        const texts = [];
+        for (const t of slideDoc.getElementsByTagNameNS(NS.a, 't')) {
+            if (t.textContent && t.textContent.trim()) texts.push(t.textContent);
+        }
+        return texts;
+    }
+
+    async function collectDiagrams(zip, slideRelsXml) {
+        const diagrams = [];
+        if (!slideRelsXml) return diagrams;
+        try {
+            const parser = new DOMParser();
+            const relsDoc = parser.parseFromString(slideRelsXml, 'application/xml');
+            const rels = relsDoc.getElementsByTagNameNS(NS.rel, 'Relationship');
+            const drawingPaths = [];
+
+            for (const rel of rels) {
+                const target = rel.getAttribute('Target') || '';
+                const type = rel.getAttribute('Type') || '';
+                if (target.includes('diagrams/drawing') || type.endsWith('/diagramDrawing')) {
+                    let dPath = target;
+                    if (!dPath.startsWith('ppt/')) dPath = 'ppt/slides/' + dPath;
+                    dPath = dPath.replace(/\/\.\//g, '/').replace(/[^/]+\/\.\.\//g, '');
+                    drawingPaths.push(dPath);
+                }
+            }
+
+            for (const drPath of drawingPaths) {
+                const drFile = zip.file(drPath);
+                if (!drFile) continue;
+                const drBuf = await drFile.async('arraybuffer');
+                const drStr = new TextDecoder('utf-8').decode(drBuf);
+                diagrams.push({ path: drPath, content: drStr });
+
+                const drDir = drPath.substring(0, drPath.lastIndexOf('/'));
+                const drBase = drPath.substring(drPath.lastIndexOf('/') + 1);
+                const drRelsPath = `${drDir}/_rels/${drBase}.rels`;
+                const drRelsFile = zip.file(drRelsPath);
+                if (drRelsFile) {
+                    try {
+                        const drRelsBuf = await drRelsFile.async('arraybuffer');
+                        const drRelsStr = new TextDecoder('utf-8').decode(drRelsBuf);
+                        const drRelsDoc = parser.parseFromString(drRelsStr, 'application/xml');
+                        for (const r of drRelsDoc.getElementsByTagNameNS(NS.rel, 'Relationship')) {
+                            const t = r.getAttribute('Target') || '';
+                            const ty = r.getAttribute('Type') || '';
+                            if (t.includes('diagrams/data') || ty.endsWith('/diagramData')) {
+                                let dataPath = t;
+                                if (!dataPath.startsWith('ppt/')) {
+                                    dataPath = drDir + '/' + dataPath;
+                                    dataPath = dataPath.replace(/\/\.\//g, '/').replace(/[^/]+\/\.\.\//g, '');
+                                }
+                                const dataFile = zip.file(dataPath);
+                                if (dataFile) {
+                                    const dataBuf = await dataFile.async('arraybuffer');
+                                    const dataStr = new TextDecoder('utf-8').decode(dataBuf);
+                                    diagrams.push({ path: dataPath, content: dataStr });
+                                }
+                            }
+                        }
+                    } catch (e) { /* ignore */ }
+                }
+            }
+        } catch (e) { console.warn('collectDiagrams error', e); }
+        return diagrams;
+    }
+
+    async function generatePrompt() {
+        if (!currentFileBuffer) { alert('请先上传 PPTX 模板'); return; }
+        const page = parseInt(pageNumber.value);
+        if (isNaN(page)) { alert('页码无效'); return; }
+
+        try {
+            const zip = await JSZip.loadAsync(currentFileBuffer);
+            const { slideXmlStr, relsXmlStr, slideDoc } = await readSrcSlide(zip, page);
+            const srcNum = page;
+
+            const shapes = collectShapes(slideDoc);
+            const aTTexts = collectATTexts(slideDoc);
+            const diagramBlocks = await collectDiagrams(zip, relsXmlStr);
+
+            const lines = [];
+            lines.push("你是一个 PPT OOXML 专家，同时也是一个耐心的设计顾问。");
+            lines.push("下面我会给你一份 PPT 模板中某一页的完整 XML（slide XML），以及该页的形状清单、");
+            lines.push("所有 <a:t> 文本节点，以及该页可能引用到的 SmartArt diagram XML。");
+            lines.push("");
+            lines.push("=".repeat(70));
+            lines.push("【工作流程（非常重要，请严格遵守顺序）】");
+            lines.push("=".repeat(70));
+            lines.push("");
+            lines.push("⚠️ 第一阶段：分析 + 协商（禁止直接输出代码！）");
+            lines.push("  1. 先分析这份 XML 和形状清单，用通俗语言告诉我：");
+            lines.push("     - 这一页整体是做什么的（封面 / 目录 / 内容页 / 图表页 / 结束页…）");
+            lines.push("     - 页面上有哪些形状（名称、位置、大小、当前文字）");
+            lines.push("     - 哪些是标题、哪些是正文、哪些是图片/图标/图表占位");
+            lines.push("  2. 然后**主动向我提问**，和我一起确定每个形状要放什么内容。");
+            lines.push("     例如：");
+            lines.push("     - 「形状『标题 1』我建议放主标题，你想写什么？」");
+            lines.push("     - 「形状『文本框 5』当前有 3 段文字，你要保留几段？分别写什么？」");
+            lines.push("     - 「右上角有一个圆形图标，要不要换成别的文字/图标？」");
+            lines.push("  3. 等我逐条回复你、并且我明确说「确认」或「可以开始写代码」之后，");
+            lines.push("     你再进入第二阶段。");
+            lines.push("");
+            lines.push("⚠️ 第二阶段：生成 JS 代码");
+            lines.push("  1. 严格按照我确认好的内容，为每个形状生成替换文本。");
+            lines.push("  2. 把完整 JavaScript 代码放在一个 Markdown 源码框里（见下方输出格式要求）。");
+            lines.push("");
+            lines.push("⚠️ 绝对不要在第一条回复里就直接甩代码！");
+            lines.push("   如果我一上来就给内容，你也要先复述一遍你打算怎么安排，");
+            lines.push("   等我确认后再写代码。");
+            lines.push("");
+            lines.push("=".repeat(70));
+            lines.push("【输出格式要求（写代码时遵守）】");
+            lines.push("=".repeat(70));
+            lines.push("");
+            lines.push("⚠️ 你必须在**一个 Markdown 源码框（即 ```javascript 或 ```js 代码块）内**");
+            lines.push("   输出完整的 JavaScript 代码，方便我直接复制粘贴。");
+            lines.push("");
+            lines.push("⚠️ 源码框内部只允许放 **纯 JavaScript 代码**，不要放 HTML 标签！");
+            lines.push("⚠️ 不要写 <!DOCTYPE html>、<html>、<head>、<body>、<script> 等标签！");
+            lines.push("⚠️ 不要写任何 HTML 元素、CSS、页面结构！");
+            lines.push("⚠️ 代码会被直接粘贴到页面的一个 <textarea> 里，然后被包装成 async 函数执行。");
+            lines.push("");
+            lines.push("输出示例（你的回答必须像这样，用 ```javascript 开头，``` 结尾）：");
+            lines.push("");
+            lines.push("```javascript");
+            lines.push("// 这里开始写你的 JS 代码");
+            lines.push("const zip = new JSZip();");
+            lines.push("// ...");
+            lines.push("await downloadPptx(blob, OUTPUT_PATH);");
+            lines.push("```");
+            lines.push("");
+            lines.push("=".repeat(70));
+            lines.push("【运行环境说明（写代码时遵守）】");
+            lines.push("=".repeat(70));
+            lines.push("");
+            lines.push("你的代码会被放入一个 async 函数中执行，运行环境已经注入以下全局变量，");
+            lines.push("直接使用即可，**不要重新定义、不要覆盖、不要重新赋值**：");
+            lines.push("");
+            lines.push("  SRC_SLIDE_XML        : string        —— 源页 slide XML 的完整字符串（UTF-8）");
+            lines.push("  SRC_RELS_XML         : string|null   —— 源页 _rels XML 字符串，没有则为 null");
+            lines.push("  SRC_SLIDE_NUM        : number        —— 源页在模板中的文件名编号（仅作参考）");
+            lines.push("  TEMPLATE_PATH        : string        —— 用户上传的模板文件名（仅作显示，不要读它）");
+            lines.push("  OUTPUT_PATH          : string        —— 用户希望保存的文件名（.pptx）");
+            lines.push("  JSZip                : JSZip 构造器  —— 用于读取/生成 pptx 的 zip");
+            lines.push("  templateZip          : JSZip 实例    —— 已经加载好的模板 zip（直接 .file() 取文件）");
+            lines.push("  templateArrayBuffer  : ArrayBuffer   —— 模板原始字节（一般用不到）");
+            lines.push("  downloadPptx(blob, filename) : function —— 触发浏览器下载，必须用它来保存结果");
+            lines.push("  console.log / warn / error          —— 已重定向到页面日志");
+            lines.push("");
+            lines.push("=".repeat(70));
+            lines.push("【命名空间与辅助函数（已注入，禁止重复定义）】");
+            lines.push("=".repeat(70));
+            lines.push("");
+            lines.push("⚠️ 以下命名空间常量已注入，直接使用！");
+            lines.push("⚠️ 千万不要写 `const ns = ...`、`var ns = ...`、`ns = ...`，");
+            lines.push("   也不要用 `ns:` 这种前缀（如 ns:sp / ns:t），那是无效的！");
+            lines.push("⚠️ 也不要写 `getElementsByTagName('p:sp')` 这种带前缀的写法！");
+            lines.push("   在 DOMParser 解析出来的文档里，前缀写法不会被识别，必须用命名空间 URI。");
+            lines.push("");
+            lines.push("  P_NS   : 'http://schemas.openxmlformats.org/presentationml/2006/main'");
+            lines.push("  A_NS   : 'http://schemas.openxmlformats.org/drawingml/2006/main'");
+            lines.push("  R_NS   : 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'");
+            lines.push("  REL_NS : 'http://schemas.openxmlformats.org/package/2006/relationships'");
+            lines.push("  CT_NS  : 'http://schemas.openxmlformats.org/package/2006/content-types'");
+            lines.push("");
+            lines.push("⚠️ 以下辅助函数也已注入，直接调用！不要重复实现！");
+            lines.push("");
+            lines.push("  findSpByName(root, name)          —— 按 p:cNvPr/@name 查找形状节点，未找到返回 null");
+            lines.push("  findSpById(root, id)              —— 按 p:cNvPr/@id 查找形状节点，未找到返回 null");
+            lines.push("  replaceInSp(sp, oldText, newText) —— 替换形状内所有匹配的 <a:t>，返回替换数量");
+            lines.push("  parseXml(xmlStr)                  —— 解析 XML 字符串为 DOM（带错误检查）");
+            lines.push("  serializeXml(doc)                 —— 把 DOM 序列化回字符串");
+            lines.push("");
+            lines.push("正确用法示例：");
+            lines.push("");
+            lines.push("  const doc = parseXml(SRC_SLIDE_XML);");
+            lines.push("  const sp = findSpByName(doc, '标题 1');");
+            lines.push("  if (sp) {");
+            lines.push("      replaceInSp(sp, '旧标题文本', '新标题文本');");
+            lines.push("  } else {");
+            lines.push("      console.log('[warn] 未找到形状: 标题 1');");
+            lines.push("  }");
+            lines.push("  const newXml = serializeXml(doc);");
+            lines.push("");
+            lines.push("如果你确实需要自己遍历，必须用已注入的 P_NS / A_NS：");
+            lines.push("  const sps = doc.getElementsByTagNameNS(P_NS, 'sp');   // ✅ 正确");
+            lines.push("  const sps = doc.getElementsByTagName('p:sp');         // ❌ 错误（前缀未声明）");
+            lines.push("  const sps = doc.getElementsByTagNameNS(ns.p, 'sp');   // ❌ 错误（ns 未定义）");
+            lines.push("");
+            lines.push("=".repeat(70));
+            lines.push("【写代码时的硬性约束】");
+            lines.push("=".repeat(70));
+            lines.push("");
+            lines.push("1. 不要重新定义 TEMPLATE_PATH 和 OUTPUT_PATH。");
+            lines.push("   它们由外部注入，直接使用即可。");
+            lines.push("   绝对不要写 `const TEMPLATE_PATH = \"...\"` 或 `const OUTPUT_PATH = \"...\"`。");
+            lines.push("");
+            lines.push("2. 【源页内容已由外部注入，不要去找文件名】");
+            lines.push("   使用 SRC_SLIDE_XML 作为源页内容，不要自己去 zip 里找 slideN.xml。");
+            lines.push("   不要出现任何 `slide\\d+\\.xml` 形式的字面量（如 slide1.xml / slide20.xml）。");
+            lines.push("   不要写 `slides = [...]` 去扫描 zip 找源页。");
+            lines.push("   不要用 sldIdLst 顺序去推断源页。");
+            lines.push("   不要写 `TARGET_SLIDE_NUM = ...`。");
+            lines.push("");
+            lines.push("3. 【禁止使用 fetch 读取本地文件】");
+            lines.push("   ⚠️ 浏览器会因 CORS 拦截 file:// 请求，导致 ERR_FAILED！");
+            lines.push("   绝对不要写：");
+            lines.push("     - fetch(TEMPLATE_PATH)");
+            lines.push("     - fetch('template.pptx')");
+            lines.push("     - fetch('file:///...')");
+            lines.push("     - XMLHttpRequest 读本地文件");
+            lines.push("   需要读模板，请直接使用 templateZip，例如：");
+            lines.push("     const f = templateZip.file('ppt/presentation.xml');");
+            lines.push("     const xmlStr = await f.async('string');");
+            lines.push("");
+            lines.push("4. 【输出文件的方法】");
+            lines.push("   - 用 JSZip 构造一个新的 zip（用 new JSZip()）");
+            lines.push("   - 生成 pptx blob：");
+            lines.push("     const blob = await zip.generateAsync({");
+            lines.push("       type: 'blob',");
+            lines.push("       mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'");
+            lines.push("     });");
+            lines.push("   - 必须调用 `downloadPptx(blob, OUTPUT_PATH)` 触发下载。");
+            lines.push("   - 不要写 `saveAs`、`a.download`、`URL.createObjectURL` 等，统一用 downloadPptx。");
+            lines.push("");
+            lines.push("5. 你的代码需要完成的动作：");
+            lines.push("   a. 用 SRC_SLIDE_XML 作为源页内容（用 parseXml() 解析成 DOM）");
+            lines.push("   b. 替换其中形状的 <a:t> 文本（用 findSpByName / findSpById + replaceInSp）");
+            lines.push("   c. 把替换后的 XML 作为 **ppt/slides/slide1.xml** 写入新 zip（输出文件里只有一页）");
+            lines.push("   d. 必须完整清理：");
+            lines.push("      * 删除 ppt/slides/slideN.xml（N != 1）");
+            lines.push("      * 删除 ppt/slides/_rels/slideN.xml.rels（N != 1）");
+            lines.push("      * 清理 ppt/_rels/presentation.xml.rels：删掉所有 Type 以 /slide 结尾的关系，");
+            lines.push("        然后重建一条：Type=.../slide, Target=slides/slide1.xml, Id=rId{最小未用编号}");
+            lines.push("      * 清理 ppt/presentation.xml 的 sldIdLst：只保留一个 <p:sldId>，");
+            lines.push("        它的 r:id 指向上面刚重建的那条关系，id 可以设为 256");
+            lines.push("      * 清理 [Content_Types].xml：只保留 /ppt/slides/slide1.xml 的 Override");
+            lines.push("   e. 保留 theme / slideMaster / slideLayout / media / notesMaster / diagrams / charts 等依赖");
+            lines.push("");
+            lines.push("6. 顺序要求：先构造新页内容 -> 替换文字 -> 写成 slide1.xml -> 最后清理 sldIdLst 等结构。");
+            lines.push("   不要先清理再处理内容。");
+            lines.push("");
+            lines.push("7. 如果涉及 SmartArt，需同步修改 ppt/diagrams/data*.xml 中的 <a:t>。");
+            lines.push("");
+            lines.push("8. 【替换文本必须按形状定位，不要按文本第几次出现】");
+            lines.push("   请使用已注入的 findSpByName / findSpById / replaceInSp。");
+            lines.push("");
+            lines.push("9. 所有文本替换必须「找不到不报错」，改为 console.log 警告并继续。");
+            lines.push("   不要在找不到时 throw。");
+            lines.push("");
+            lines.push("10. 如果要替换的目标文本是从【本页形状清单】里读到的原文，");
+            lines.push("    请严格按清单里的字符串原样复制（含空格、全角半角、标点）。");
+            lines.push("    不得臆造清单中不存在的字符串。");
+            lines.push("");
+            lines.push("=".repeat(70));
+            lines.push(`【本页形状清单（共 ${shapes.length} 个，按 spTree 顺序）】`);
+            lines.push("=".repeat(70));
+            lines.push("说明：");
+            lines.push("- kind: sp=普通形状, pic=图片, graphicFrame=图表/SmartArt, grpSp=组合");
+            lines.push("- name: 形状名（稳定，推荐用它定位）");
+            lines.push("- id:   形状 ID（页内唯一）");
+            lines.push("- x/y:  左上角坐标（EMU，1cm≈360000）");
+            lines.push("- cx/cy: 宽高（EMU）");
+            lines.push("- texts: 该形状内所有非空 <a:t> 的原文，按文档顺序");
+            lines.push("");
+            if (shapes.length) {
+                shapes.forEach((s, i) => {
+                    lines.push(`[${i + 1}] kind=${s.kind}  name=${JSON.stringify(s.name)}  id=${s.id}`);
+                    lines.push(`     x=${s.x}  y=${s.y}  cx=${s.cx}  cy=${s.cy}`);
+                    if (s.texts.length) {
+                        s.texts.forEach((t, j) => {
+                            lines.push(`     t[${j + 1}] = ${JSON.stringify(t)}`);
+                        });
+                    } else {
+                        lines.push("     （无文本，可能是图片/图标/图表）");
+                    }
+                    lines.push("");
+                });
+            } else {
+                lines.push("（未解析到形状，可能 spTree 结构异常）");
+                lines.push("");
+            }
+
+            lines.push("=".repeat(70));
+            lines.push(`【本页全部非空 <a:t> 文本节点（共 ${aTTexts.length} 个，按文档顺序，仅作校验）】`);
+            lines.push("=".repeat(70));
+            if (aTTexts.length) {
+                aTTexts.forEach((txt, i) => lines.push(`${String(i + 1).padStart(3)}. ${JSON.stringify(txt)}`));
+            } else {
+                lines.push("（本页没有非空 <a:t> 文本）");
+            }
+            lines.push("");
+
+            lines.push("=".repeat(70));
+            lines.push("【源页 slide XML 内容（这就是 SRC_SLIDE_XML 的值）】");
+            lines.push("=".repeat(70));
+            lines.push(slideXmlStr);
+
+            if (relsXmlStr) {
+                lines.push("");
+                lines.push("=".repeat(70));
+                lines.push("【源页 _rels XML 内容（这就是 SRC_RELS_XML 的值）】");
+                lines.push("=".repeat(70));
+                lines.push(relsXmlStr);
+            }
+
+            for (const d of diagramBlocks) {
+                lines.push("");
+                lines.push("=".repeat(70));
+                lines.push(`【diagram / drawing XML】路径：${d.path}`);
+                lines.push("=".repeat(70));
+                lines.push(d.content);
+            }
+
+            lines.push("");
+            lines.push("=".repeat(70));
+            lines.push("【我想放进去的内容 / 初步想法】");
+            lines.push("=".repeat(70));
+            lines.push("（在这里写下你的想法，例如：主标题改成什么、正文换成什么、");
+            lines.push("  如果还没想好，就直接写「你先给我几个方案，我挑」）");
+            lines.push("");
+            lines.push("=".repeat(70));
+            lines.push("现在，请开始【第一阶段】：先分析页面并向我提问，不要直接给代码！");
+            lines.push("=".repeat(70));
+
+            const prompt = lines.join("\n");
+            promptArea.value = prompt;
+            log(`✅ 已生成提示词：slide${srcNum}.xml（第 ${page} 页），${shapes.length} 个形状，${aTTexts.length} 个 <a:t>，${diagramBlocks.length} 个 diagram XML，共 ${prompt.length} 字符`, 'success');
+        } catch (err) {
+            alert(`生成提示词失败: ${err.message}`);
+            log(`❌ 生成提示词失败: ${err.message}`, 'error');
+        }
+    }
+
+    function copyPrompt() {
+        const content = promptArea.value.trim();
+        if (!content) { log('⚠️ 没有可复制的提示词', 'warn'); return; }
+        navigator.clipboard.writeText(content).then(() => {
+            log(`✅ 提示词已复制到剪贴板（${content.length} 字符）`, 'success');
+        }).catch(() => {
+            promptArea.select();
+            document.execCommand('copy');
+            log('✅ 提示词已复制（fallback）', 'success');
+        });
+    }
+
+    async function pasteCode() {
+        try {
+            const text = await navigator.clipboard.readText();
+            if (!text.trim()) { alert('剪贴板内容为空'); return; }
+            codeArea.value = text;
+            log(`已从剪贴板粘贴代码，共 ${text.length} 字符`);
+        } catch (err) {
+            alert('无法读取剪贴板，请手动粘贴');
+            log('❌ 读取剪贴板失败', 'error');
+        }
+    }
+
+    function clearPrompt() { promptArea.value = ''; }
+    function clearCode() { codeArea.value = ''; }
+
+    async function runCode() {
+        if (!currentFileBuffer) { alert('请先上传 PPTX 模板'); return; }
+        let code = codeArea.value.trim();
+        if (!code) { alert('请先粘贴 JavaScript 代码'); return; }
+
+        code = code.replace(/^```(?:javascript|js)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+
+        const page = parseInt(pageNumber.value);
+        if (isNaN(page)) { alert('页码无效'); return; }
+
+        log('='.repeat(60));
+        log(`模板：${currentFileName}`);
+        log(`源页：slide${page}.xml（第 ${page} 页）`);
+        log('开始执行代码...');
+
+        let srcSlideXml, srcRelsXml, srcNum;
+        try {
+            const zip = await JSZip.loadAsync(currentFileBuffer);
+            const result = await readSrcSlide(zip, page);
+            srcSlideXml = result.slideXmlStr;
+            srcRelsXml = result.relsXmlStr;
+            srcNum = page;
+        } catch (err) {
+            alert(`读取源页失败：${err.message}`);
+            log(`❌ 读取源页失败：${err.message}`, 'error');
+            return;
+        }
+
+        const defaultName = (currentFileName.replace(/\.pptx$/i, '') || 'output') + '_新页.pptx';
+        const outputName = prompt('保存生成的文件名（.pptx）', defaultName);
+        if (!outputName) { log('用户取消保存'); return; }
+        const finalName = outputName.endsWith('.pptx') ? outputName : outputName + '.pptx';
+
+        const templateZip = await JSZip.loadAsync(currentFileBuffer);
+
+        const downloadPptx = (blob, filename) => {
+            if (!(blob instanceof Blob)) {
+                throw new Error('downloadPptx 的第一个参数必须是 Blob，实际收到: ' + Object.prototype.toString.call(blob));
+            }
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename || 'output.pptx';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(a.href);
+            }, 100);
+            log(`✅ 已触发下载：${a.download}`, 'success');
+        };
+
+        const safeFetch = function(url, ...args) {
+            const s = String(url);
+            if (s.startsWith('file:') || s.includes(':\\') || s.startsWith('/') || s.endsWith('.pptx')) {
+                throw new Error(
+                    '❌ 禁止用 fetch 读取本地文件（CORS 会拦截 file:// 请求）。\n' +
+                    '请使用已注入的 templateZip / templateArrayBuffer / SRC_SLIDE_XML。\n' +
+                    '被拦截的 URL: ' + s
+                );
+            }
+            return window.fetch(url, ...args);
+        };
+
+        const P_NS  = 'http://schemas.openxmlformats.org/presentationml/2006/main';
+        const A_NS  = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+        const R_NS  = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+        const REL_NS= 'http://schemas.openxmlformats.org/package/2006/relationships';
+        const CT_NS = 'http://schemas.openxmlformats.org/package/2006/content-types';
+
+        function parseXml(xmlStr) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(xmlStr, 'application/xml');
+            const err = doc.querySelector('parsererror');
+            if (err) throw new Error('XML 解析失败: ' + err.textContent);
+            return doc;
+        }
+
+        function serializeXml(doc) {
+            return new XMLSerializer().serializeToString(doc);
+        }
+
+        function findSpByName(root, name) {
+            for (const tag of ['sp', 'pic', 'graphicFrame', 'grpSp']) {
+                const nodes = root.getElementsByTagNameNS(P_NS, tag);
+                for (const n of nodes) {
+                    const cNvPr = n.getElementsByTagNameNS(P_NS, 'cNvPr')[0];
+                    if (cNvPr && cNvPr.getAttribute('name') === name) return n;
+                }
+            }
+            return null;
+        }
+
+        function findSpById(root, id) {
+            for (const tag of ['sp', 'pic', 'graphicFrame', 'grpSp']) {
+                const nodes = root.getElementsByTagNameNS(P_NS, tag);
+                for (const n of nodes) {
+                    const cNvPr = n.getElementsByTagNameNS(P_NS, 'cNvPr')[0];
+                    if (cNvPr && String(cNvPr.getAttribute('id')) === String(id)) return n;
+                }
+            }
+            return null;
+        }
+
+        function replaceInSp(sp, oldText, newText) {
+            let cnt = 0;
+            const tNodes = sp.getElementsByTagNameNS(A_NS, 't');
+            for (const t of tNodes) {
+                if (t.textContent === oldText) { t.textContent = newText; cnt++; }
+            }
+            if (cnt === 0) console.log('[warn] 形状内未找到: ' + JSON.stringify(oldText));
+            return cnt;
+        }
+
+        const sandbox = {
+            SRC_SLIDE_XML: srcSlideXml,
+            SRC_RELS_XML: srcRelsXml,
+            SRC_SLIDE_NUM: srcNum,
+            TEMPLATE_PATH: currentFileName,
+            OUTPUT_PATH: finalName,
+            JSZip: JSZip,
+            templateZip: templateZip,
+            templateArrayBuffer: currentFileBuffer.slice(0),
+            downloadPptx: downloadPptx,
+            fetch: safeFetch,
+
+            P_NS: P_NS,
+            A_NS: A_NS,
+            R_NS: R_NS,
+            REL_NS: REL_NS,
+            CT_NS: CT_NS,
+
+            parseXml: parseXml,
+            serializeXml: serializeXml,
+            findSpByName: findSpByName,
+            findSpById: findSpById,
+            replaceInSp: replaceInSp,
+
+            console: {
+                log: (...args) => log('[console] ' + args.map(a => {
+                    if (typeof a === 'object') { try { return JSON.stringify(a); } catch (e) { return String(a); } }
+                    return String(a);
+                }).join(' ')),
+                warn: (...args) => log('[warn] ' + args.join(' '), 'warn'),
+                error: (...args) => log('[error] ' + args.join(' '), 'error')
+            },
+            alert: (msg) => log('[alert] ' + msg)
+        };
+
+        const origTemplate = sandbox.TEMPLATE_PATH;
+        const origOutput = sandbox.OUTPUT_PATH;
+
+        try {
+            const asyncWrapper = new Function('sandbox', `
+                with (sandbox) {
+                    return (async () => {
+                        ${code}
+                    })();
+                }
+            `);
+            await asyncWrapper(sandbox);
+
+            if (sandbox.OUTPUT_PATH !== origOutput) {
+                log(`⚠️ 注意：OUTPUT_PATH 被代码修改为 ${sandbox.OUTPUT_PATH}`, 'warn');
+            }
+            if (sandbox.TEMPLATE_PATH !== origTemplate) {
+                log(`⚠️ 注意：TEMPLATE_PATH 被代码修改为 ${sandbox.TEMPLATE_PATH}`, 'warn');
+            }
+            log('✅ 代码执行完成', 'success');
+        } catch (err) {
+            log(`❌ 执行出错：${err.message}`, 'error');
+            if (err.stack) log(err.stack, 'error');
+            alert(`执行出错：${err.message}`);
+        }
+    }
+
+    document.getElementById('genPromptBtn').addEventListener('click', generatePrompt);
+    document.getElementById('copyPromptBtn').addEventListener('click', copyPrompt);
+    document.getElementById('clearPromptBtn').addEventListener('click', clearPrompt);
+    document.getElementById('pasteCodeBtn').addEventListener('click', pasteCode);
+    document.getElementById('runCodeBtn').addEventListener('click', runCode);
+    document.getElementById('clearCodeBtn').addEventListener('click', clearCode);
+
+    applyPage(1);
+    renderSliderTicks();
+})();
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</body>
+</html>

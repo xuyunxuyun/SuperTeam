@@ -1,30 +1,22 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
     <!--
-
         SPDX-License-Identifier: CC-BY-NC-SA-4.0
-
         本文件是"汉末废柴堆 · 超级团队组建系统"的一部分。
-
         完整项目受 CC BY-NC-SA 4.0 许可证保护，详见根目录 LICENSE 文件。
-
         本项目核心设计思想、架构方案、方法论受 NOTICE 文件独立保护。
-
         个人可免费使用，严禁用于商业目的。
-
         商业授权请联系：xxuuyuunn@sina.com
-
     -->
-
     <!--
-
         **版本历史**
         | 版本号 | 过程节点说明 | 修订人 | 修订日期 | 修订内容 |
         | :----- | :----------- | :----- | :------- | :------- |
         | V0.1.0 | 初稿创建     | 徐昀 | 2026-08-26 | 根据用户需求生成 |
         | V0.1.1 | 功能新增     | 徐昀 | 2026-09-16 | 修复线端指向圆形节点不显示箭头的问题，增加缩放 |
+        | V0.1.2 | 功能新增     | 徐昀 | 2026-09-22 | 支持右键菜单替换节点类型和连线类型 |
+        | V0.1.3 | 功能新增     | 徐昀 | 2026-09-28 | 增加选中图形修改填充和边框颜色，选中连线修改颜色功能；增加节点拖放和折线拐点拖放的轻微吸附功能，便于对齐 |
     -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
@@ -381,9 +373,83 @@
             z-index: 99;
             font-variant-numeric: tabular-nums;
         }
+
+        .color-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 4px 14px 8px;
+            justify-content: center;
+        }
+
+        .color-swatch {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            border: 2px solid var(--border-color);
+            cursor: pointer;
+            transition: 0.1s;
+        }
+
+        .color-swatch:hover {
+            border-color: var(--accent);
+            transform: scale(1.1);
+        }
+
+        .color-swatch.selected {
+            border-color: white;
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        .color-input-row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            padding: 4px 14px 8px;
+        }
+
+        .color-input-row input[type="color"] {
+            width: 36px;
+            height: 30px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background: transparent;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .color-input-row input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+
+        .color-input-row input[type="color"]::-webkit-color-swatch {
+            border: none;
+            border-radius: 6px;
+        }
+
+        .color-input-row button {
+            flex: 1;
+            background: var(--border-color);
+            border: none;
+            color: white;
+            padding: 6px 8px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .color-input-row button:hover {
+            background: var(--accent);
+        }
+
+        .sub-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            padding: 0 14px;
+            margin-top: 6px;
+        }
     </style>
 </head>
-
 <body>
     <div class="tabs-header" id="tabsHeader">
         <button class="add-tab-btn" id="addTabBtn">+ 新建页签</button>
@@ -418,13 +484,49 @@
                         <input type="file" id="fileInput" accept=".json" style="display:none;">
                     </div>
                 </div>
+                <!-- 颜色定制区块 -->
+                <div class="menu-section">
+                    <div class="section-title">🎨 颜色定制 (选中节点/连线)</div>
+                    <div id="colorPanelContainer">
+                        <div class="sub-label">节点填充色</div>
+                        <div class="color-panel" id="fillSwatches"></div>
+                        <div class="color-input-row">
+                            <input type="color" id="fillColorPicker" value="#1e2a4a">
+                            <button id="applyFillColor">应用填充</button>
+                        </div>
+                        <div class="sub-label">节点边框色</div>
+                        <div class="color-panel" id="borderSwatches"></div>
+                        <div class="color-input-row">
+                            <input type="color" id="borderColorPicker" value="#3b82f6">
+                            <button id="applyBorderColor">应用边框</button>
+                        </div>
+                        <div class="sub-label">连线颜色</div>
+                        <div class="color-panel" id="edgeSwatches"></div>
+                        <div class="color-input-row">
+                            <input type="color" id="edgeColorPicker" value="#64748b">
+                            <button id="applyEdgeColor">应用连线色</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
+
+    <!-- 右键菜单 -->
     <div id="contextMenu" class="context-menu">
         <div class="context-menu-item" id="ctxExportJson">📤 导出数据 (JSON)</div>
-        <div class="context-menu-divider"></div>
         <div class="context-menu-item" id="ctxExportPng">📸 导出图片 (PNG)</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" id="ctxReplaceRect">⬜ 替换为矩形节点</div>
+        <div class="context-menu-item" id="ctxReplaceCircle">⭕ 替换为圆形节点</div>
+        <div class="context-menu-item" id="ctxReplaceDiamond">🔶 替换为菱形节点</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" id="ctxReplaceStraight">📏 替换为直线连线</div>
+        <div class="context-menu-item" id="ctxReplacePolyline">📐 替换为折线连线</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" id="ctxQuickFill">🎨 填充颜色 (打开面板)</div>
+        <div class="context-menu-item" id="ctxQuickBorder">🖌️ 边框颜色 (打开面板)</div>
+        <div class="context-menu-item" id="ctxQuickEdgeColor">🌈 连线颜色 (打开面板)</div>
     </div>
     <div id="statusTip" class="status-tip"></div>
     <div id="zoomIndicator" class="zoom-indicator">缩放：100%</div>
@@ -434,12 +536,32 @@
             let tabs = [];
             let activeTabId = null;
             let nextTabId = 1;
-            const STORAGE_KEY = 'flowchart_multitab_v4';
+            const STORAGE_KEY = 'flowchart_multitab_v5';
             let mousePos = { x: 0, y: 0 };
 
             const MIN_SCALE = 0.2;
             const MAX_SCALE = 5;
             const WHEEL_FACTOR = 1.1;
+
+            // ★★★ 吸附配置 ★★★
+            const SNAP_THRESHOLD = 8;       // 吸附触发距离（画布坐标单位）
+            const SNAP_GRID_SIZE = 10;      // 网格吸附大小（当没有其他节点对齐时）
+
+            // 默认颜色映射
+            const DEFAULT_NODE_COLORS = {
+                rect: { fill: '#1e2a4a', border: '#3b82f6' },
+                circle: { fill: '#1a2a3a', border: '#10b981' },
+                diamond: { fill: '#2a2418', border: '#f59e0b' }
+            };
+            const DEFAULT_EDGE_COLOR = '#64748b';
+            const SELECTED_EDGE_COLOR = '#f97316';
+
+            // 颜色合法性校验
+            function isValidColor(c) {
+                if (typeof c !== 'string') return false;
+                const trimmed = c.trim();
+                return /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(trimmed);
+            }
 
             function showTip(msg, duration = 1500) {
                 const tip = document.getElementById('statusTip');
@@ -468,7 +590,9 @@
                     isDraggingNode: false, isPanning: false,
                     dragNodeId: null, dragOffsetX: 0, dragOffsetY: 0,
                     panStartX: 0, panStartY: 0, panStartOffsetX: 0, panStartOffsetY: 0,
-                    dragBendEdgeId: null, dragBendIndex: -1
+                    dragBendEdgeId: null, dragBendIndex: -1,
+                    // ★ 吸附辅助线状态
+                    snapGuides: { vx: null, vy: null, hx: null, hy: null }
                 };
                 tabs.push(tab);
                 return tab;
@@ -542,12 +666,20 @@
 
             function closeTab(tabId) {
                 const tab = tabs.find(t => t.id === tabId);
-                if (!tab || tabs.length <= 1) { showTip('至少保留一个画布'); return; }
+                if (!tab) return;
+                if (tabs.length <= 1) {
+                    showTip('至少保留一个画布');
+                    return;
+                }
+                const confirmed = confirm(`确定关闭画布「${tab.name}」吗？\n该画布上的所有节点和连线都将被删除，且无法恢复。`);
+                if (!confirmed) return;
+
                 tabs = tabs.filter(t => t.id !== tabId);
                 tab.wrapper?.remove();
                 document.querySelector(`.tab-item[data-tab-id="${tabId}"]`)?.remove();
                 if (activeTabId === tabId) switchTab(tabs[0].id);
                 saveAllToLocal();
+                showTip('画布已关闭');
             }
 
             function createNewTab(name = null) {
@@ -570,14 +702,29 @@
 
             function loadFromLocal() {
                 try {
-                    const saved = localStorage.getItem(STORAGE_KEY);
+                    const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('flowchart_multitab_v4');
                     if (!saved) return false;
                     const data = JSON.parse(saved);
                     data.tabs.forEach(t => {
                         const tab = createTab(t.name);
-                        tab.id = t.id; tab.nodes = t.nodes || []; tab.edges = t.edges || [];
-                        tab.nextNodeId = t.nextNodeId || 1; tab.nextEdgeId = t.nextEdgeId || 1;
-                        tab.canvasOffsetX = t.canvasOffsetX || 0; tab.canvasOffsetY = t.canvasOffsetY || 0;
+                        tab.id = t.id;
+                        tab.nodes = t.nodes || [];
+                        tab.edges = t.edges || [];
+
+                        // 确保节点颜色属性（兼容旧数据）
+                        tab.nodes.forEach(n => {
+                            if (!isValidColor(n.fillColor)) n.fillColor = DEFAULT_NODE_COLORS[n.type]?.fill || '#1e2a4a';
+                            if (!isValidColor(n.borderColor)) n.borderColor = DEFAULT_NODE_COLORS[n.type]?.border || '#3b82f6';
+                        });
+                        // 确保连线颜色属性
+                        tab.edges.forEach(e => {
+                            if (!isValidColor(e.color)) e.color = DEFAULT_EDGE_COLOR;
+                        });
+
+                        ensureUniqueIds(tab);
+
+                        tab.canvasOffsetX = t.canvasOffsetX || 0;
+                        tab.canvasOffsetY = t.canvasOffsetY || 0;
                         tab.scale = t.scale || 1;
                         createCanvasDOM(tab); addTabButton(tab);
                     });
@@ -590,6 +737,72 @@
 
             function getNodeById(tab, id) { return tab.nodes.find(n => n.id === id); }
             function getEdgeById(tab, id) { return tab.edges.find(e => e.id === id); }
+
+            function ensureUniqueIds(tab) {
+                const seenNodes = new Set();
+                let maxNode = 0;
+                tab.nodes = tab.nodes.filter(n => {
+                    if (!n || !n.id) return false;
+                    if (seenNodes.has(n.id)) return false;
+                    seenNodes.add(n.id);
+                    const m = /^node_(\d+)$/.exec(n.id);
+                    if (m) maxNode = Math.max(maxNode, parseInt(m[1], 10));
+                    return true;
+                });
+                tab.nextNodeId = Math.max(tab.nextNodeId || 1, maxNode + 1);
+
+                const seenEdges = new Set();
+                let maxEdge = 0;
+                tab.edges = tab.edges.filter(e => {
+                    if (!e || !e.id) return false;
+                    if (seenEdges.has(e.id)) return false;
+                    seenEdges.add(e.id);
+                    const m = /^edge_(\d+)$/.exec(e.id);
+                    if (m) maxEdge = Math.max(maxEdge, parseInt(m[1], 10));
+                    return true;
+                });
+                tab.nextEdgeId = Math.max(tab.nextEdgeId || 1, maxEdge + 1);
+            }
+
+            function setSelection(tab, { nodeId = null, edgeId = null } = {}) {
+                if (nodeId !== null) edgeId = null;
+                if (edgeId !== null) nodeId = null;
+
+                if (nodeId !== null && !getNodeById(tab, nodeId)) nodeId = null;
+                if (edgeId !== null && !getEdgeById(tab, edgeId)) edgeId = null;
+
+                tab.selectedNodeId = nodeId;
+                tab.selectedEdgeId = edgeId;
+
+                if (nodeId === null) {
+                    tab.isDraggingNode = false;
+                    tab.dragNodeId = null;
+                }
+
+                if (edgeId === null) {
+                    tab.dragBendEdgeId = null;
+                    tab.dragBendIndex = -1;
+                }
+            }
+
+            function resetInteraction(tab) {
+                tab.isDraggingNode = false;
+                tab.dragNodeId = null;
+                tab.dragBendEdgeId = null;
+                tab.dragBendIndex = -1;
+                tab.isPanning = false;
+                clearSnapGuides(tab);
+            }
+
+            // ★★★ 清空吸附辅助线 ★★★
+            function clearSnapGuides(tab) {
+                if (tab.snapGuides) {
+                    tab.snapGuides.vx = null;
+                    tab.snapGuides.vy = null;
+                    tab.snapGuides.hx = null;
+                    tab.snapGuides.hy = null;
+                }
+            }
 
             function getNodeCenter(node) {
                 return { x: node.x + node.width / 2, y: node.y + node.height / 2 };
@@ -654,7 +867,6 @@
                 return [{ x: midX, y: fromC.y }, { x: midX, y: toC.y }];
             }
 
-            // 计算直线与矩形边界的交点
             function intersectRect(x1, y1, x2, y2, rect) {
                 const left = rect.x, right = rect.x + rect.width;
                 const top = rect.y, bottom = rect.y + rect.height;
@@ -677,7 +889,6 @@
                 return { x: x1 + tMaxVal * dx, y: y1 + tMaxVal * dy, t: tMaxVal };
             }
 
-            // 线段与线段交点参数t
             function segmentIntersection(x1, y1, x2, y2, x3, y3, x4, y4) {
                 const d1x = x2 - x1, d1y = y2 - y1;
                 const d2x = x4 - x3, d2y = y4 - y3;
@@ -691,7 +902,6 @@
                 return null;
             }
 
-            // 计算直线与圆的交点（返回线段的第一个交点，即进入点）
             function intersectCircle(x1, y1, x2, y2, cx, cy, r) {
                 const dx = x2 - x1, dy = y2 - y1;
                 const fx = x1 - cx, fy = y1 - cy;
@@ -713,7 +923,6 @@
                 return { x: x1 + t * dx, y: y1 + t * dy, t: t };
             }
 
-            // 计算直线与菱形（旋转45度的矩形）的交点
             function intersectDiamond(x1, y1, x2, y2, node) {
                 const cx = node.x + node.width / 2;
                 const cy = node.y + node.height / 2;
@@ -760,13 +969,26 @@
             function addNode(tab, type, x, y, text) {
                 const width = type === 'circle' ? 80 : (type === 'diamond' ? 130 : 150);
                 const height = type === 'circle' ? 80 : (type === 'diamond' ? 100 : 60);
+
+                let maxNode = 0;
+                tab.nodes.forEach(n => {
+                    const m = /^node_(\d+)$/.exec(n.id);
+                    if (m) maxNode = Math.max(maxNode, parseInt(m[1], 10));
+                });
+                tab.nextNodeId = Math.max(tab.nextNodeId || 1, maxNode + 1);
+
+                const colors = DEFAULT_NODE_COLORS[type] || DEFAULT_NODE_COLORS.rect;
                 const node = {
                     id: `node_${tab.nextNodeId++}`, type,
                     x: x - width / 2, y: y - height / 2, width, height,
-                    text: text || (type === 'circle' ? '开始/结束' : (type === 'diamond' ? '分支' : '节点'))
+                    text: text || (type === 'circle' ? '开始/结束' : (type === 'diamond' ? '分支' : '节点')),
+                    fillColor: colors.fill,
+                    borderColor: colors.border
                 };
+
+                resetInteraction(tab);
                 tab.nodes.push(node);
-                tab.selectedNodeId = node.id; tab.selectedEdgeId = null;
+                setSelection(tab, { nodeId: node.id });
                 render(tab); saveAllToLocal(); return node;
             }
 
@@ -775,13 +997,26 @@
                 const isPolyline = tab.connectMode === 'polyline';
                 const exists = tab.edges.some(e => e.from === fromId && e.to === toId && e.polyline === isPolyline);
                 if (exists) return false;
+
+                let maxEdge = 0;
+                tab.edges.forEach(e => {
+                    const m = /^edge_(\d+)$/.exec(e.id);
+                    if (m) maxEdge = Math.max(maxEdge, parseInt(m[1], 10));
+                });
+                tab.nextEdgeId = Math.max(tab.nextEdgeId || 1, maxEdge + 1);
+
                 const edge = {
                     id: `edge_${tab.nextEdgeId++}`, from: fromId, to: toId, label,
-                    polyline: isPolyline, bendPoints: isPolyline ? [] : null, manualBend: false
+                    polyline: isPolyline, bendPoints: isPolyline ? [] : null, manualBend: false,
+                    color: DEFAULT_EDGE_COLOR
                 };
+
+                resetInteraction(tab);
                 tab.edges.push(edge);
                 if (isPolyline) edge.bendPoints = getBendPoints(tab, edge);
-                tab.selectedEdgeId = edge.id; tab.selectedNodeId = null;
+
+                setSelection(tab, { edgeId: edge.id });
+
                 tab.connectMode = null; tab.connectSourceNodeId = null;
                 updateMenuButtons(tab); render(tab); saveAllToLocal(); return true;
             }
@@ -790,16 +1025,18 @@
                 if (tab.selectedNodeId) {
                     tab.edges = tab.edges.filter(e => e.from !== tab.selectedNodeId && e.to !== tab.selectedNodeId);
                     tab.nodes = tab.nodes.filter(n => n.id !== tab.selectedNodeId);
-                    tab.selectedNodeId = null; saveAllToLocal();
+                    setSelection(tab, {}); saveAllToLocal();
                 } else if (tab.selectedEdgeId) {
                     tab.edges = tab.edges.filter(e => e.id !== tab.selectedEdgeId);
-                    tab.selectedEdgeId = null; saveAllToLocal();
+                    setSelection(tab, {}); saveAllToLocal();
                 }
                 render(tab);
             }
 
             function clearTab(tab) {
-                tab.nodes = []; tab.edges = []; tab.selectedNodeId = null; tab.selectedEdgeId = null;
+                tab.nodes = []; tab.edges = [];
+                setSelection(tab, {});
+                resetInteraction(tab);
                 tab.connectMode = null; tab.connectSourceNodeId = null;
                 tab.canvasOffsetX = 0; tab.canvasOffsetY = 0;
                 tab.scale = 1;
@@ -811,14 +1048,184 @@
                 document.getElementById('polylineBtn').style.background = tab.connectMode === 'polyline' ? 'var(--accent-hover)' : 'var(--border-color)';
             }
 
+            // ★★★ 计算节点拖拽吸附：将节点边缘/中心对齐到其他节点或网格 ★★★
+            // 返回值：{ x, y, guides } —— 调整后的节点 x,y 和辅助线位置
+            function computeNodeSnap(tab, movingNode, proposedX, proposedY) {
+                const guides = { vx: null, vy: null, hx: null, hy: null };
+                let bestX = proposedX, bestY = proposedY;
+
+                // 候选值：节点左边、中心、右边（X）；上边、中心、下边（Y）
+                const moveX = [
+                    { offset: 0, key: 'left' },
+                    { offset: movingNode.width / 2, key: 'center' },
+                    { offset: movingNode.width, key: 'right' }
+                ];
+                const moveY = [
+                    { offset: 0, key: 'top' },
+                    { offset: movingNode.height / 2, key: 'middle' },
+                    { offset: movingNode.height, key: 'bottom' }
+                ];
+
+                // 收集其他节点的对齐候选值
+                const otherX = [];  // { value, type, node }
+                const otherY = [];
+                tab.nodes.forEach(n => {
+                    if (n.id === movingNode.id) return;
+                    otherX.push({ value: n.x, type: 'left', node: n });
+                    otherX.push({ value: n.x + n.width / 2, type: 'center', node: n });
+                    otherX.push({ value: n.x + n.width, type: 'right', node: n });
+                    otherY.push({ value: n.y, type: 'top', node: n });
+                    otherY.push({ value: n.y + n.height / 2, type: 'middle', node: n });
+                    otherY.push({ value: n.y + n.height, type: 'bottom', node: n });
+                });
+
+                // X方向吸附
+                let minDiffX = SNAP_THRESHOLD + 1;
+                moveX.forEach(mx => {
+                    const currentVal = proposedX + mx.offset;
+                    otherX.forEach(o => {
+                        const diff = Math.abs(currentVal - o.value);
+                        if (diff < minDiffX && diff <= SNAP_THRESHOLD) {
+                            minDiffX = diff;
+                            bestX = o.value - mx.offset;
+                            guides.vx = o.value;
+                        }
+                    });
+                });
+
+                // Y方向吸附
+                let minDiffY = SNAP_THRESHOLD + 1;
+                moveY.forEach(my => {
+                    const currentVal = proposedY + my.offset;
+                    otherY.forEach(o => {
+                        const diff = Math.abs(currentVal - o.value);
+                        if (diff < minDiffY && diff <= SNAP_THRESHOLD) {
+                            minDiffY = diff;
+                            bestY = o.value - my.offset;
+                            guides.vy = o.value;
+                        }
+                    });
+                });
+
+                // 如果没有节点对齐，尝试网格吸附（仅在拖拽时）
+                if (guides.vx === null) {
+                    const gridX = Math.round(proposedX / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
+                    if (Math.abs(proposedX - gridX) <= SNAP_THRESHOLD / 2) {
+                        bestX = gridX;
+                        guides.hx = gridX;
+                    }
+                }
+                if (guides.vy === null) {
+                    const gridY = Math.round(proposedY / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
+                    if (Math.abs(proposedY - gridY) <= SNAP_THRESHOLD / 2) {
+                        bestY = gridY;
+                        guides.hy = gridY;
+                    }
+                }
+
+                return { x: bestX, y: bestY, guides };
+            }
+
+            // ★★★ 计算折线拐点吸附：对齐到其他节点、其他拐点或网格 ★★★
+            function computeBendSnap(tab, movingEdge, bendIndex, proposedX, proposedY) {
+                const guides = { vx: null, vy: null, hx: null, hy: null };
+                let bestX = proposedX, bestY = proposedY;
+
+                // 收集候选值
+                const otherX = [];
+                const otherY = [];
+
+                // 其他节点的边和中心
+                tab.nodes.forEach(n => {
+                    otherX.push(n.x);
+                    otherX.push(n.x + n.width / 2);
+                    otherX.push(n.x + n.width);
+                    otherY.push(n.y);
+                    otherY.push(n.y + n.height / 2);
+                    otherY.push(n.y + n.height);
+                });
+
+                // 其他折线的拐点
+                tab.edges.forEach(e => {
+                    if (e.id === movingEdge.id) return;
+                    if (e.polyline && e.bendPoints) {
+                        e.bendPoints.forEach(bp => {
+                            otherX.push(bp.x);
+                            otherY.push(bp.y);
+                        });
+                    }
+                });
+
+                // 本条折线自身另一个拐点（方便对齐同一X或Y）
+                if (movingEdge.bendPoints) {
+                    movingEdge.bendPoints.forEach((bp, i) => {
+                        if (i !== bendIndex) {
+                            otherX.push(bp.x);
+                            otherY.push(bp.y);
+                        }
+                    });
+                }
+
+                // X方向吸附
+                let minDiffX = SNAP_THRESHOLD + 1;
+                otherX.forEach(v => {
+                    const diff = Math.abs(proposedX - v);
+                    if (diff < minDiffX && diff <= SNAP_THRESHOLD) {
+                        minDiffX = diff;
+                        bestX = v;
+                        guides.vx = v;
+                    }
+                });
+
+                // Y方向吸附
+                let minDiffY = SNAP_THRESHOLD + 1;
+                otherY.forEach(v => {
+                    const diff = Math.abs(proposedY - v);
+                    if (diff < minDiffY && diff <= SNAP_THRESHOLD) {
+                        minDiffY = diff;
+                        bestY = v;
+                        guides.vy = v;
+                    }
+                });
+
+                // 网格吸附兜底
+                if (guides.vx === null) {
+                    const gridX = Math.round(proposedX / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
+                    if (Math.abs(proposedX - gridX) <= SNAP_THRESHOLD / 2) {
+                        bestX = gridX;
+                        guides.hx = gridX;
+                    }
+                }
+                if (guides.vy === null) {
+                    const gridY = Math.round(proposedY / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
+                    if (Math.abs(proposedY - gridY) <= SNAP_THRESHOLD / 2) {
+                        bestY = gridY;
+                        guides.hy = gridY;
+                    }
+                }
+
+                return { x: bestX, y: bestY, guides };
+            }
+
+            // ★★★ 渲染函数：边框颜色和连线颜色始终使用自定义颜色，选中时叠加橙色高亮环 ★★★
             function render(tab) {
                 if (!tab.ctx || !tab.canvas) return;
+
+                if (tab.selectedNodeId && tab.selectedEdgeId) {
+                    setSelection(tab, { nodeId: tab.selectedNodeId });
+                }
+                if (tab.selectedNodeId && !getNodeById(tab, tab.selectedNodeId)) {
+                    setSelection(tab, {});
+                }
+                if (tab.selectedEdgeId && !getEdgeById(tab, tab.selectedEdgeId)) {
+                    setSelection(tab, {});
+                }
+
                 const ctx = tab.ctx; const canvas = tab.canvas;
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = '#0a0f1f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.strokeStyle = 'rgba(42,52,82,0.4)'; ctx.lineWidth = 1;
                 const step = 30;
-                // 网格随 offset 和 scale 变化，保持视觉密度
                 const gridStep = step * tab.scale;
                 const offX = ((tab.canvasOffsetX % gridStep) + gridStep) % gridStep;
                 const offY = ((tab.canvasOffsetY % gridStep) + gridStep) % gridStep;
@@ -858,6 +1265,8 @@
                         endY = intersection.y;
                     }
 
+                    const lineColor = isValidColor(edge.color) ? edge.color : DEFAULT_EDGE_COLOR;
+
                     ctx.beginPath();
                     if (edge.polyline && bendPoints && bendPoints.length === 2) {
                         ctx.moveTo(fromC.x, fromC.y);
@@ -868,11 +1277,19 @@
                         ctx.moveTo(fromC.x, fromC.y);
                         ctx.lineTo(endX, endY);
                     }
-                    ctx.strokeStyle = isSelected ? '#f97316' : '#64748b';
+                    ctx.strokeStyle = lineColor;
                     ctx.lineWidth = isSelected ? 3.5 : 2.5;
                     ctx.stroke();
 
-                    // 标签
+                    if (isSelected) {
+                        ctx.save();
+                        ctx.strokeStyle = SELECTED_EDGE_COLOR;
+                        ctx.lineWidth = 7;
+                        ctx.globalAlpha = 0.22;
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+
                     if (edge.label) {
                         let lx, ly;
                         if (edge.polyline && bendPoints && bendPoints.length === 2) {
@@ -888,7 +1305,6 @@
                         ctx.fillText(edge.label, lx, ly - 12);
                     }
 
-                    // 折点手柄
                     if (isSelected && edge.polyline && bendPoints && bendPoints.length === 2) {
                         bendPoints.forEach(bp => {
                             ctx.beginPath(); ctx.arc(bp.x, bp.y, 6, 0, Math.PI * 2);
@@ -900,11 +1316,8 @@
 
                 // 绘制节点
                 tab.nodes.forEach(node => {
-                    const colors = {
-                        rect: { fill: '#1e2a4a', border: '#3b82f6' },
-                        circle: { fill: '#1a2a3a', border: '#10b981' },
-                        diamond: { fill: '#2a2418', border: '#f59e0b' }
-                    }[node.type] || { fill: '#1e2a4a', border: '#3b82f6' };
+                    const fillColor = isValidColor(node.fillColor) ? node.fillColor : (DEFAULT_NODE_COLORS[node.type]?.fill || '#1e2a4a');
+                    const borderColor = isValidColor(node.borderColor) ? node.borderColor : (DEFAULT_NODE_COLORS[node.type]?.border || '#3b82f6');
                     const isSelected = tab.selectedNodeId === node.id;
                     const isConnectSource = tab.connectMode && tab.connectSourceNodeId === node.id;
                     ctx.save();
@@ -912,9 +1325,16 @@
                     if (node.type === 'circle') {
                         const c = getNodeCenter(node); const r = Math.min(node.width, node.height) / 2;
                         ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
-                        ctx.fillStyle = colors.fill; ctx.fill();
-                        ctx.strokeStyle = isConnectSource ? '#f97316' : (isSelected ? '#e67e22' : colors.border);
-                        ctx.lineWidth = isConnectSource ? 4 : (isSelected ? 3 : 2.5); ctx.stroke();
+                        ctx.fillStyle = fillColor; ctx.fill();
+                        ctx.strokeStyle = isConnectSource ? '#f97316' : borderColor;
+                        ctx.lineWidth = isConnectSource ? 4 : (isSelected ? 3.5 : 2.5); ctx.stroke();
+                        if (isSelected && !isConnectSource) {
+                            ctx.save();
+                            ctx.shadowColor = '#e67e22'; ctx.shadowBlur = 14;
+                            ctx.strokeStyle = '#e67e22'; ctx.lineWidth = 2.5; ctx.globalAlpha = 0.75;
+                            ctx.stroke();
+                            ctx.restore();
+                        }
                         ctx.fillStyle = '#ffffff'; ctx.font = '500 14px "Segoe UI", sans-serif';
                         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                         ctx.fillText(node.text || '开始/结束', c.x, c.y);
@@ -923,17 +1343,31 @@
                         ctx.beginPath();
                         ctx.moveTo(c.x, node.y); ctx.lineTo(node.x + node.width, c.y);
                         ctx.lineTo(c.x, node.y + node.height); ctx.lineTo(node.x, c.y); ctx.closePath();
-                        ctx.fillStyle = colors.fill; ctx.fill();
-                        ctx.strokeStyle = isConnectSource ? '#f97316' : (isSelected ? '#e67e22' : colors.border);
-                        ctx.lineWidth = isConnectSource ? 4 : (isSelected ? 3 : 2.5); ctx.stroke();
+                        ctx.fillStyle = fillColor; ctx.fill();
+                        ctx.strokeStyle = isConnectSource ? '#f97316' : borderColor;
+                        ctx.lineWidth = isConnectSource ? 4 : (isSelected ? 3.5 : 2.5); ctx.stroke();
+                        if (isSelected && !isConnectSource) {
+                            ctx.save();
+                            ctx.shadowColor = '#e67e22'; ctx.shadowBlur = 14;
+                            ctx.strokeStyle = '#e67e22'; ctx.lineWidth = 2.5; ctx.globalAlpha = 0.75;
+                            ctx.stroke();
+                            ctx.restore();
+                        }
                         ctx.fillStyle = '#ffffff'; ctx.font = '500 13px "Segoe UI", sans-serif';
                         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                         ctx.fillText(node.text || '分支', c.x, c.y);
                     } else {
                         ctx.beginPath(); ctx.roundRect(node.x, node.y, node.width, node.height, 12);
-                        ctx.fillStyle = colors.fill; ctx.fill();
-                        ctx.strokeStyle = isConnectSource ? '#f97316' : (isSelected ? '#e67e22' : colors.border);
-                        ctx.lineWidth = isConnectSource ? 4 : (isSelected ? 3 : 2.5); ctx.stroke();
+                        ctx.fillStyle = fillColor; ctx.fill();
+                        ctx.strokeStyle = isConnectSource ? '#f97316' : borderColor;
+                        ctx.lineWidth = isConnectSource ? 4 : (isSelected ? 3.5 : 2.5); ctx.stroke();
+                        if (isSelected && !isConnectSource) {
+                            ctx.save();
+                            ctx.shadowColor = '#e67e22'; ctx.shadowBlur = 14;
+                            ctx.strokeStyle = '#e67e22'; ctx.lineWidth = 2.5; ctx.globalAlpha = 0.75;
+                            ctx.stroke();
+                            ctx.restore();
+                        }
                         ctx.fillStyle = '#ffffff'; ctx.font = '500 14px "Segoe UI", sans-serif';
                         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                         ctx.fillText(node.text || '节点', node.x + node.width / 2, node.y + node.height / 2);
@@ -965,17 +1399,62 @@
                     const wingX2 = baseX + wingOff * Math.cos(angle + Math.PI / 2.5);
                     const wingY2 = baseY + wingOff * Math.sin(angle + Math.PI / 2.5);
 
+                    const arrowColor = isValidColor(edge.color) ? edge.color : DEFAULT_EDGE_COLOR;
+
                     ctx.beginPath();
                     ctx.moveTo(tipX, tipY);
                     ctx.lineTo(wingX1, wingY1);
                     ctx.lineTo(wingX2, wingY2);
                     ctx.closePath();
-                    ctx.fillStyle = isSelected ? '#f97316' : '#64748b';
+                    ctx.fillStyle = arrowColor;
                     ctx.fill();
-                    ctx.strokeStyle = isSelected ? '#f97316' : '#64748b';
+                    ctx.strokeStyle = arrowColor;
                     ctx.lineWidth = 1;
                     ctx.stroke();
+
+                    if (isSelected) {
+                        ctx.save();
+                        ctx.globalAlpha = 0.35;
+                        ctx.strokeStyle = SELECTED_EDGE_COLOR;
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                        ctx.restore();
+                    }
                 });
+
+                // ★★★ 绘制吸附辅助线（虚线） ★★★
+                if (tab.snapGuides) {
+                    const sg = tab.snapGuides;
+                    ctx.save();
+                    ctx.setLineDash([6, 4]);
+                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = 'rgba(76, 154, 255, 0.7)';
+                    if (sg.vx !== null) {
+                        ctx.beginPath();
+                        ctx.moveTo(sg.vx, -10000);
+                        ctx.lineTo(sg.vx, 10000);
+                        ctx.stroke();
+                    }
+                    if (sg.vy !== null) {
+                        ctx.beginPath();
+                        ctx.moveTo(-10000, sg.vy);
+                        ctx.lineTo(10000, sg.vy);
+                        ctx.stroke();
+                    }
+                    if (sg.hx !== null) {
+                        ctx.beginPath();
+                        ctx.moveTo(sg.hx, -10000);
+                        ctx.lineTo(sg.hx, 10000);
+                        ctx.stroke();
+                    }
+                    if (sg.hy !== null) {
+                        ctx.beginPath();
+                        ctx.moveTo(-10000, sg.hy);
+                        ctx.lineTo(10000, sg.hy);
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+                }
 
                 // 临时连线
                 if (tab.connectMode && tab.connectSourceNodeId) {
@@ -1051,22 +1530,29 @@
 
                     if (tab.connectMode) {
                         if (clickedNode) {
-                            if (!tab.connectSourceNodeId) { tab.connectSourceNodeId = clickedNode.id; tab.selectedNodeId = clickedNode.id; }
-                            else { if (tab.connectSourceNodeId !== clickedNode.id) addEdge(tab, tab.connectSourceNodeId, clickedNode.id); else tab.connectSourceNodeId = null; }
+                            if (!tab.connectSourceNodeId) {
+                                tab.connectSourceNodeId = clickedNode.id;
+                                setSelection(tab, { nodeId: clickedNode.id });
+                            } else {
+                                if (tab.connectSourceNodeId !== clickedNode.id) addEdge(tab, tab.connectSourceNodeId, clickedNode.id);
+                                else tab.connectSourceNodeId = null;
+                            }
                             render(tab);
                         }
                         return;
                     }
 
                     if (clickedNode) {
-                        tab.selectedNodeId = clickedNode.id; tab.selectedEdgeId = null;
-                        tab.isDraggingNode = true; tab.dragNodeId = clickedNode.id;
+                        setSelection(tab, { nodeId: clickedNode.id });
+                        tab.isDraggingNode = true;
+                        tab.dragNodeId = clickedNode.id;
                         tab.dragOffsetX = cp.x - clickedNode.x; tab.dragOffsetY = cp.y - clickedNode.y;
                         render(tab);
                     } else if (clickedEdge) {
-                        tab.selectedEdgeId = clickedEdge.id; tab.selectedNodeId = null; render(tab);
+                        setSelection(tab, { edgeId: clickedEdge.id });
+                        render(tab);
                     } else {
-                        tab.selectedNodeId = null; tab.selectedEdgeId = null;
+                        setSelection(tab, {});
                         tab.isPanning = true; tab.panStartX = e.clientX; tab.panStartY = e.clientY;
                         tab.panStartOffsetX = tab.canvasOffsetX; tab.panStartOffsetY = tab.canvasOffsetY;
                         render(tab);
@@ -1084,13 +1570,26 @@
                     const cp = screenToCanvas(tab, sx, sy);
                     if (tab.isDraggingNode && tab.dragNodeId) {
                         const node = getNodeById(tab, tab.dragNodeId);
-                        if (node) { node.x = cp.x - tab.dragOffsetX; node.y = cp.y - tab.dragOffsetY; render(tab); saveAllToLocal(); }
+                        if (node) {
+                            const proposedX = cp.x - tab.dragOffsetX;
+                            const proposedY = cp.y - tab.dragOffsetY;
+                            // ★ 计算吸附
+                            const snap = computeNodeSnap(tab, node, proposedX, proposedY);
+                            node.x = snap.x;
+                            node.y = snap.y;
+                            tab.snapGuides = snap.guides;
+                            render(tab); saveAllToLocal();
+                        }
                     } else if (tab.dragBendEdgeId && tab.dragBendIndex >= 0) {
                         const edge = getEdgeById(tab, tab.dragBendEdgeId);
                         if (edge?.bendPoints?.[tab.dragBendIndex]) {
-                            edge.bendPoints[tab.dragBendIndex].x = cp.x;
-                            edge.bendPoints[tab.dragBendIndex].y = cp.y;
-                            edge.manualBend = true; render(tab); saveAllToLocal();
+                            // ★ 计算折线拐点吸附
+                            const snap = computeBendSnap(tab, edge, tab.dragBendIndex, cp.x, cp.y);
+                            edge.bendPoints[tab.dragBendIndex].x = snap.x;
+                            edge.bendPoints[tab.dragBendIndex].y = snap.y;
+                            edge.manualBend = true;
+                            tab.snapGuides = snap.guides;
+                            render(tab); saveAllToLocal();
                         }
                     } else if (tab.connectMode && tab.connectSourceNodeId) { render(tab); }
                 });
@@ -1099,11 +1598,15 @@
                     if (tab.isPanning) { tab.isPanning = false; saveAllToLocal(); }
                     tab.isDraggingNode = false; tab.dragNodeId = null;
                     tab.dragBendEdgeId = null; tab.dragBendIndex = -1;
+                    clearSnapGuides(tab);
+                    render(tab);
                 });
                 canvas.addEventListener('mouseleave', () => {
                     if (tab.isPanning) { tab.isPanning = false; saveAllToLocal(); }
                     tab.isDraggingNode = false; tab.dragNodeId = null;
                     tab.dragBendEdgeId = null; tab.dragBendIndex = -1;
+                    clearSnapGuides(tab);
+                    render(tab);
                 });
                 canvas.addEventListener('dblclick', (e) => {
                     const { sx, sy } = getEventPos(e);
@@ -1114,12 +1617,10 @@
                 });
                 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-                // 滚轮缩放
                 canvas.addEventListener('wheel', (e) => {
                     e.preventDefault();
                     const { sx, sy } = getEventPos(e);
 
-                    // 鼠标在画布坐标系中的位置（缩放前）
                     const before = screenToCanvas(tab, sx, sy);
 
                     const zoomFactor = e.deltaY < 0 ? WHEEL_FACTOR : 1 / WHEEL_FACTOR;
@@ -1127,7 +1628,6 @@
                     if (newScale === tab.scale) return;
                     tab.scale = newScale;
 
-                    // 调整 offset，使鼠标下的点保持不动
                     tab.canvasOffsetX = sx - before.x * tab.scale;
                     tab.canvasOffsetY = sy - before.y * tab.scale;
 
@@ -1172,13 +1672,22 @@
 
             function exportTabJson(tab) {
                 return {
-                    version: '2.0', canvasName: tab.name,
+                    version: '2.1', canvasName: tab.name,
                     canvasOffset: { x: tab.canvasOffsetX, y: tab.canvasOffsetY },
                     scale: tab.scale,
-                    nodes: tab.nodes.map(n => ({ id: n.id, type: n.type, text: n.text || '', x: n.x, y: n.y, width: n.width, height: n.height })),
+                    nodes: tab.nodes.map(n => ({ 
+                        id: n.id, type: n.type, text: n.text || '', 
+                        x: n.x, y: n.y, width: n.width, height: n.height, 
+                        fillColor: n.fillColor, 
+                        borderColor: n.borderColor 
+                    })),
                     edges: tab.edges.map(e => ({
-                        id: e.id, from: e.from, to: e.to, type: e.polyline ? 'polyline' : 'straight',
-                        label: e.label || '', bendPoints: e.polyline ? e.bendPoints : null, manualBend: e.manualBend || false
+                        id: e.id, from: e.from, to: e.to, 
+                        type: e.polyline ? 'polyline' : 'straight',
+                        label: e.label || '', 
+                        bendPoints: e.polyline ? e.bendPoints : null, 
+                        manualBend: e.manualBend || false,
+                        color: e.color || DEFAULT_EDGE_COLOR
                     }))
                 };
             }
@@ -1200,12 +1709,36 @@
             function importTabJson(tab, jsonStr) {
                 try {
                     const data = JSON.parse(jsonStr);
-                    if (!data.nodes || !Array.isArray(data.nodes) || !data.edges || !Array.isArray(data.edges)) { showTip('无效JSON'); return; }
-                    tab.nodes = data.nodes.map(n => ({ id: n.id, type: n.type || 'rect', text: n.text || '节点', x: Number(n.x) || 100, y: Number(n.y) || 100, width: Number(n.width) || 150, height: Number(n.height) || 60 }));
-                    tab.edges = data.edges.map(e => { const isPolyline = e.type === 'polyline'; return { id: e.id, from: e.from, to: e.to, label: e.label || '', polyline: isPolyline, bendPoints: isPolyline ? (e.bendPoints || []) : null, manualBend: e.manualBend || false }; });
+                    if (!data.nodes || !Array.isArray(data.nodes) || !data.edges || !Array.isArray(data.edges)) { 
+                        showTip('无效JSON'); 
+                        return; 
+                    }
+                    tab.nodes = data.nodes.map(n => {
+                        const type = n.type || 'rect';
+                        const defaults = DEFAULT_NODE_COLORS[type] || DEFAULT_NODE_COLORS.rect;
+                        return {
+                            id: n.id, type, text: n.text || '节点',
+                            x: Number(n.x) || 100, y: Number(n.y) || 100,
+                            width: Number(n.width) || 150, height: Number(n.height) || 60,
+                            fillColor: isValidColor(n.fillColor) ? n.fillColor : defaults.fill,
+                            borderColor: isValidColor(n.borderColor) ? n.borderColor : defaults.border
+                        };
+                    });
+                    tab.edges = data.edges.map(e => {
+                        const isPolyline = e.type === 'polyline';
+                        return {
+                            id: e.id, from: e.from, to: e.to, label: e.label || '',
+                            polyline: isPolyline, bendPoints: isPolyline ? (e.bendPoints || []) : null,
+                            manualBend: e.manualBend || false,
+                            color: isValidColor(e.color) ? e.color : DEFAULT_EDGE_COLOR
+                        };
+                    });
                     tab.canvasOffsetX = data.canvasOffset?.x || 0; tab.canvasOffsetY = data.canvasOffset?.y || 0;
                     tab.scale = data.scale || 1;
-                    tab.selectedNodeId = null; tab.selectedEdgeId = null;
+
+                    ensureUniqueIds(tab);
+
+                    setSelection(tab, {});
                     render(tab); updateZoomIndicator(tab); saveAllToLocal(); showTip('导入成功');
                 } catch (e) { showTip('JSON解析失败'); }
             }
@@ -1221,20 +1754,287 @@
                 document.addEventListener('mousemove', (e) => { if (e.clientX <= 60 && e.clientY > 60 && e.clientY < window.innerHeight - 20) { clearTimeout(hideTimeout); wrapper.classList.add('menu-visible'); } });
             }
 
-            function initContextMenu() {
-                const menu = document.getElementById('contextMenu');
-                document.addEventListener('contextmenu', (e) => {
-                    e.preventDefault(); menu.style.display = 'block';
-                    menu.style.left = Math.min(e.clientX, window.innerWidth - 200) + 'px';
-                    menu.style.top = Math.min(e.clientY, window.innerHeight - 120) + 'px';
-                    const closeMenu = () => { menu.style.display = 'none'; document.removeEventListener('click', closeMenu); };
-                    setTimeout(() => document.addEventListener('click', closeMenu), 10);
+            function initColorPanel() {
+                const presetColors = [
+                    '#1e2a4a', '#3b82f6', '#10b981', '#f59e0b', '#ef4444',
+                    '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#64748b',
+                    '#94a3b8', '#facc15', '#fb923c', '#a78bfa', '#f472b6'
+                ];
+
+                function buildSwatches(containerId, inputId, applyCallback) {
+                    const container = document.getElementById(containerId);
+                    const input = document.getElementById(inputId);
+                    container.innerHTML = '';
+                    presetColors.forEach(color => {
+                        const div = document.createElement('div');
+                        div.className = 'color-swatch';
+                        div.style.backgroundColor = color;
+                        div.dataset.color = color;
+                        div.addEventListener('click', () => {
+                            container.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+                            div.classList.add('selected');
+                            input.value = color;
+                            if (applyCallback) applyCallback(color);
+                        });
+                        container.appendChild(div);
+                    });
+                }
+
+                buildSwatches('fillSwatches', 'fillColorPicker', (color) => {
+                    const tab = getActiveTab();
+                    if (tab && tab.selectedNodeId) {
+                        const node = getNodeById(tab, tab.selectedNodeId);
+                        if (node) {
+                            node.fillColor = color;
+                            render(tab); saveAllToLocal();
+                            showTip('填充色已更新');
+                        }
+                    } else {
+                        showTip('请先选中一个节点');
+                    }
                 });
-                document.getElementById('ctxExportJson').addEventListener('click', () => { const tab = getActiveTab(); if (tab) downloadJSON(exportTabJson(tab), `flowchart_${tab.name}_${Date.now()}.json`); menu.style.display = 'none'; });
-                document.getElementById('ctxExportPng').addEventListener('click', () => { const tab = getActiveTab(); if (tab) exportTabImage(tab); menu.style.display = 'none'; });
+
+                buildSwatches('borderSwatches', 'borderColorPicker', (color) => {
+                    const tab = getActiveTab();
+                    if (tab && tab.selectedNodeId) {
+                        const node = getNodeById(tab, tab.selectedNodeId);
+                        if (node) {
+                            node.borderColor = color;
+                            render(tab); saveAllToLocal();
+                            showTip('边框色已更新');
+                        }
+                    } else {
+                        showTip('请先选中一个节点');
+                    }
+                });
+
+                buildSwatches('edgeSwatches', 'edgeColorPicker', (color) => {
+                    const tab = getActiveTab();
+                    if (tab && tab.selectedEdgeId) {
+                        const edge = getEdgeById(tab, tab.selectedEdgeId);
+                        if (edge) {
+                            edge.color = color;
+                            render(tab); saveAllToLocal();
+                            showTip('连线颜色已更新');
+                        }
+                    } else {
+                        showTip('请先选中一条连线');
+                    }
+                });
+
+                document.getElementById('applyFillColor').addEventListener('click', () => {
+                    const color = document.getElementById('fillColorPicker').value;
+                    const tab = getActiveTab();
+                    if (tab && tab.selectedNodeId) {
+                        const node = getNodeById(tab, tab.selectedNodeId);
+                        if (node) { node.fillColor = color; render(tab); saveAllToLocal(); showTip('填充色已应用'); }
+                    } else showTip('请先选中一个节点');
+                });
+
+                document.getElementById('applyBorderColor').addEventListener('click', () => {
+                    const color = document.getElementById('borderColorPicker').value;
+                    const tab = getActiveTab();
+                    if (tab && tab.selectedNodeId) {
+                        const node = getNodeById(tab, tab.selectedNodeId);
+                        if (node) { node.borderColor = color; render(tab); saveAllToLocal(); showTip('边框色已应用'); }
+                    } else showTip('请先选中一个节点');
+                });
+
+                document.getElementById('applyEdgeColor').addEventListener('click', () => {
+                    const color = document.getElementById('edgeColorPicker').value;
+                    const tab = getActiveTab();
+                    if (tab && tab.selectedEdgeId) {
+                        const edge = getEdgeById(tab, tab.selectedEdgeId);
+                        if (edge) { edge.color = color; render(tab); saveAllToLocal(); showTip('连线颜色已应用'); }
+                    } else showTip('请先选中一条连线');
+                });
             }
 
-            // 以视图中心为锚点缩放
+            function initContextMenu() {
+                const menu = document.getElementById('contextMenu');
+                const ctxExportJson = document.getElementById('ctxExportJson');
+                const ctxExportPng = document.getElementById('ctxExportPng');
+                const ctxReplaceRect = document.getElementById('ctxReplaceRect');
+                const ctxReplaceCircle = document.getElementById('ctxReplaceCircle');
+                const ctxReplaceDiamond = document.getElementById('ctxReplaceDiamond');
+                const ctxReplaceStraight = document.getElementById('ctxReplaceStraight');
+                const ctxReplacePolyline = document.getElementById('ctxReplacePolyline');
+                const ctxQuickFill = document.getElementById('ctxQuickFill');
+                const ctxQuickBorder = document.getElementById('ctxQuickBorder');
+                const ctxQuickEdgeColor = document.getElementById('ctxQuickEdgeColor');
+
+                let rightClickedTab = null;
+                let rightClickedNodeId = null;
+                let rightClickedEdgeId = null;
+
+                document.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    const tab = getActiveTab();
+                    if (!tab) return;
+
+                    const canvas = tab.canvas;
+                    const rect = canvas.getBoundingClientRect();
+                    const scaleX = canvas.width / rect.width;
+                    const scaleY = canvas.height / rect.height;
+                    const sx = (e.clientX - rect.left) * scaleX;
+                    const sy = (e.clientY - rect.top) * scaleY;
+                    const cp = screenToCanvas(tab, sx, sy);
+
+                    const clickedNode = getNodeAtPosition(tab, cp.x, cp.y);
+                    const clickedEdge = !clickedNode ? getEdgeAtPosition(tab, cp.x, cp.y) : null;
+
+                    rightClickedTab = tab;
+                    rightClickedNodeId = clickedNode ? clickedNode.id : null;
+                    rightClickedEdgeId = clickedEdge ? clickedEdge.id : null;
+
+                    if (clickedNode) {
+                        setSelection(tab, { nodeId: clickedNode.id });
+                        render(tab);
+                    } else if (clickedEdge) {
+                        setSelection(tab, { edgeId: clickedEdge.id });
+                        render(tab);
+                    }
+
+                    const nodeItems = [ctxReplaceRect, ctxReplaceCircle, ctxReplaceDiamond];
+                    const edgeItems = [ctxReplaceStraight, ctxReplacePolyline];
+                    const colorItems = [ctxQuickFill, ctxQuickBorder, ctxQuickEdgeColor];
+
+                    if (clickedNode) {
+                        nodeItems.forEach(item => item.style.display = 'flex');
+                        edgeItems.forEach(item => item.style.display = 'none');
+                        ctxQuickFill.style.display = 'flex';
+                        ctxQuickBorder.style.display = 'flex';
+                        ctxQuickEdgeColor.style.display = 'none';
+                    } else if (clickedEdge) {
+                        nodeItems.forEach(item => item.style.display = 'none');
+                        edgeItems.forEach(item => item.style.display = 'flex');
+                        ctxQuickFill.style.display = 'none';
+                        ctxQuickBorder.style.display = 'none';
+                        ctxQuickEdgeColor.style.display = 'flex';
+                    } else {
+                        nodeItems.forEach(item => item.style.display = 'none');
+                        edgeItems.forEach(item => item.style.display = 'none');
+                        colorItems.forEach(item => item.style.display = 'none');
+                    }
+
+                    menu.style.display = 'block';
+                    menu.style.left = Math.min(e.clientX, window.innerWidth - 220) + 'px';
+                    menu.style.top = Math.min(e.clientY, window.innerHeight - (clickedNode || clickedEdge ? 280 : 120)) + 'px';
+
+                    const closeMenu = () => {
+                        menu.style.display = 'none';
+                        document.removeEventListener('click', closeMenu);
+                    };
+                    setTimeout(() => document.addEventListener('click', closeMenu), 10);
+                });
+
+                ctxQuickFill.addEventListener('click', () => {
+                    document.getElementById('accordionMenuWrapper').classList.add('menu-visible');
+                    showTip('请在左侧菜单中使用填充色选择器');
+                    menu.style.display = 'none';
+                });
+                ctxQuickBorder.addEventListener('click', () => {
+                    document.getElementById('accordionMenuWrapper').classList.add('menu-visible');
+                    showTip('请在左侧菜单中使用边框色选择器');
+                    menu.style.display = 'none';
+                });
+                ctxQuickEdgeColor.addEventListener('click', () => {
+                    document.getElementById('accordionMenuWrapper').classList.add('menu-visible');
+                    showTip('请在左侧菜单中使用连线颜色选择器');
+                    menu.style.display = 'none';
+                });
+
+                ctxExportJson.addEventListener('click', () => {
+                    const tab = getActiveTab();
+                    if (tab) downloadJSON(exportTabJson(tab), `flowchart_${tab.name}_${Date.now()}.json`);
+                    menu.style.display = 'none';
+                });
+
+                ctxExportPng.addEventListener('click', () => {
+                    const tab = getActiveTab();
+                    if (tab) exportTabImage(tab);
+                    menu.style.display = 'none';
+                });
+
+                function replaceNodeType(newType) {
+                    if (!rightClickedTab || !rightClickedNodeId) return;
+                    const tab = rightClickedTab;
+                    const node = getNodeById(tab, rightClickedNodeId);
+                    if (!node) return;
+
+                    const savedFill = node.fillColor;
+                    const savedBorder = node.borderColor;
+
+                    const center = getNodeCenter(node);
+                    let width, height;
+                    if (newType === 'circle') { width = 80; height = 80; }
+                    else if (newType === 'diamond') { width = 130; height = 100; }
+                    else { width = 150; height = 60; }
+
+                    node.type = newType;
+                    node.width = width;
+                    node.height = height;
+                    node.x = center.x - width / 2;
+                    node.y = center.y - height / 2;
+
+                    if (isValidColor(savedFill)) {
+                        node.fillColor = savedFill;
+                    } else {
+                        node.fillColor = DEFAULT_NODE_COLORS[newType]?.fill || '#1e2a4a';
+                    }
+                    if (isValidColor(savedBorder)) {
+                        node.borderColor = savedBorder;
+                    } else {
+                        node.borderColor = DEFAULT_NODE_COLORS[newType]?.border || '#3b82f6';
+                    }
+
+                    if (!node.text || node.text === '节点' || node.text === '开始/结束' || node.text === '分支') {
+                        node.text = newType === 'circle' ? '开始/结束' : (newType === 'diamond' ? '分支' : '节点');
+                    }
+
+                    setSelection(tab, { nodeId: node.id });
+                    render(tab); saveAllToLocal();
+                    showTip(`已替换为${newType === 'circle' ? '圆形' : (newType === 'diamond' ? '菱形' : '矩形')}节点，颜色已保留`);
+                    menu.style.display = 'none';
+                }
+
+                ctxReplaceRect.addEventListener('click', () => replaceNodeType('rect'));
+                ctxReplaceCircle.addEventListener('click', () => replaceNodeType('circle'));
+                ctxReplaceDiamond.addEventListener('click', () => replaceNodeType('diamond'));
+
+                function replaceEdgeType(toPolyline) {
+                    if (!rightClickedTab || !rightClickedEdgeId) return;
+                    const tab = rightClickedTab;
+                    const edge = getEdgeById(tab, rightClickedEdgeId);
+                    if (!edge) return;
+
+                    if (edge.polyline === toPolyline) {
+                        showTip(`已经是${toPolyline ? '折线' : '直线'}连线`);
+                        menu.style.display = 'none';
+                        return;
+                    }
+
+                    edge.polyline = toPolyline;
+                    if (toPolyline) {
+                        if (!edge.bendPoints || edge.bendPoints.length !== 2) {
+                            edge.bendPoints = getBendPoints(tab, edge);
+                        }
+                        edge.manualBend = false;
+                    } else {
+                        edge.bendPoints = null;
+                        edge.manualBend = false;
+                    }
+
+                    setSelection(tab, { edgeId: edge.id });
+                    render(tab); saveAllToLocal();
+                    showTip(`已替换为${toPolyline ? '折线' : '直线'}连线`);
+                    menu.style.display = 'none';
+                }
+
+                ctxReplaceStraight.addEventListener('click', () => replaceEdgeType(false));
+                ctxReplacePolyline.addEventListener('click', () => replaceEdgeType(true));
+            }
+
             function zoomByFactor(tab, factor) {
                 if (!tab) return;
                 const canvas = tab.canvas;
@@ -1262,7 +2062,7 @@
             }
 
             function init() {
-                initMenu(); initContextMenu();
+                initMenu(); initContextMenu(); initColorPanel();
                 const loaded = loadFromLocal();
                 if (!loaded || tabs.length === 0) {
                     const tab = createNewTab('默认画布');
@@ -1289,5 +2089,4 @@
         })();
     </script>
 </body>
-
 </html>
