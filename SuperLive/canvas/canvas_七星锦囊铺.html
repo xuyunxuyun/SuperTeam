@@ -1,0 +1,3688 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<!--
+    **以下版权声明和版本历史为页面一部分，AI优化时请不要省略**
+-->
+<!--
+    SPDX-License-Identifier: CC-BY-NC-SA-4.0
+    本文件是"汉末废柴堆 · 超级团队组建系统"的一部分。
+    完整项目受 CC BY-NC-SA 4.0 许可证保护，详见根目录 LICENSE 文件。
+    本项目核心设计思想、架构方案、方法论受 NOTICE 文件独立保护。
+    个人可免费使用，严禁用于商业目的。
+    商业授权请联系：xxuuyyuunn@sina.com
+-->
+<!--
+    **版本历史**
+    | 版本号 | 过程节点说明 | 修订人 | 修订日期 | 修订内容 |
+    | :----- | :----------- | :----- | :------- | :------- |
+    | V0.1.0 | 初稿创建     | 徐昀 | 2026-10-12 | 根据用户需求生成 |
+    | V0.1.1 | 音频扩展     | 徐昀 | 2026-10-23 | 新增音频标签页 / BGM 分组 / JSON 注入 / 校验器扩展 |
+    | V0.1.2 | 规则更新     | 徐昀 | 2026-10-26 | 检查规则更新，增加PNG / MP3文件压缩 |
+-->
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>超级现场 · 七星锦囊铺</title>
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    font-family: 'Segoe UI', 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+    background: #0a0f1c; color: #e0e0e0; user-select: none;
+  }
+  :root {
+    --bg-deep: #0a0f1c;
+    --bg-card: #111827;
+    --bg-elevated: #1a1f2e;
+    --border-subtle: #2a3452;
+    --border-glow: rgba(76, 154, 255, 0.4);
+    --primary-blue: #4c9aff;
+    --primary-blue-dark: #3b82f6;
+    --text-primary: #e0e0e0;
+    --text-secondary: #9aa9c1;
+    --text-muted: #6b7a8f;
+    --accent-danger: #f56565;
+    --accent-warn: #f0a542;
+    --accent-success: #4ade80;
+    --shadow-glow: 0 0 12px rgba(76, 154, 255, 0.2);
+  }
+
+  #app {
+    width: 100vw; height: 100vh;
+    display: grid;
+    grid-template-rows: 56px 52px 1fr 52px;
+    background: var(--bg-deep);
+  }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: linear-gradient(180deg, rgba(17,24,39,0.9), rgba(10,15,28,0.6));
+  }
+  header h1 {
+    font-size: 17px; font-weight: 600;
+    background: linear-gradient(135deg, #e0f2fe, #60a5fa);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; letter-spacing: 0.3px;
+  }
+  header .header-right { display: flex; align-items: center; gap: 12px; }
+  #statusBadge {
+    font-size: 12px; color: var(--text-secondary);
+    background: rgba(17,24,39,0.8);
+    padding: 5px 14px; border-radius: 30px;
+    border: 1px solid var(--border-subtle);
+  }
+  #statusBadge.ok { color: var(--accent-success); border-color: rgba(74,222,128,0.4); }
+  #statusBadge.err { color: var(--accent-danger); border-color: rgba(245,101,101,0.4); }
+  #statusBadge.warn { color: var(--accent-warn); border-color: rgba(240,165,66,0.4); }
+  #newTaskBtn {
+    background: rgba(17,24,39,0.85);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    padding: 6px 16px; border-radius: 30px;
+    font-size: 13px; cursor: pointer;
+    transition: all 0.2s; font-family: inherit;
+  }
+  #newTaskBtn:hover { border-color: var(--primary-blue); color: var(--primary-blue); box-shadow: var(--shadow-glow); }
+
+  nav#tabs {
+    display: flex; align-items: stretch;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: rgba(10,15,28,0.5);
+    gap: 4px;
+    overflow-x: auto;
+  }
+  nav#tabs button {
+    background: transparent; border: none; color: var(--text-muted);
+    font-size: 14px; font-family: inherit;
+    padding: 0 20px; cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s; position: relative;
+    white-space: nowrap;
+  }
+  nav#tabs button:hover { color: var(--text-secondary); }
+  nav#tabs button.active { color: var(--primary-blue); border-bottom-color: var(--primary-blue); }
+  nav#tabs button .tab-badge {
+    display: inline-block;
+    background: rgba(76,154,255,0.15); color: var(--primary-blue);
+    font-size: 11px; padding: 1px 7px; border-radius: 10px; margin-left: 6px;
+  }
+  nav#tabs button .tab-badge.warn { background: rgba(240,165,66,0.15); color: var(--accent-warn); }
+  nav#tabs button .tab-badge.err { background: rgba(245,101,101,0.15); color: var(--accent-danger); }
+  nav#tabs button .tab-badge.ok { background: rgba(74,222,128,0.15); color: var(--accent-success); }
+
+  main { overflow: hidden; position: relative; }
+  section.tab-pane { position: absolute; inset: 0; display: none; overflow: hidden; }
+  section.tab-pane.active { display: flex; }
+
+  /* Tab 1 */
+  #tab1 { flex-direction: row; gap: 0; }
+  #tab1 .left-col {
+    flex: 1; padding: 24px 28px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 18px;
+  }
+  #tab1 .right-col {
+    width: 460px; border-left: 1px solid var(--border-subtle);
+    background: rgba(17,24,39,0.5); overflow-y: auto; padding: 24px 24px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .upload-zone {
+    background: var(--bg-card); border: 1px solid var(--border-subtle);
+    border-radius: 16px; padding: 18px 20px; transition: all 0.2s;
+  }
+  .upload-zone:hover { border-color: var(--border-glow); }
+  .upload-zone.has-file { border-color: rgba(74,222,128,0.4); background: rgba(74,222,128,0.04); }
+  .upload-zone.has-error { border-color: rgba(245,101,101,0.4); background: rgba(245,101,101,0.04); }
+  .upload-zone-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .upload-zone-header h3 { font-size: 14px; font-weight: 600; color: var(--text-primary); letter-spacing: 0.04em; }
+  .upload-zone-header .required { font-size: 11px; color: var(--accent-danger); background: rgba(245,101,101,0.12); padding: 2px 8px; border-radius: 10px; }
+  .upload-zone-header .optional { font-size: 11px; color: var(--text-muted); background: rgba(107,122,143,0.15); padding: 2px 8px; border-radius: 10px; }
+  .upload-zone-body { display: flex; flex-direction: column; gap: 8px; }
+  .file-row {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+    border-radius: 10px; padding: 8px 12px; font-size: 13px;
+  }
+  .file-row .file-icon { font-size: 16px; }
+  .file-row .file-name { flex: 1; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-row .file-status { font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+  .file-row .file-status.ok { background: rgba(74,222,128,0.15); color: var(--accent-success); }
+  .file-row .file-status.err { background: rgba(245,101,101,0.15); color: var(--accent-danger); }
+  .file-row .file-remove { background: transparent; border: none; color: var(--text-muted); font-size: 14px; cursor: pointer; padding: 2px 6px; font-family: inherit; transition: 0.15s; }
+  .file-row .file-remove:hover { color: var(--accent-danger); }
+  .file-row .file-edit { background: transparent; border: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: 11px; cursor: pointer; padding: 2px 8px; border-radius: 8px; font-family: inherit; transition: 0.15s; }
+  .file-row .file-edit:hover { color: var(--primary-blue); border-color: var(--primary-blue); }
+  .upload-btn-row { display: flex; gap: 8px; }
+  .upload-btn {
+    flex: 1; background: rgba(76,154,255,0.1); border: 1px dashed var(--border-subtle);
+    color: var(--text-secondary); padding: 14px; border-radius: 10px; font-size: 13px;
+    cursor: pointer; font-family: inherit; transition: 0.2s;
+  }
+  .upload-btn:hover { border-color: var(--primary-blue); color: var(--primary-blue); background: rgba(76,154,255,0.06); }
+  .hidden-input { display: none; }
+
+  .validation-panel h3 { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: var(--text-primary); }
+  .validation-panel h3 .count { font-size: 12px; font-weight: 400; color: var(--text-muted); margin-left: 8px; }
+  .validation-list { display: flex; flex-direction: column; gap: 6px; }
+  .val-item {
+    display: flex; gap: 10px; padding: 9px 12px;
+    background: var(--bg-card); border: 1px solid var(--border-subtle);
+    border-radius: 10px; font-size: 13px; line-height: 1.5;
+    cursor: pointer; transition: 0.15s;
+  }
+  .val-item:hover { border-color: var(--border-glow); }
+  .val-item .val-icon { font-size: 14px; flex-shrink: 0; }
+  .val-item .val-text { flex: 1; color: var(--text-secondary); }
+  .val-item.err .val-icon { color: var(--accent-danger); }
+  .val-item.warn .val-icon { color: var(--accent-warn); }
+  .val-item.ok .val-icon { color: var(--accent-success); }
+  .val-empty { text-align: center; color: var(--text-muted); font-size: 13px; padding: 24px 0; }
+
+  /* Tab 2 */
+  #tab2 { flex-direction: row; }
+  #tab2 .script-list-col {
+    width: 220px; border-right: 1px solid var(--border-subtle);
+    background: rgba(17,24,39,0.5); overflow-y: auto; padding: 16px 12px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  #tab2 .script-list-col .list-title {
+    font-size: 11px; color: var(--text-muted); letter-spacing: 0.1em;
+    padding: 0 8px 8px; text-transform: uppercase;
+  }
+  .script-list-item {
+    padding: 10px 12px; border-radius: 10px; cursor: pointer;
+    border: 1px solid transparent; transition: 0.15s;
+  }
+  .script-list-item:hover { background: rgba(76,154,255,0.06); border-color: var(--border-subtle); }
+  .script-list-item.active { background: rgba(76,154,255,0.1); border-color: var(--primary-blue); }
+  .script-list-item .si-title { font-size: 13px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px; }
+  .script-list-item .si-sub { font-size: 11px; color: var(--text-muted); }
+  #tab2 .dag-col { flex: 1; position: relative; background: radial-gradient(circle at center, rgba(76,154,255,0.04), transparent 70%); }
+  #dagContainer { position: absolute; inset: 0; }
+  #tab2 .info-col {
+    width: 400px; border-left: 1px solid var(--border-subtle);
+    background: rgba(17,24,39,0.5); overflow-y: auto; padding: 20px;
+  }
+  .dag-placeholder {
+    position: absolute; inset: 0; display: flex; align-items: center;
+    justify-content: center; flex-direction: column; gap: 12px;
+    color: var(--text-muted); pointer-events: none;
+  }
+  .dag-placeholder .icon { font-size: 48px; opacity: 0.4; }
+  .dag-placeholder .text { font-size: 14px; }
+
+  .info-panel { display: flex; flex-direction: column; gap: 16px; }
+  .info-panel .info-empty { text-align: center; color: var(--text-muted); font-size: 13px; padding: 40px 0; }
+  .info-field { display: flex; flex-direction: column; gap: 4px; }
+  .info-field label { font-size: 11px; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; }
+  .info-field input[type="text"], .info-field textarea {
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+    border-radius: 8px; color: var(--text-primary); font-size: 13px;
+    padding: 8px 10px; font-family: inherit; outline: none;
+    transition: 0.15s; resize: vertical;
+  }
+  .info-field input[type="text"]:focus, .info-field textarea:focus {
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px rgba(76,154,255,0.12);
+  }
+  .info-field textarea { min-height: 60px; line-height: 1.5; }
+  .info-section { border-top: 1px solid var(--border-subtle); padding-top: 14px; }
+  .info-section h4 { font-size: 12px; color: var(--primary-blue); font-weight: 600; letter-spacing: 0.05em; margin-bottom: 10px; }
+  .info-list-item {
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+    border-radius: 8px; padding: 8px 10px; margin-bottom: 6px;
+    font-size: 12px; line-height: 1.5;
+  }
+  .info-list-item .kw { color: var(--text-muted); }
+  .info-list-item .vv { color: var(--text-primary); }
+  .info-list-item .editable {
+    background: transparent; border: none; color: var(--text-primary);
+    font-family: inherit; font-size: 12px;
+    border-bottom: 1px dashed var(--border-subtle);
+    outline: none; padding: 0; transition: 0.15s;
+  }
+  .info-list-item .editable:focus { border-bottom-color: var(--primary-blue); }
+  .path-badge { display: inline-block; font-size: 10px; padding: 1px 7px; border-radius: 8px; margin-left: 4px; }
+  .path-badge.safe { background: rgba(74,222,128,0.15); color: var(--accent-success); }
+  .path-badge.err { background: rgba(245,101,101,0.15); color: var(--accent-danger); }
+  .path-badge.gray { background: rgba(240,165,66,0.15); color: var(--accent-warn); }
+
+  /* Tab 3 (image) */
+  #tab3 { flex-direction: row; }
+  #tab3 .img-list-col {
+    width: 340px; border-right: 1px solid var(--border-subtle);
+    background: rgba(17,24,39,0.5); overflow-y: auto; padding: 16px 12px;
+    display: flex; flex-direction: column; gap: 14px;
+    min-height: 0;
+  }
+  .img-group-title {
+    font-size: 11px; color: var(--text-muted); letter-spacing: 0.1em;
+    text-transform: uppercase; padding: 0 8px;
+    display: flex; justify-content: space-between;
+  }
+  .img-group-title .progress { color: var(--primary-blue); font-weight: 600; }
+  .img-group-title .progress.done { color: var(--accent-success); }
+  .img-group { display: flex; flex-direction: column; gap: 4px; }
+  .img-list-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: 10px; cursor: pointer;
+    border: 1px solid transparent; transition: 0.15s;
+  }
+  .img-list-item:hover { background: rgba(76,154,255,0.06); border-color: var(--border-subtle); }
+  .img-list-item.active { background: rgba(76,154,255,0.1); border-color: var(--primary-blue); }
+  .img-list-item .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--accent-danger); }
+  .img-list-item.uploaded .status-dot { background: var(--accent-success); }
+  .img-list-item .ii-info { flex: 1; min-width: 0; }
+  .img-list-item .ii-name {
+    font-size: 12px; color: var(--text-primary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-family: 'JetBrains Mono', Consolas, monospace;
+  }
+  .img-list-item .ii-meta { font-size: 10px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .img-list-item .ii-thumb {
+    width: 32px; height: 32px; background: var(--bg-elevated);
+    border-radius: 6px; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; color: var(--text-muted); flex-shrink: 0;
+  }
+  .img-list-item .ii-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .img-list-item.uploaded .ii-thumb { color: transparent; }
+
+  #tab3 .preview-col, #tab4 .preview-col, #tab5 .preview-col {
+    flex: 1; padding: 24px 28px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 16px;
+    transition: background 0.2s, box-shadow 0.2s;
+  }
+  .preview-placeholder {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: var(--text-muted); gap: 12px; text-align: center;
+  }
+  .preview-placeholder .icon { font-size: 56px; opacity: 0.3; }
+  .preview-header { display: flex; flex-direction: column; gap: 4px; }
+  .preview-header .ph-name {
+    font-size: 16px; font-weight: 600; color: var(--text-primary);
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    word-break: break-all;
+  }
+  .preview-header .ph-name .ph-speaker {
+    color: var(--primary-blue);
+    font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-weight: 700;
+  }
+  .preview-header .ph-path {
+    font-size: 12px; color: var(--text-muted);
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    word-break: break-all;
+  }
+  .preview-header .ph-usages { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+  .preview-header .ph-usages span {
+    display: inline-block; background: rgba(76,154,255,0.1);
+    color: var(--primary-blue); padding: 2px 8px; border-radius: 10px;
+    margin: 2px 4px 2px 0; font-size: 11px;
+  }
+  .preview-body {
+    background: var(--bg-card); border: 1px solid var(--border-subtle);
+    border-radius: 16px; padding: 20px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .preview-body .image-wrapper {
+    background: repeating-conic-gradient(#1a1f2e 0% 25%, #151a28 0% 50%) 50% / 20px 20px;
+    border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    min-height: 260px; max-height: 460px; overflow: hidden; padding: 12px;
+  }
+  .preview-body .image-wrapper img { max-width: 100%; max-height: 440px; object-fit: contain; border-radius: 8px; }
+  .preview-body .image-wrapper .empty { color: var(--text-muted); font-size: 13px; text-align: center; }
+  .preview-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  /* 文件大小信息条 */
+  .file-info {
+    font-size: 12px; color: var(--text-secondary);
+    background: rgba(17,24,39,0.6);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 8px 12px;
+    line-height: 1.7;
+    word-break: break-all;
+  }
+  .file-info .kw { color: var(--text-muted); }
+  .file-info .vv { color: var(--text-primary); font-weight: 600; }
+  .file-info .tag {
+    display: inline-block; font-size: 11px;
+    padding: 1px 8px; border-radius: 10px; margin-left: 6px;
+  }
+  .file-info .tag.ok { background: rgba(74,222,128,0.15); color: var(--accent-success); }
+  .file-info .tag.warn { background: rgba(240,165,66,0.15); color: var(--accent-warn); }
+
+  .btn-primary, .btn-secondary, .btn-danger {
+    font-family: inherit; font-size: 13px; padding: 10px 20px;
+    border-radius: 30px; cursor: pointer; transition: 0.2s;
+    border: none; font-weight: 600;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
+    color: #fff; box-shadow: 0 4px 12px rgba(59,130,246,0.3);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(59,130,246,0.5); }
+  .btn-secondary {
+    background: rgba(76,154,255,0.08);
+    border: 1px solid rgba(76,154,255,0.3);
+    color: var(--primary-blue);
+  }
+  .btn-secondary:hover { background: rgba(76,154,255,0.15); }
+  .btn-danger {
+    background: rgba(245,101,101,0.1);
+    border: 1px solid rgba(245,101,101,0.3);
+    color: var(--accent-danger);
+  }
+  .btn-danger:hover { background: rgba(245,101,101,0.2); }
+  .btn-primary:disabled, .btn-secondary:disabled, .btn-danger:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* Tab 4 (audio) —— 平铺列表，可滚动，BGM + 语音 */
+  #tab4 { flex-direction: row; }
+  #tab4 .audio-list-col {
+    width: 380px; border-right: 1px solid var(--border-subtle);
+    background: rgba(17,24,39,0.5);
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+    padding: 16px 12px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .audio-script-title {
+    font-size: 13px; font-weight: 600; color: var(--text-primary);
+    padding: 10px 10px 6px;
+    border-bottom: 1px dashed var(--border-subtle);
+    margin: 6px 0 4px;
+    display: flex; justify-content: space-between;
+    align-items: center;
+    position: sticky; top: 0;
+    background: rgba(17,24,39,0.95);
+    backdrop-filter: blur(4px);
+    z-index: 1;
+  }
+  .audio-script-title .title-progress { font-size: 11px; font-weight: 400; color: var(--text-muted); }
+  .audio-item {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 8px 10px; border-radius: 8px;
+    cursor: pointer; transition: 0.15s;
+    border: 1px solid transparent;
+    background: var(--bg-card);
+  }
+  .audio-item:hover { background: rgba(76,154,255,0.06); border-color: var(--border-subtle); }
+  .audio-item.active { background: rgba(76,154,255,0.1); border-color: var(--primary-blue); }
+  .audio-item .ai-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; background: var(--accent-danger); }
+  .audio-item.uploaded .ai-dot { background: var(--accent-success); }
+  .audio-item .ai-info { flex: 1; min-width: 0; }
+  .audio-item .ai-name {
+    font-size: 11px; color: var(--text-primary);
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .audio-item .ai-name .ai-speaker {
+    color: var(--primary-blue);
+    font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+  }
+  .audio-item .ai-text {
+    font-size: 11px; color: var(--text-muted);
+    line-height: 1.4; margin-top: 2px;
+    overflow: hidden; text-overflow: ellipsis;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .audio-item .ai-loc { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+  .audio-preview-wrapper {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 24px;
+    display: flex; flex-direction: column; gap: 14px;
+    align-items: center;
+  }
+  .audio-preview-wrapper audio { width: 100%; max-width: 500px; }
+  .audio-preview-text {
+    background: rgba(76,154,255,0.06);
+    border-left: 3px solid var(--primary-blue);
+    padding: 12px 16px;
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 14px; line-height: 1.7;
+    width: 100%;
+    white-space: pre-wrap;
+  }
+  .audio-preview-empty { color: var(--text-muted); font-size: 13px; text-align: center; padding: 30px 10px; }
+  .audio-location-info {
+    background: rgba(17,24,39,0.6);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 12px; color: var(--text-secondary);
+    line-height: 1.7;
+    width: 100%;
+  }
+  .audio-location-info .kw { color: var(--text-muted); }
+  .audio-location-info code {
+    background: rgba(76,154,255,0.12);
+    color: var(--primary-blue);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 11px;
+  }
+
+  /* Tab 5 (scene assets) */
+  #tab5 { flex-direction: row; }
+  #tab5 .scene-list-col {
+    width: 360px; border-right: 1px solid var(--border-subtle);
+    background: rgba(17,24,39,0.5); overflow-y: auto; padding: 16px 12px;
+    display: flex; flex-direction: column; gap: 10px;
+    min-height: 0;
+  }
+  .scene-asset-group {
+    margin-bottom: 6px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .scene-asset-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; cursor: pointer;
+    font-size: 12px; color: var(--text-secondary);
+    transition: 0.15s; user-select: none;
+  }
+  .scene-asset-header:hover { background: rgba(76,154,255,0.05); }
+  .scene-asset-header .sah-left { display: flex; align-items: center; gap: 6px; }
+  .scene-asset-header .sah-arrow { display: inline-block; transition: transform 0.15s; font-size: 10px; color: var(--text-muted); }
+  .scene-asset-group.collapsed .sah-arrow { transform: rotate(-90deg); }
+  .scene-asset-group.collapsed .scene-asset-body { display: none; }
+  .scene-asset-header .sah-progress { color: var(--primary-blue); font-weight: 600; }
+  .scene-asset-header .sah-progress.done { color: var(--accent-success); }
+  .scene-asset-body { display: flex; flex-direction: column; gap: 2px; padding: 4px 8px 8px; }
+  .scene-asset-item {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 6px 8px; border-radius: 8px;
+    cursor: pointer; transition: 0.15s;
+    border: 1px solid transparent;
+  }
+  .scene-asset-item:hover { background: rgba(76,154,255,0.06); border-color: var(--border-subtle); }
+  .scene-asset-item.active { background: rgba(76,154,255,0.1); border-color: var(--primary-blue); }
+  .scene-asset-item .sai-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; background: var(--accent-danger); }
+  .scene-asset-item.uploaded .sai-dot { background: var(--accent-success); }
+  .scene-asset-item .sai-info { flex: 1; min-width: 0; }
+  .scene-asset-item .sai-name {
+    font-size: 11px; color: var(--text-primary);
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .scene-asset-item .sai-loc { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+  .scene-asset-empty {
+    background: var(--bg-card); border: 1px dashed var(--border-subtle);
+    border-radius: 10px; padding: 16px 12px;
+    text-align: center; font-size: 12px; color: var(--text-muted);
+    line-height: 1.7;
+  }
+  .scene-asset-hint {
+    background: rgba(76,154,255,0.06);
+    border: 1px dashed rgba(76,154,255,0.3);
+    border-radius: 10px; padding: 10px 14px;
+    font-size: 11px; color: var(--text-secondary);
+    line-height: 1.7;
+  }
+  .scene-asset-hint .kw { color: var(--primary-blue); font-weight: 600; }
+
+  .scene-preview-wrapper {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 24px;
+    display: flex; flex-direction: column; gap: 14px;
+    align-items: center;
+  }
+  .scene-preview-wrapper img, .scene-preview-wrapper video {
+    max-width: 100%; max-height: 440px;
+    object-fit: contain; border-radius: 8px;
+    background: repeating-conic-gradient(#1a1f2e 0% 25%, #151a28 0% 50%) 50% / 20px 20px;
+  }
+  .scene-preview-wrapper iframe {
+    width: 100%; height: 440px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px; background: #fff;
+  }
+  .scene-preview-empty { color: var(--text-muted); font-size: 13px; text-align: center; padding: 30px 10px; }
+
+  /* Footer */
+  footer {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px;
+    border-top: 1px solid var(--border-subtle);
+    background: rgba(17,24,39,0.7);
+  }
+  footer .progress-info { display: flex; gap: 20px; align-items: center; font-size: 12px; color: var(--text-secondary); }
+  footer .progress-info .pi-item { display: flex; align-items: center; gap: 6px; }
+  footer .progress-info .pi-item .pi-label { color: var(--text-muted); }
+  footer .progress-info .pi-item .pi-val { color: var(--text-primary); font-weight: 600; }
+  footer .progress-info .pi-item .pi-val.ok { color: var(--accent-success); }
+  footer .progress-info .pi-item .pi-val.warn { color: var(--accent-warn); }
+  footer .progress-info .pi-item .pi-val.err { color: var(--accent-danger); }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(10,15,28,0.85);
+    backdrop-filter: blur(8px);
+    display: none; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal-box {
+    background: var(--bg-card); border: 1px solid var(--border-glow);
+    border-radius: 20px; max-width: 520px; width: 100%;
+    padding: 28px 32px; box-shadow: 0 24px 48px rgba(0,0,0,0.6);
+  }
+  .modal-box h3 { font-size: 18px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px; }
+  .modal-box p { font-size: 14px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 20px; white-space: pre-wrap; }
+  .modal-box .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .modal-box .input-field {
+    width: 100%; background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px; padding: 10px 14px;
+    font-size: 14px; color: var(--text-primary);
+    font-family: inherit; outline: none; margin-bottom: 18px;
+  }
+  .modal-box textarea.input-field {
+    min-height: 240px; resize: vertical;
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    line-height: 1.5; white-space: pre;
+    overflow: auto;
+  }
+  .modal-box .input-field:focus {
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px rgba(76,154,255,0.12);
+  }
+
+  #toastContainer {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    z-index: 500; display: flex; flex-direction: column;
+    gap: 8px; align-items: center; pointer-events: none;
+  }
+  .toast {
+    background: var(--bg-card); border: 1px solid var(--border-subtle);
+    border-radius: 30px; padding: 10px 20px; font-size: 13px;
+    color: var(--text-primary); box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    opacity: 0; transform: translateY(10px); transition: all 0.3s;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.ok { border-color: rgba(74,222,128,0.4); }
+  .toast.err { border-color: rgba(245,101,101,0.4); }
+  .toast.warn { border-color: rgba(240,165,66,0.4); }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(76,154,255,0.2); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(76,154,255,0.4); }
+
+  #dagContainer .vis-network { outline: none !important; }
+  #dagContainer .vis-network canvas { outline: none !important; }
+
+  .upload-zone.dragover {
+    border-color: var(--primary-blue);
+    background: rgba(76,154,255,0.08);
+    box-shadow: 0 0 0 3px rgba(76,154,255,0.15), 0 0 24px rgba(76,154,255,0.25);
+  }
+  .upload-zone.dragover .upload-btn {
+    border-style: solid; border-color: var(--primary-blue);
+    color: var(--primary-blue); background: rgba(76,154,255,0.14);
+  }
+  #tab3 .preview-col.dragover, #tab4 .preview-col.dragover, #tab5 .preview-col.dragover {
+    background: rgba(76,154,255,0.06);
+    box-shadow: inset 0 0 0 2px var(--primary-blue);
+  }
+
+  @media (max-width: 1100px) {
+    #tab1 .right-col { width: 380px; }
+    #tab2 .info-col { width: 320px; }
+    #tab4 .audio-list-col { width: 320px; }
+    #tab5 .scene-list-col { width: 300px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <header>
+    <h1>超级现场 · 七星锦囊铺</h1>
+    <div class="header-right">
+      <span id="statusBadge">🟢 就绪</span>
+      <button id="newTaskBtn">🆕 开始新任务</button>
+    </div>
+  </header>
+
+  <nav id="tabs">
+    <button data-tab="1" class="active">① 上传与验证 <span class="tab-badge" id="tabBadge1">0/3</span></button>
+    <button data-tab="2">② 剧本流程 <span class="tab-badge" id="tabBadge2">-</span></button>
+    <button data-tab="3">③ 图片素材 <span class="tab-badge" id="tabBadge3">0/0</span></button>
+    <button data-tab="4">④ 音频素材 <span class="tab-badge" id="tabBadge4">0/0</span></button>
+    <button data-tab="5">⑤ 场景素材 <span class="tab-badge" id="tabBadge5">0/0</span></button>
+  </nav>
+
+  <main>
+
+    <section id="tab1" class="tab-pane active">
+      <div class="left-col">
+        <div class="upload-zone" id="zoneInit">
+          <div class="upload-zone-header"><h3>📋 init.json</h3><span class="optional">可选</span></div>
+          <div class="upload-zone-body" id="zoneInitBody">
+            <button class="upload-btn" data-pick="init">＋ 选择 init.json（或拖拽到此处）</button>
+          </div>
+        </div>
+        <div class="upload-zone" id="zoneScripts">
+          <div class="upload-zone-header"><h3>📜 script_XX.json</h3><span class="required">至少 1 个</span></div>
+          <div class="upload-zone-body" id="zoneScriptsBody">
+            <button class="upload-btn" data-pick="scripts">＋ 选择 script_XX.json（可多选，或拖拽到此处）</button>
+          </div>
+        </div>
+        <div class="upload-zone" id="zoneResult">
+          <div class="upload-zone-header"><h3>🏁 result.json</h3><span class="optional">可选</span></div>
+          <div class="upload-zone-body" id="zoneResultBody">
+            <button class="upload-btn" data-pick="result">＋ 选择 result.json（或拖拽到此处）</button>
+          </div>
+        </div>
+        <div class="upload-zone" id="zoneValidate" style="background: transparent; border: none; padding: 0;">
+          <div class="upload-btn-row">
+            <button class="btn-primary" id="validateBtn" style="flex: 1; padding: 14px;">🔍 校验所有文件</button>
+          </div>
+        </div>
+      </div>
+      <div class="right-col">
+        <div class="validation-panel">
+          <h3>校验结果 <span class="count" id="valCount">—</span></h3>
+          <div class="validation-list" id="valList">
+            <div class="val-empty">尚未上传文件</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab2" class="tab-pane">
+      <div class="script-list-col">
+        <div class="list-title">剧本列表</div>
+        <div id="scriptListInTab2"></div>
+      </div>
+      <div class="dag-col">
+        <div id="dagContainer"></div>
+        <div class="dag-placeholder" id="dagPlaceholder">
+          <div class="icon">🕸️</div>
+          <div class="text">请先在左侧选择一个剧本</div>
+        </div>
+      </div>
+      <div class="info-col">
+        <div class="info-panel" id="sceneInfoPanel">
+          <div class="info-empty">点击 DAG 中的节点查看详情</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab3" class="tab-pane">
+      <div class="img-list-col" id="imgListCol">
+        <div class="val-empty" style="padding: 30px 0;">请先在标签 ① 上传剧本</div>
+      </div>
+      <div class="preview-col" id="previewCol">
+        <div class="preview-placeholder">
+          <div class="icon">🖼️</div>
+          <div>从左侧选择一项查看或上传<br><span style="font-size:12px;opacity:.7;">（也可以直接拖拽图片到这里）</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab4" class="tab-pane">
+      <div class="audio-list-col" id="audioListCol">
+        <div class="val-empty" style="padding: 30px 0;">请先在标签 ① 上传剧本</div>
+      </div>
+      <div class="preview-col" id="audioPreviewCol">
+        <div class="preview-placeholder">
+          <div class="icon">🔊</div>
+          <div>从左侧选择一项上传或试听<br><span style="font-size:12px;opacity:.7;">（背景声音 + 语音，上传后自动写入 JSON）</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab5" class="tab-pane">
+      <div class="scene-list-col" id="sceneAssetListCol">
+        <div class="val-empty" style="padding: 30px 0;">请先在标签 ① 上传剧本</div>
+      </div>
+      <div class="preview-col" id="sceneAssetPreviewCol">
+        <div class="preview-placeholder">
+          <div class="icon">🎞️</div>
+          <div>从左侧选择一项 CG / 视频 / HTML 上传或预览<br><span style="font-size:12px;opacity:.7;">（本功能预留，上传后文件会进 zip 的对应位置）</span></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <div class="progress-info">
+      <div class="pi-item"><span class="pi-label">JSON</span><span class="pi-val" id="footJson">0/3</span></div>
+      <div class="pi-item"><span class="pi-label">图片</span><span class="pi-val" id="footImg">0/0</span></div>
+      <div class="pi-item"><span class="pi-label">音频</span><span class="pi-val" id="footAudio">0/0</span></div>
+      <div class="pi-item"><span class="pi-label">场景素材</span><span class="pi-val" id="footScene">0/0</span></div>
+      <div class="pi-item"><span class="pi-label">状态</span><span class="pi-val" id="footStatus">等待上传</span></div>
+    </div>
+    <button class="btn-primary" id="packageBtn" disabled>📦 打包下载</button>
+  </footer>
+
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box" id="modalBox">
+    <h3 id="modalTitle"></h3>
+    <p id="modalDesc"></p>
+    <input type="text" class="input-field" id="modalInput" style="display: none;" />
+    <textarea class="input-field" id="modalTextarea" style="display: none;"></textarea>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="modalCancel">取消</button>
+      <button class="btn-primary" id="modalConfirm">确认</button>
+    </div>
+  </div>
+</div>
+
+<div id="toastContainer"></div>
+
+<input type="file" id="filePickInit" accept=".json" class="hidden-input" />
+<input type="file" id="filePickScripts" accept=".json" multiple class="hidden-input" />
+<input type="file" id="filePickResult" accept=".json" class="hidden-input" />
+<input type="file" id="filePickImage" accept="image/png" class="hidden-input" />
+<input type="file" id="filePickAudio" accept=".mp3,audio/mpeg" class="hidden-input" />
+<input type="file" id="filePickSceneAsset" accept="image/png,video/mp4,video/webm,text/html,.html" class="hidden-input" />
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
+
+<script>
+(function () {
+  'use strict';
+
+  // ============================================================
+  // 配置
+  // ============================================================
+  const CONFIG = {
+    LS_KEY: 'sspacker_state_v4',
+    IDB_NAME: 'sspacker_assets',
+    IDB_STORE: 'assets',
+    MAX_AUDIO_SIZE: 20 * 1024 * 1024,
+    MAX_VIDEO_SIZE: 100 * 1024 * 1024,
+    AUDIO_EXT: 'mp3',
+    MP3_BITRATE: 128,
+    SCENE_TYPES: ['dialogue', 'cg', 'video', 'html', 'showcase'],
+    STEP_TYPES: ['desc', 'dialogue', 'input', 'choice', 'tree', 'pause', 'action', 'jump', 'if', 'cg', 'video'],
+    FORM_FIELD_TYPES: ['text', 'textarea', 'number', 'select', 'date', 'radio', 'checkbox', 'slider']
+  };
+
+  const state = {
+    rawFiles: { init: null, scripts: {}, result: null },
+    files: { init: null, scripts: {}, result: null },
+    validation: { errors: [], warnings: [], oks: [], ranAt: 0 },
+    currentTab: 1,
+    currentScriptKey: null,
+    currentImageBasename: null,
+    currentAudioKey: null,
+    currentSceneAssetKey: null,
+    imageMeta: {},
+    imageUploaded: {},
+    audioMeta: {},
+    audioUploaded: {},
+    sceneAssetMeta: {},
+    sceneAssetUploaded: {},
+    sceneAssetCollapsed: {},
+    packageName: 'pack'
+  };
+
+  const $ = id => document.getElementById(id);
+  const statusBadge = $('statusBadge');
+  const tabs = document.querySelectorAll('nav#tabs button');
+  const tabPanes = document.querySelectorAll('section.tab-pane');
+  const tabBadge1 = $('tabBadge1');
+  const tabBadge2 = $('tabBadge2');
+  const tabBadge3 = $('tabBadge3');
+  const tabBadge4 = $('tabBadge4');
+  const tabBadge5 = $('tabBadge5');
+  const valList = $('valList');
+  const valCount = $('valCount');
+  const footJson = $('footJson');
+  const footImg = $('footImg');
+  const footAudio = $('footAudio');
+  const footScene = $('footScene');
+  const footStatus = $('footStatus');
+  const packageBtn = $('packageBtn');
+  const newTaskBtn = $('newTaskBtn');
+  const modalOverlay = $('modalOverlay');
+  const modalTitle = $('modalTitle');
+  const modalDesc = $('modalDesc');
+  const modalInput = $('modalInput');
+  const modalTextarea = $('modalTextarea');
+  const modalCancel = $('modalCancel');
+  const modalConfirm = $('modalConfirm');
+  const toastContainer = $('toastContainer');
+
+  // 预览区 blob URL 回收池（key 为 tab 名）
+  const _previewUrls = { tab3: [], tab4: [], tab5: [] };
+  // 渲染令牌，防止异步覆盖
+  const _renderToken = { tab3: 0, tab4: 0, tab5: 0 };
+
+  function revokePreviewUrls(tabKey) {
+    (_previewUrls[tabKey] || []).forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} });
+    _previewUrls[tabKey] = [];
+  }
+  function trackPreviewUrl(tabKey, url) {
+    if (!_previewUrls[tabKey]) _previewUrls[tabKey] = [];
+    _previewUrls[tabKey].push(url);
+  }
+
+  // ============================================================
+  // 文件大小与压缩工具
+  // ============================================================
+  function formatSize(bytes) {
+    if (bytes == null || isNaN(bytes)) return '—';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+  }
+
+  let _oxipng = null, _oxipngPromise = null;
+  async function loadOxiPNG() {
+    if (_oxipng) return _oxipng;
+    if (_oxipngPromise) return _oxipngPromise;
+    _oxipngPromise = (async () => {
+      try {
+        const mod = await import('https://cdn.jsdelivr.net/npm/@jsquash/oxipng@2.3.0/+esm');
+        _oxipng = mod;
+        return mod;
+      } catch (e) {
+        _oxipngPromise = null;
+        throw new Error('OxiPNG 加载失败：' + (e.message || String(e)));
+      }
+    })();
+    return _oxipngPromise;
+  }
+
+  async function compressPngBlob(blob) {
+    const mod = await loadOxiPNG();
+    const buf = await blob.arrayBuffer();
+    // 先让出主线程，让 toast / 按钮状态刷新
+    await new Promise(r => setTimeout(r, 30));
+    const out = await mod.optimise(buf, { level: 2 });
+    return new Blob([out], { type: 'image/png' });
+  }
+
+  async function compressMp3Blob(blob) {
+    if (typeof lamejs === 'undefined') throw new Error('lamejs 未加载');
+    const arrayBuffer = await blob.arrayBuffer();
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) throw new Error('浏览器不支持 AudioContext');
+    const audioCtx = new AudioCtx();
+    let audioBuffer;
+    try {
+      audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+    } finally {
+      try { audioCtx.close(); } catch (e) {}
+    }
+    const channels = Math.min(audioBuffer.numberOfChannels, 2);
+    const sampleRate = audioBuffer.sampleRate;
+    const leftFloat = audioBuffer.getChannelData(0);
+    const rightFloat = channels > 1 ? audioBuffer.getChannelData(1) : null;
+    const toInt16 = (f) => {
+      const o = new Int16Array(f.length);
+      for (let i = 0; i < f.length; i++) {
+        const s = f[i] * 32767;
+        o[i] = s < -32768 ? -32768 : (s > 32767 ? 32767 : s);
+      }
+      return o;
+    };
+    const left = toInt16(leftFloat);
+    const right = rightFloat ? toInt16(rightFloat) : null;
+    const mp3encoder = new lamejs.Mp3Encoder(channels, sampleRate, CONFIG.MP3_BITRATE);
+    const mp3Data = [];
+    const sampleBlockSize = 1152;
+    let blockCount = 0;
+    for (let i = 0; i < left.length; i += sampleBlockSize) {
+      const lc = left.subarray(i, i + sampleBlockSize);
+      const rc = right ? right.subarray(i, i + sampleBlockSize) : undefined;
+      const buf = mp3encoder.encodeBuffer(lc, rc);
+      if (buf.length > 0) mp3Data.push(new Int8Array(buf));
+      blockCount++;
+      if (blockCount % 200 === 0) {
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+    const end = mp3encoder.flush();
+    if (end.length > 0) mp3Data.push(new Int8Array(end));
+    return new Blob(mp3Data, { type: 'audio/mp3' });
+  }
+
+  // 压缩并覆盖 IDB 原文件
+  async function compressAsset(basename, type) {
+    const rec = await idbGet(basename);
+    if (!rec || !rec.blob) { toast('文件不存在，请重新上传', 'err'); return false; }
+    const origSize = rec.blob.size;
+    const origMeta = rec.meta || {};
+    const baseOriginalSize = origMeta.originalSize || origSize;
+
+    let newBlob = null;
+    try {
+      if (type === 'png') {
+        toast('正在压缩 PNG…（大图可能短暂卡顿）', 'warn');
+        newBlob = await compressPngBlob(rec.blob);
+      } else if (type === 'mp3') {
+        toast('正在解码并重新编码 MP3…（大文件可能稍慢）', 'warn');
+        newBlob = await compressMp3Blob(rec.blob);
+      } else {
+        toast('不支持的类型', 'err');
+        return false;
+      }
+    } catch (e) {
+      console.error(e);
+      toast('压缩失败：' + (e.message || String(e)), 'err');
+      return false;
+    }
+
+    if (!newBlob) return false;
+    if (newBlob.size >= origSize) {
+      toast('压缩后未变小（' + formatSize(origSize) + ' → ' + formatSize(newBlob.size) + '），保留原文件', 'warn');
+      return false;
+    }
+
+    const newMeta = Object.assign({}, origMeta, {
+      originalSize: baseOriginalSize,
+      compressedSize: newBlob.size,
+      compressedAt: Date.now()
+    });
+    await idbPut(basename, newBlob, newMeta);
+    const saving = ((1 - newBlob.size / baseOriginalSize) * 100).toFixed(1);
+    toast('已压缩：' + formatSize(baseOriginalSize) + ' → ' + formatSize(newBlob.size) + '（节省 ' + saving + '%）', 'ok');
+    return true;
+  }
+
+  // 文件大小信息条
+  function buildFileInfoEl(rec) {
+    const div = document.createElement('div');
+    div.className = 'file-info';
+    if (!rec || !rec.blob) {
+      div.innerHTML = '<span class="kw">文件大小：</span>尚未上传';
+      return div;
+    }
+    const size = formatSize(rec.blob.size);
+    const meta = rec.meta || {};
+    let html = '<span class="kw">文件大小：</span><span class="vv">' + size + '</span>';
+    if (meta.originalSize && meta.compressedSize && meta.originalSize > meta.compressedSize) {
+      const saving = ((1 - meta.compressedSize / meta.originalSize) * 100).toFixed(1);
+      html += '<span class="tag ok">已压缩 · 原始 ' + formatSize(meta.originalSize) + ' · 节省 ' + saving + '%</span>';
+    }
+    div.innerHTML = html;
+    return div;
+  }
+
+  // 压缩按钮
+  function buildCompressBtn(basename, type, onDone) {
+    const btn = document.createElement('button');
+    btn.className = 'btn-secondary';
+    btn.textContent = '🗜 压缩';
+    btn.onclick = async () => {
+      btn.disabled = true;
+      const oldText = btn.textContent;
+      btn.textContent = '⏳ 压缩中…';
+      try {
+        await compressAsset(basename, type);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = oldText;
+        if (typeof onDone === 'function') onDone();
+      }
+    };
+    return btn;
+  }
+
+  // ============================================================
+  // IndexedDB
+  // ============================================================
+  let idb = null;
+  function openIDB() {
+    return new Promise((resolve, reject) => {
+      if (idb) return resolve(idb);
+      const req = indexedDB.open(CONFIG.IDB_NAME, 1);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(CONFIG.IDB_STORE)) {
+          db.createObjectStore(CONFIG.IDB_STORE, { keyPath: 'basename' });
+        }
+      };
+      req.onsuccess = e => { idb = e.target.result; resolve(idb); };
+      req.onerror = e => reject(e.target.error);
+    });
+  }
+  async function idbPut(basename, blob, meta) {
+    const db = await openIDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(CONFIG.IDB_STORE, 'readwrite');
+      tx.objectStore(CONFIG.IDB_STORE).put({ basename, blob, meta: meta || {}, savedAt: Date.now() });
+      tx.oncomplete = () => resolve();
+      tx.onerror = e => reject(e.target.error);
+    });
+  }
+  async function idbGet(basename) {
+    const db = await openIDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(CONFIG.IDB_STORE, 'readonly');
+      const req = tx.objectStore(CONFIG.IDB_STORE).get(basename);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = e => reject(e.target.error);
+    });
+  }
+  async function idbDelete(basename) {
+    const db = await openIDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(CONFIG.IDB_STORE, 'readwrite');
+      tx.objectStore(CONFIG.IDB_STORE).delete(basename);
+      tx.oncomplete = () => resolve();
+      tx.onerror = e => reject(e.target.error);
+    });
+  }
+  async function idbAll() {
+    const db = await openIDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(CONFIG.IDB_STORE, 'readonly');
+      const req = tx.objectStore(CONFIG.IDB_STORE).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = e => reject(e.target.error);
+    });
+  }
+  async function idbClear() {
+    const db = await openIDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(CONFIG.IDB_STORE, 'readwrite');
+      tx.objectStore(CONFIG.IDB_STORE).clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = e => reject(e.target.error);
+    });
+  }
+  async function idbRename(oldBasename, newBasename, metaPatch) {
+    const rec = await idbGet(oldBasename);
+    if (!rec) return false;
+    const newMeta = Object.assign({}, rec.meta || {}, metaPatch || {});
+    await idbPut(newBasename, rec.blob, newMeta);
+    await idbDelete(oldBasename);
+    return true;
+  }
+
+  // ============================================================
+  // 持久化
+  // ============================================================
+  let saveTimer = null;
+  function scheduleSave() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveState, 300);
+  }
+  function saveState() {
+    try {
+      const toSave = {
+        rawFiles: state.rawFiles,
+        validation: state.validation,
+        currentTab: state.currentTab,
+        currentScriptKey: state.currentScriptKey,
+        currentImageBasename: state.currentImageBasename,
+        currentAudioKey: state.currentAudioKey,
+        currentSceneAssetKey: state.currentSceneAssetKey,
+        imageMeta: state.imageMeta,
+        imageUploaded: state.imageUploaded,
+        audioMeta: state.audioMeta,
+        audioUploaded: state.audioUploaded,
+        sceneAssetMeta: state.sceneAssetMeta,
+        sceneAssetUploaded: state.sceneAssetUploaded,
+        sceneAssetCollapsed: state.sceneAssetCollapsed,
+        packageName: state.packageName
+      };
+      localStorage.setItem(CONFIG.LS_KEY, JSON.stringify(toSave));
+    } catch (e) {
+      console.warn('保存状态失败', e);
+    }
+  }
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(CONFIG.LS_KEY);
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      state.rawFiles = data.rawFiles || { init: null, scripts: {}, result: null };
+      state.files = parseAllFromRaw(state.rawFiles);
+      state.validation = data.validation || { errors: [], warnings: [], oks: [], ranAt: 0 };
+      state.currentTab = data.currentTab || 1;
+      state.currentScriptKey = data.currentScriptKey || null;
+      state.currentImageBasename = data.currentImageBasename || null;
+      state.currentAudioKey = data.currentAudioKey || null;
+      state.currentSceneAssetKey = data.currentSceneAssetKey || null;
+      state.imageMeta = data.imageMeta || {};
+      state.imageUploaded = data.imageUploaded || {};
+      state.audioMeta = data.audioMeta || {};
+      state.audioUploaded = data.audioUploaded || {};
+      state.sceneAssetMeta = data.sceneAssetMeta || {};
+      state.sceneAssetUploaded = data.sceneAssetUploaded || {};
+      state.sceneAssetCollapsed = data.sceneAssetCollapsed || {};
+      state.packageName = data.packageName || 'pack';
+      return true;
+    } catch (e) {
+      console.warn('读取状态失败', e);
+      return false;
+    }
+  }
+  function clearState() {
+    try { localStorage.removeItem(CONFIG.LS_KEY); } catch (e) {}
+    try { localStorage.removeItem('sspacker_state_v3'); } catch (e) {}
+  }
+
+  // ============================================================
+  // 工具
+  // ============================================================
+  function toast(msg, type) {
+    const el = document.createElement('div');
+    el.className = 'toast ' + (type || '');
+    el.textContent = msg;
+    toastContainer.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('show'));
+    setTimeout(() => {
+      el.classList.remove('show');
+      setTimeout(() => el.remove(), 300);
+    }, 2600);
+  }
+  function setStatus(text, type) {
+    statusBadge.textContent = text;
+    statusBadge.className = '';
+    if (type === 'ok') statusBadge.classList.add('ok');
+    else if (type === 'err') statusBadge.classList.add('err');
+    else if (type === 'warn') statusBadge.classList.add('warn');
+  }
+  function confirmModal(title, desc, opts) {
+    return new Promise(resolve => {
+      modalTitle.textContent = title;
+      modalDesc.textContent = desc;
+      const multiline = !!(opts && opts.multiline);
+      const showInput = !!(opts && opts.input) && !multiline;
+      const showTextarea = !!(opts && opts.input) && multiline;
+
+      modalInput.style.display = showInput ? 'block' : 'none';
+      modalTextarea.style.display = showTextarea ? 'block' : 'none';
+      modalInput.value = (opts && opts.inputValue) || '';
+      modalTextarea.value = (opts && opts.inputValue) || '';
+      modalInput.placeholder = (opts && opts.inputPlaceholder) || '';
+      modalTextarea.placeholder = (opts && opts.inputPlaceholder) || '';
+      modalCancel.style.display = '';
+      modalConfirm.textContent = (opts && opts.confirmText) || '确认';
+      modalConfirm.className = 'btn-primary';
+      modalOverlay.classList.add('active');
+      if (showInput) setTimeout(() => modalInput.focus(), 100);
+      if (showTextarea) setTimeout(() => modalTextarea.focus(), 100);
+      const cleanup = () => {
+        modalOverlay.classList.remove('active');
+        modalCancel.onclick = null;
+        modalConfirm.onclick = null;
+        modalInput.onkeydown = null;
+        modalTextarea.onkeydown = null;
+      };
+      modalCancel.onclick = () => { cleanup(); resolve(null); };
+      modalConfirm.onclick = () => {
+        const val = showTextarea ? modalTextarea.value : (showInput ? modalInput.value : true);
+        cleanup();
+        resolve(val);
+      };
+      modalInput.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); modalConfirm.click(); } };
+      modalTextarea.onkeydown = e => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); modalConfirm.click(); }
+      };
+    });
+  }
+  function escapeHtml(s) {
+    if (typeof s !== 'string') return '';
+    return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function parseAllFromRaw(raw) {
+    const out = { init: null, scripts: {}, result: null };
+    if (raw.init && raw.init.text) { try { out.init = JSON.parse(raw.init.text); } catch (e) {} }
+    Object.keys(raw.scripts || {}).forEach(k => { try { out.scripts[k] = JSON.parse(raw.scripts[k].text); } catch (e) {} });
+    if (raw.result && raw.result.text) { try { out.result = JSON.parse(raw.result.text); } catch (e) {} }
+    return out;
+  }
+  function normalizeFileName(name) {
+    const lower = String(name || '').toLowerCase();
+    if (lower === 'init.json') return 'init.json';
+    if (lower === 'result.json') return 'result.json';
+    const m = lower.match(/^script_(\d+)\.json$/);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n < 1 || n > 99) return null;
+      return 'script_' + String(n).padStart(2, '0') + '.json';
+    }
+    return null;
+  }
+  function getSortedScriptKeys(files) {
+    return Object.keys(files).filter(k => /^script_\d{2}\.json$/.test(k))
+      .sort((a, b) => parseInt(a.match(/\d+/)[0], 10) - parseInt(b.match(/\d+/)[0], 10));
+  }
+  function getScriptId(key) {
+    const m = String(key || '').match(/script_(\d+)\.json/);
+    return m ? m[1].padStart(2, '0') : '00';
+  }
+  function syncScriptToRaw(key) {
+    if (!state.files.scripts[key]) return;
+    if (!state.rawFiles.scripts[key]) state.rawFiles.scripts[key] = { name: key, text: '{}' };
+    state.rawFiles.scripts[key].text = JSON.stringify(state.files.scripts[key], null, 2);
+    scheduleSave();
+  }
+  function normalizeAssetPath(p) {
+    if (!p) return '';
+    const s = String(p).trim();
+    if (!s) return '';
+    if (s.startsWith('assets/')) return s;
+    return 'assets/' + s.replace(/^\/+/, '');
+  }
+
+  // ============================================================
+  // 文件上传（JSON）
+  // ============================================================
+  function handleFilesUpload(kind, fileList) {
+    const files = Array.from(fileList || []);
+    if (files.length === 0) return;
+    if (kind === 'init' || kind === 'result') {
+      const file = files[0];
+      const fname = normalizeFileName(file.name);
+      if (fname !== kind + '.json') { askFileName(file, kind); return; }
+      readTextFile(file).then(text => {
+        if (kind === 'init') state.rawFiles.init = { name: fname, text };
+        if (kind === 'result') state.rawFiles.result = { name: fname, text };
+        state.files = parseAllFromRaw(state.rawFiles);
+        renderTab1();
+        scheduleSave();
+      });
+    } else if (kind === 'scripts') {
+      files.forEach(file => {
+        const fname = normalizeFileName(file.name);
+        if (!fname || fname.indexOf('script_') !== 0) { askScriptFileName(file); return; }
+        readTextFile(file).then(text => {
+          state.rawFiles.scripts[fname] = { name: fname, text };
+          state.files = parseAllFromRaw(state.rawFiles);
+          renderTab1();
+          scheduleSave();
+        });
+      });
+    }
+  }
+  function askFileName(file, kind) {
+    confirmModal('文件名不规范', '请确认或修改文件名为 ' + kind + '.json', {
+      input: true, inputValue: kind + '.json', inputPlaceholder: kind + '.json', confirmText: '使用该名称'
+    }).then(val => {
+      if (val == null) return;
+      const fname = normalizeFileName(val);
+      if (fname !== kind + '.json') { toast('文件名仍不规范，需为 ' + kind + '.json', 'err'); return; }
+      readTextFile(file).then(text => {
+        if (kind === 'init') state.rawFiles.init = { name: fname, text };
+        if (kind === 'result') state.rawFiles.result = { name: fname, text };
+        state.files = parseAllFromRaw(state.rawFiles);
+        renderTab1();
+        scheduleSave();
+      });
+    });
+  }
+  function askScriptFileName(file) {
+    confirmModal('文件名不规范', '需为 script_XX.json（两位或以上数字）。请输入规范名：', {
+      input: true, inputValue: 'script_01.json', inputPlaceholder: 'script_01.json', confirmText: '使用该名称'
+    }).then(val => {
+      if (val == null) return;
+      const fname = normalizeFileName(val);
+      if (!fname || fname.indexOf('script_') !== 0) { toast('文件名仍不规范，需为 script_XX.json', 'err'); return; }
+      readTextFile(file).then(text => {
+        state.rawFiles.scripts[fname] = { name: fname, text };
+        state.files = parseAllFromRaw(state.rawFiles);
+        renderTab1();
+        scheduleSave();
+      });
+    });
+  }
+  function readTextFile(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.onerror = e => reject(e.target.error);
+      reader.readAsText(file);
+    });
+  }
+
+  // ============================================================
+  // 校验
+  // ============================================================
+  function validateAll() {
+    const errors = [];
+    const warnings = [];
+    const oks = [];
+    const raw = state.rawFiles;
+    const files = state.files;
+
+    if (!raw.init) warnings.push({ type: 'warn', text: '未上传 init.json，将走默认流程（直接加载第一个剧本）' });
+    else {
+      const initErrs = validateInit(files.init);
+      initErrs.forEach(e => errors.push(e));
+      if (initErrs.length === 0) oks.push({ type: 'ok', text: 'init.json 校验通过' });
+    }
+
+    const scriptKeys = getSortedScriptKeys(files.scripts);
+    if (scriptKeys.length === 0) errors.push({ type: 'err', text: '至少需要一个 script_XX.json' });
+    else {
+      const nums = scriptKeys.map(k => parseInt(k.match(/\d+/)[0], 10));
+      for (let i = 0; i < nums.length; i++) {
+        if (nums[i] !== i + 1) {
+          warnings.push({ type: 'warn', text: 'script 编号不连续，缺少 script_' + String(i + 1).padStart(2, '0') + '.json' });
+          break;
+        }
+      }
+      scriptKeys.forEach(k => {
+        const scriptErrs = validateScript(files.scripts[k], k);
+        scriptErrs.forEach(e => errors.push(e));
+        if (scriptErrs.length === 0) oks.push({ type: 'ok', text: k + ' 校验通过' });
+      });
+    }
+
+    if (!raw.result) warnings.push({ type: 'warn', text: '未上传 result.json' });
+    else {
+      const resErrs = validateResult(files.result);
+      resErrs.forEach(e => errors.push(e));
+      if (resErrs.length === 0) oks.push({ type: 'ok', text: 'result.json 校验通过' });
+    }
+
+    const anyNeedsResult = scriptKeys.some(k => {
+      const s = files.scripts[k];
+      if (!s) return false;
+      if (s.ending && s.ending.needsResult === true) return true;
+      if (s.scenes && typeof s.scenes === 'object') {
+        for (const sid of Object.keys(s.scenes)) {
+          const sc = s.scenes[sid];
+          if (sc && sc.ending && sc.ending.needsResult === true) return true;
+        }
+      }
+      return false;
+    });
+    if (anyNeedsResult && !files.result) errors.push({ type: 'err', text: '有剧本声明 needsResult: true，但未上传 result.json' });
+    if (!anyNeedsResult && files.result) warnings.push({ type: 'warn', text: '上传了 result.json，但没有任何剧本声明 needsResult: true' });
+
+    rebuildImageMeta();
+    rebuildAudioMeta();
+    rebuildSceneAssetMeta();
+    // 图片命名规范校验（警告级，不阻塞打包）
+    Object.keys(state.imageMeta).forEach(bn => {
+      const name = bn.split('/').pop();
+      if (!/^(BG|CH|IT|CG)\d{2}_/.test(name)) {
+        warnings.push({ type: 'warn', text: `图片命名不符合规范：${name}（应形如 BG01_xxx.png / CH01_xxx.png / IT01_xxx.png / CG01_xxx_01.png）` });
+      }
+    });
+
+    state.validation = { errors, warnings, oks, ranAt: Date.now() };
+    scheduleSave();
+    return { errors, warnings, oks };
+  }
+
+  function validateInit(init) {
+    const errs = [];
+    if (!init) { errs.push({ type: 'err', text: 'init.json 解析失败（JSON 语法错误）' }); return errs; }
+    if (init.type !== 'init') errs.push({ type: 'err', text: 'init.json 的 type 必须是 "init"' });
+    if (init.actions != null && !Array.isArray(init.actions)) errs.push({ type: 'err', text: 'init.json 的 actions 必须是数组' });
+    (Array.isArray(init.actions) ? init.actions : []).forEach((a, ai) => {
+      if (!a || a.type !== 'formModal' || !Array.isArray(a.fields)) return;
+      a.fields.forEach((f, fi) => {
+        if (!f || !f.type) return;
+        if (CONFIG.FORM_FIELD_TYPES.indexOf(f.type) < 0) {
+          errs.push({ type: 'err', text: `init.json actions[${ai}].fields[${fi}] 的 type "${f.type}" 不合法（允许：${CONFIG.FORM_FIELD_TYPES.join(' / ')}）` });
+        }
+      });
+    });
+    return errs;
+  }
+  function validateScript(script, key) {
+    const errs = [];
+    if (!script) { errs.push({ type: 'err', text: key + ' JSON 解析失败' }); return errs; }
+    if (script.type !== 'script') errs.push({ type: 'err', text: key + ' 的 type 必须是 "script"' });
+    if (!script.scenes || typeof script.scenes !== 'object') { errs.push({ type: 'err', text: key + ' 缺少 scenes' }); return errs; }
+    const startScene = (script.meta && script.meta.startScene) || script.startScene || 'N1';
+    if (!script.scenes[startScene]) errs.push({ type: 'err', text: key + ' 的 startScene "' + startScene + '" 不存在' });
+
+    const sceneIds = Object.keys(script.scenes);
+    const pathTypesDeclared = (script.meta && Array.isArray(script.meta.pathTypes)) ? script.meta.pathTypes : null;
+    const usedPathTypes = new Set();
+
+    const allNextTargets = [];
+    function collectNextTarget(next, where) {
+      if (!next) return;
+      if (typeof next === 'string') { allNextTargets.push({ to: next, where }); return; }
+      if (Array.isArray(next.switch)) {
+        next.switch.forEach((r, i) => { if (r && r.to) allNextTargets.push({ to: r.to, where: where + '.switch[' + i + ']' }); });
+        if (next.default) allNextTargets.push({ to: next.default, where: where + '.default' });
+        return;
+      }
+      if (Array.isArray(next.random)) {
+        next.random.forEach((r, i) => { if (r && r.to) allNextTargets.push({ to: r.to, where: where + '.random[' + i + ']' }); });
+        return;
+      }
+      if (next.parallel) {
+        next.parallel.forEach((t, i) => { if (t) allNextTargets.push({ to: t, where: where + '.parallel[' + i + ']' }); });
+        if (next.join) allNextTargets.push({ to: next.join, where: where + '.join' });
+      }
+    }
+
+    let hasEnding = false;
+    sceneIds.forEach(sid => {
+      const sc = script.scenes[sid];
+      if (!sc) return;
+      if (sc.isEnding) hasEnding = true;
+
+      if (sc.type && CONFIG.SCENE_TYPES.indexOf(sc.type) < 0) {
+        errs.push({ type: 'err', text: `${key} 场景 ${sid} 的 type "${sc.type}" 不合法（允许：${CONFIG.SCENE_TYPES.join(' / ')}）` });
+      }
+      if (sc.type === 'cg') {
+        if (!sc.cg || !Array.isArray(sc.cg.images) || sc.cg.images.length === 0) {
+          errs.push({ type: 'err', text: `${key} 场景 ${sid} type=cg 但缺少 cg.images 数组` });
+        }
+      } else if (sc.type === 'video') {
+        if (!sc.video || !sc.video.src) {
+          errs.push({ type: 'err', text: `${key} 场景 ${sid} type=video 但缺少 video.src` });
+        }
+      } else if (sc.type === 'html') {
+        if (!sc.html || (!sc.html.path && !sc.html.inline)) {
+          errs.push({ type: 'err', text: `${key} 场景 ${sid} type=html 但缺少 html.path 或 html.inline` });
+        }
+      }
+
+      if (Array.isArray(sc.steps)) {
+        sc.steps.forEach((st, si) => {
+          if (!st || !st.type) return;
+          if (CONFIG.STEP_TYPES.indexOf(st.type) < 0) {
+            errs.push({ type: 'err', text: `${key} 场景 ${sid} steps[${si}] 的 type "${st.type}" 不合法（允许：${CONFIG.STEP_TYPES.join(' / ')}）` });
+          }
+          if (st.type === 'jump' && st.to) collectNextTarget(st.to, `${sid}.steps[${si}].to`);
+          if (st.type === 'choice' && Array.isArray(st.choices)) {
+            st.choices.forEach((c, ci) => {
+              if (c && c.next) collectNextTarget(c.next, `${sid}.steps[${si}].choices[${ci}].next`);
+              if (c && c.pathType) usedPathTypes.add(c.pathType);
+            });
+          }
+          if (st.type === 'input' && st.next) collectNextTarget(st.next, `${sid}.steps[${si}].next`);
+        });
+      }
+      if (Array.isArray(sc.choices)) {
+        sc.choices.forEach((c, ci) => {
+          if (c && c.next) collectNextTarget(c.next, `${sid}.choices[${ci}].next`);
+          if (c && c.pathType) usedPathTypes.add(c.pathType);
+        });
+      }
+      if (sc.input && sc.input.next) collectNextTarget(sc.input.next, `${sid}.input.next`);
+      if (sc.next) collectNextTarget(sc.next, `${sid}.next`);
+    });
+
+    allNextTargets.forEach(t => {
+      if (!script.scenes[t.to]) {
+        errs.push({ type: 'err', text: `${key} 的 ${t.where} 指向不存在的场景 "${t.to}"` });
+      }
+    });
+
+    if (!hasEnding) errs.push({ type: 'err', text: key + ' 没有任何场景设置 isEnding: true' });
+
+    const LEGACY_PATH_TYPES = ['安全路径', '错误路径', '灰色选项'];
+    if (pathTypesDeclared) {
+      usedPathTypes.forEach(pt => {
+        if (pathTypesDeclared.indexOf(pt) < 0) {
+          errs.push({ type: 'err', text: `${key} 使用了 pathType "${pt}"，但 meta.pathTypes 未声明` });
+        }
+      });
+    } else {
+      usedPathTypes.forEach(pt => {
+        if (LEGACY_PATH_TYPES.indexOf(pt) < 0) {
+          errs.push({ type: 'err', text: `${key} 使用了 pathType "${pt}"，但未声明 meta.pathTypes（未声明时只允许：${LEGACY_PATH_TYPES.join(' / ')}）` });
+        }
+      });
+    }
+
+    return errs;
+  }
+  function validateResult(result) {
+    const errs = [];
+    if (!result) { errs.push({ type: 'err', text: 'result.json 解析失败' }); return errs; }
+    if (result.type !== 'result') errs.push({ type: 'err', text: 'result.json 的 type 必须是 "result"' });
+    if (!Array.isArray(result.actions)) { errs.push({ type: 'err', text: 'result.json 的 actions 必须是数组' }); return errs; }
+    if (result.actions.length === 0) { errs.push({ type: 'err', text: 'result.json 的 actions 为空' }); return errs; }
+    if (result.actions[0].type !== 'showEndingPage') errs.push({ type: 'err', text: 'result.json 第一个 action 必须是 showEndingPage' });
+
+    function walkActions(actions, where) {
+      (actions || []).forEach((a, i) => {
+        if (!a || !a.type) return;
+        if (a.type === 'renderTree') {
+          const isFirstTopLevel = where === 'actions' && i === 0;
+          if (a.append === true && isFirstTopLevel) {
+            errs.push({ type: 'err', text: `result.json 第一个 renderTree 必须是 append: false（位置：${where}[${i}]）` });
+          }
+        }
+        if (a.type === 'condition') {
+          const thenFirst = (a.then || []).find(x => x && x.type === 'renderTree');
+          const elseFirst = (a.else || []).find(x => x && x.type === 'renderTree');
+          if (thenFirst && thenFirst.append !== false) {
+            errs.push({ type: 'err', text: `result.json condition.then 的第一个 renderTree 必须 append: false` });
+          }
+          if (elseFirst && elseFirst.append !== false) {
+            errs.push({ type: 'err', text: `result.json condition.else 的第一个 renderTree 必须 append: false` });
+          }
+          walkActions(a.then, where + '.then');
+          walkActions(a.else, where + '.else');
+        }
+      });
+    }
+    walkActions(result.actions, 'actions');
+
+    const hasJudgeCase = result.actions.some(a => a && a.type === 'judgeCase');
+    if (hasJudgeCase) {
+      const handlesNull = JSON.stringify(result).indexOf('isNull') >= 0 || JSON.stringify(result).indexOf('== null') >= 0;
+      if (!handlesNull) {
+        errs.push({ type: 'err', text: 'result.json 使用了 judgeCase，但未显式处理 caseRule == null（建议加 isNull({{caseRule}}) 分支）' });
+      }
+    }
+    return errs;
+  }
+
+  // ============================================================
+  // 图片需求
+  // ============================================================
+  function rebuildImageMeta() {
+    const meta = {};
+    const seenUploaded = state.imageUploaded || {};
+    const newUploaded = {};
+    function add(path, category, usage) {
+      if (!path) return;
+      let basename, targetPath;
+      if (path.startsWith('assets/')) { targetPath = path; basename = path.substring('assets/'.length); }
+      else { targetPath = 'assets/' + path; basename = path; }
+      if (!meta[basename]) meta[basename] = { targetPath, basename, category, usages: [] };
+      meta[basename].usages.push(usage);
+    }
+    const scriptKeys = getSortedScriptKeys(state.files.scripts);
+    scriptKeys.forEach(k => {
+      const script = state.files.scripts[k];
+      if (!script || !script.scenes) return;
+      const scriptTitle = (script.meta && script.meta.title) || k;
+      Object.keys(script.scenes).forEach(sceneId => {
+        const scene = script.scenes[sceneId];
+        if (!scene) return;
+        if (scene.background) add(scene.background, 'background', scriptTitle + ' · ' + sceneId + ' · 背景');
+        (scene.characters || []).forEach(c => {
+          if (c.defaultSprite) add(c.defaultSprite, 'character', scriptTitle + ' · ' + sceneId + ' · 角色 ' + c.name);
+          if (c.sprites && typeof c.sprites === 'object') {
+            Object.keys(c.sprites).forEach(sn => {
+              if (c.sprites[sn]) add(c.sprites[sn], 'character', scriptTitle + ' · ' + sceneId + ' · ' + c.name + ' · ' + sn);
+            });
+          }
+        });
+        (scene.dialogues || []).forEach(d => {
+          if (d.sprite && d.sprite.startsWith('assets/')) add(d.sprite, 'character', scriptTitle + ' · ' + sceneId + ' · 对话 ' + (d.speaker || ''));
+        });
+        (scene.items || []).forEach(it => {
+          if (it.image) add(it.image, 'item', scriptTitle + ' · ' + sceneId + ' · 道具 ' + (it.name || ''));
+        });
+      });
+    });
+    Object.keys(seenUploaded).forEach(bn => { if (seenUploaded[bn]) newUploaded[bn] = true; });
+    state.imageMeta = meta;
+    state.imageUploaded = newUploaded;
+    scheduleSave();
+  }
+
+  // ============================================================
+  // 音频需求
+  // ============================================================
+  function buildAudioKey(loc) {
+    const suffix = loc.stepIndex != null ? 's' + loc.stepIndex :
+                   loc.descIndex != null ? 'd' + loc.descIndex :
+                   loc.dlgIndex != null ? 'dl' + loc.dlgIndex :
+                   'b';
+    return loc.scriptKey + '::' + loc.sceneId + '::' + loc.kind + '::' + suffix + '::' + (loc.isOld ? '1' : '0');
+  }
+
+  function rebuildAudioMeta() {
+    const meta = {};
+    const seenUploaded = state.audioUploaded || {};
+    const newUploaded = {};
+
+    function addVoice(path, category, usage, location) {
+      if (!path) return;
+      let basename, targetPath;
+      if (path.startsWith('assets/')) { targetPath = path; basename = path.substring('assets/'.length); }
+      else { targetPath = 'assets/' + path; basename = path; }
+      const pureName = basename.split('/').pop();
+      if (!meta[pureName]) meta[pureName] = { targetPath, basename: pureName, category, usages: [], location };
+      meta[pureName].usages.push(usage);
+    }
+
+    function addPlaceholder(location, usage, category) {
+      category = category || 'voice';
+      const key = buildAudioKey(location);
+      const basename = '__placeholder__' + key;
+      if (!meta[basename]) {
+        meta[basename] = {
+          targetPath: '', basename, category,
+          usages: [usage], location, isPlaceholder: true
+        };
+      }
+    }
+
+    const scriptKeys = getSortedScriptKeys(state.files.scripts);
+    scriptKeys.forEach(k => {
+      const script = state.files.scripts[k];
+      if (!script || !script.scenes) return;
+      const scriptTitle = (script.meta && script.meta.title) || k;
+      Object.keys(script.scenes).forEach(sceneId => {
+        const scene = script.scenes[sceneId];
+        if (!scene) return;
+
+        const bgmLoc = { scriptKey: k, sceneId, kind: 'bgm', isOld: false };
+        const bgmUsage = scriptTitle + ' · ' + sceneId + ' · 场景 BGM';
+        if (scene.bgmContinue === true) {
+          // 沿用上一首
+        } else if (scene.bgm) {
+          addVoice(scene.bgm, 'bgm', bgmUsage, bgmLoc);
+        } else {
+          addPlaceholder(bgmLoc, bgmUsage, 'bgm');
+        }
+
+        if (Array.isArray(scene.steps) && scene.steps.length > 0) {
+          scene.steps.forEach((st, i) => {
+            if (!st) return;
+            if (st.type === 'desc') {
+              const loc = { scriptKey: k, sceneId, kind: 'desc', stepIndex: i, isOld: false };
+              const usage = scriptTitle + ' · ' + sceneId + ' · 旁白 #' + (i + 1);
+              if (st.audio) addVoice(st.audio, 'voice', usage, loc);
+              else addPlaceholder(loc, usage);
+            } else if (st.type === 'dialogue') {
+              const loc = { scriptKey: k, sceneId, kind: 'dialogue', stepIndex: i, isOld: false };
+              const usage = scriptTitle + ' · ' + sceneId + ' · ' + (st.speaker || '对话') + ' #' + (i + 1);
+              if (st.audio) addVoice(st.audio, 'voice', usage, loc);
+              else addPlaceholder(loc, usage);
+            }
+          });
+        } else {
+          (scene.descriptions || []).forEach((d, i) => {
+            let path = '';
+            if (d && typeof d === 'object') path = d.audio || '';
+            const loc = { scriptKey: k, sceneId, kind: 'desc', descIndex: i, isOld: true };
+            const usage = scriptTitle + ' · ' + sceneId + ' · 旁白 #' + (i + 1);
+            if (path) addVoice(path, 'voice', usage, loc);
+            else addPlaceholder(loc, usage);
+          });
+          (scene.dialogues || []).forEach((d, i) => {
+            const path = (d && d.audio) || '';
+            const loc = { scriptKey: k, sceneId, kind: 'dialogue', dlgIndex: i, isOld: true };
+            const usage = scriptTitle + ' · ' + sceneId + ' · ' + ((d && d.speaker) || '对话') + ' #' + (i + 1);
+            if (path) addVoice(path, 'voice', usage, loc);
+            else addPlaceholder(loc, usage);
+          });
+        }
+      });
+    });
+
+    Object.keys(seenUploaded).forEach(bn => { if (seenUploaded[bn]) newUploaded[bn] = true; });
+
+    state.audioMeta = meta;
+    state.audioUploaded = newUploaded;
+    scheduleSave();
+  }
+
+  // ============================================================
+  // 场景素材需求
+  // ============================================================
+  function rebuildSceneAssetMeta() {
+    const meta = {};
+    const seenUploaded = state.sceneAssetUploaded || {};
+    const newUploaded = {};
+
+    function add(path, category, usage, location) {
+      if (!path) return;
+      let basename, targetPath;
+      if (path.startsWith('assets/')) { targetPath = path; basename = path.substring('assets/'.length); }
+      else { targetPath = 'assets/' + path; basename = path; }
+      if (!meta[basename]) meta[basename] = { targetPath, basename, category, usages: [], location };
+      meta[basename].usages.push(usage);
+    }
+
+    const scriptKeys = getSortedScriptKeys(state.files.scripts);
+    scriptKeys.forEach(k => {
+      const script = state.files.scripts[k];
+      if (!script || !script.scenes) return;
+      const scriptTitle = (script.meta && script.meta.title) || k;
+      Object.keys(script.scenes).forEach(sceneId => {
+        const scene = script.scenes[sceneId];
+        if (!scene) return;
+        const sceneType = scene.type || 'dialogue';
+        if (sceneType === 'cg' && scene.cg && Array.isArray(scene.cg.images)) {
+          scene.cg.images.forEach((img, i) => {
+            if (img) add(img, 'cg', scriptTitle + ' · ' + sceneId + ' · CG 帧 ' + (i + 1), {
+              scriptKey: k, sceneId, kind: 'cg', index: i
+            });
+          });
+        }
+        if (sceneType === 'video' && scene.video && scene.video.src) {
+          add(scene.video.src, 'video', scriptTitle + ' · ' + sceneId + ' · 视频', {
+            scriptKey: k, sceneId, kind: 'video'
+          });
+        }
+        if (sceneType === 'html' && scene.html && scene.html.path) {
+          add(scene.html.path, 'html', scriptTitle + ' · ' + sceneId + ' · HTML 页面', {
+            scriptKey: k, sceneId, kind: 'html'
+          });
+        }
+      });
+    });
+
+    Object.keys(seenUploaded).forEach(bn => { if (seenUploaded[bn]) newUploaded[bn] = true; });
+    state.sceneAssetMeta = meta;
+    state.sceneAssetUploaded = newUploaded;
+    scheduleSave();
+  }
+
+  // ============================================================
+  // 音频命名
+  // ============================================================
+  function sanitizeDesc(text, maxLen) {
+    maxLen = maxLen || 20;
+    return String(text || '音频').replace(/[\\/:*?"<>|\r\n\t]/g, '_').replace(/\s+/g, '').substring(0, maxLen) || '音频';
+  }
+  function collectUsedBgmNames(scriptId) {
+    const used = new Set();
+    const prefix = 'S' + scriptId + '_BGM';
+    const scan = (bn) => {
+      const last = String(bn).split('/').pop();
+      const m = last.match(new RegExp('^' + prefix + '(\\d+)_'));
+      if (m) used.add(parseInt(m[1], 10));
+    };
+    Object.keys(state.audioMeta || {}).forEach(scan);
+    Object.keys(state.audioUploaded || {}).forEach(bn => { if (state.audioUploaded[bn]) scan(bn); });
+    return used;
+  }
+  function collectUsedVoiceNames(scriptId) {
+    const used = new Set();
+    const prefix = 'S' + scriptId + '_V';
+    const scan = (bn) => {
+      const last = String(bn).split('/').pop();
+      const m = last.match(new RegExp('^' + prefix + '(\\d+)_'));
+      if (m) used.add(parseInt(m[1], 10));
+    };
+    Object.keys(state.audioMeta || {}).forEach(scan);
+    Object.keys(state.audioUploaded || {}).forEach(bn => { if (state.audioUploaded[bn]) scan(bn); });
+    return used;
+  }
+  function getSceneNameForLoc(loc) {
+    const script = state.files.scripts[loc.scriptKey];
+    const scene = script && script.scenes && script.scenes[loc.sceneId];
+    return (scene && scene.sceneName) || loc.sceneId || '场景';
+  }
+  function getSpeakerForLoc(loc) {
+    const script = state.files.scripts[loc.scriptKey];
+    const scene = script && script.scenes && script.scenes[loc.sceneId];
+    if (!scene) return loc.kind === 'desc' ? '旁白' : '角色';
+    if (loc.kind === 'desc') return '旁白';
+    if (loc.isOld) {
+      if (loc.kind === 'dialogue') {
+        const d = (scene.dialogues || [])[loc.dlgIndex];
+        return (d && d.speaker) || '对话';
+      }
+      return '对话';
+    } else {
+      const st = (scene.steps || [])[loc.stepIndex];
+      if (st && st.type === 'dialogue') {
+        const sp = st.speaker || '对话';
+        return sp.indexOf('{{') === 0 ? '玩家' : sp;
+      }
+      return '旁白';
+    }
+  }
+  function getStepPositionForLoc(loc) {
+    if (loc.stepIndex != null) return loc.stepIndex + 1;
+    if (loc.descIndex != null) return loc.descIndex + 1;
+    if (loc.dlgIndex != null) return loc.dlgIndex + 1;
+    return 1;
+  }
+  function generateAudioName(loc) {
+    const scriptId = getScriptId(loc.scriptKey);
+    if (loc.kind === 'bgm') {
+      const sceneName = sanitizeDesc(getSceneNameForLoc(loc), 24);
+      const used = collectUsedBgmNames(scriptId);
+      let n = 1;
+      while (used.has(n)) n++;
+      const nn = String(n).padStart(2, '0');
+      return `S${scriptId}_BGM${nn}_${sceneName}.${CONFIG.AUDIO_EXT}`;
+    }
+    const sceneId = loc.sceneId || 'N0';
+    const pos = String(getStepPositionForLoc(loc)).padStart(2, '0');
+    const speaker = sanitizeDesc(getSpeakerForLoc(loc), 12);
+    const used = collectUsedVoiceNames(scriptId);
+    let n = 1;
+    while (used.has(n)) n++;
+    const nn = String(n).padStart(2, '0');
+    return `S${scriptId}_V${nn}_${sceneId}_${pos}_${speaker}.${CONFIG.AUDIO_EXT}`;
+  }
+  function getAudioTargetPath(basename, kind) {
+    const sub = kind === 'bgm' ? 'bgm/' : 'audio/';
+    return 'assets/' + sub + basename;
+  }
+
+  // ============================================================
+  // 音频注入 / 移除
+  // ============================================================
+  function injectAudioToJson(location, basename) {
+    const script = state.files.scripts[location.scriptKey];
+    if (!script) return false;
+    const scene = script.scenes[location.sceneId];
+    if (!scene) return false;
+    const targetPath = getAudioTargetPath(basename, location.kind);
+
+    if (location.kind === 'bgm') {
+      scene.bgm = targetPath;
+    } else if (location.isOld) {
+      if (location.kind === 'desc') {
+        if (!Array.isArray(scene.descriptions)) scene.descriptions = [];
+        const d = scene.descriptions[location.descIndex];
+        if (typeof d === 'string') scene.descriptions[location.descIndex] = { text: d, audio: targetPath };
+        else if (d && typeof d === 'object') d.audio = targetPath;
+        else scene.descriptions[location.descIndex] = { text: '', audio: targetPath };
+      } else if (location.kind === 'dialogue') {
+        if (!Array.isArray(scene.dialogues)) scene.dialogues = [];
+        const d = scene.dialogues[location.dlgIndex];
+        if (d && typeof d === 'object') d.audio = targetPath;
+      }
+    } else {
+      if (Array.isArray(scene.steps)) {
+        const st = scene.steps[location.stepIndex];
+        if (st) st.audio = targetPath;
+      }
+    }
+    syncScriptToRaw(location.scriptKey);
+    return true;
+  }
+
+  function removeAudioFromJson(location) {
+    const script = state.files.scripts[location.scriptKey];
+    if (!script) return false;
+    const scene = script.scenes[location.sceneId];
+    if (!scene) return false;
+
+    if (location.kind === 'bgm') {
+      delete scene.bgm;
+    } else if (location.isOld) {
+      if (location.kind === 'desc') {
+        const d = (scene.descriptions || [])[location.descIndex];
+        if (d && typeof d === 'object') {
+          delete d.audio;
+          const keys = Object.keys(d).filter(k => d[k] !== undefined);
+          if (keys.length === 1 && keys[0] === 'text') {
+            scene.descriptions[location.descIndex] = d.text;
+          }
+        }
+      } else if (location.kind === 'dialogue') {
+        const d = (scene.dialogues || [])[location.dlgIndex];
+        if (d && typeof d === 'object') delete d.audio;
+      }
+    } else {
+      if (Array.isArray(scene.steps)) {
+        const st = scene.steps[location.stepIndex];
+        if (st) delete st.audio;
+      }
+    }
+    syncScriptToRaw(location.scriptKey);
+    return true;
+  }
+
+  // ============================================================
+  // 旧数据迁移
+  // ============================================================
+  async function migrateLegacyAudioNames() {
+    const all = await idbAll().catch(() => []);
+    const legacy = all.filter(r => r && r.meta && r.meta.kind === 'audio' && /^(BGM|V)\d+_/.test(r.basename));
+    if (legacy.length === 0) return { renamed: 0, skipped: 0 };
+
+    const pathMap = {};
+    const scriptKeys = getSortedScriptKeys(state.files.scripts);
+    scriptKeys.forEach(k => {
+      const script = state.files.scripts[k];
+      if (!script || !script.scenes) return;
+      Object.keys(script.scenes).forEach(sceneId => {
+        const scene = script.scenes[sceneId];
+        if (!scene) return;
+        if (scene.bgm) {
+          const oldBn = scene.bgm.split('/').pop();
+          if (/^BGM\d+_/.test(oldBn)) {
+            const loc = { scriptKey: k, sceneId, kind: 'bgm', isOld: false };
+            const newBn = generateAudioName(loc);
+            const newPath = getAudioTargetPath(newBn, 'bgm');
+            pathMap[scene.bgm] = newPath;
+            scene.bgm = newPath;
+          }
+        }
+        if (Array.isArray(scene.steps)) {
+          scene.steps.forEach((st, i) => {
+            if (!st || !st.audio) return;
+            const oldBn = st.audio.split('/').pop();
+            if (/^V\d+_/.test(oldBn)) {
+              const loc = { scriptKey: k, sceneId, kind: st.type === 'desc' ? 'desc' : 'dialogue', stepIndex: i, isOld: false };
+              const newBn = generateAudioName(loc);
+              const newPath = getAudioTargetPath(newBn, 'voice');
+              pathMap[st.audio] = newPath;
+              st.audio = newPath;
+            }
+          });
+        }
+        if (Array.isArray(scene.descriptions)) {
+          scene.descriptions.forEach((d, i) => {
+            if (!d || typeof d !== 'object' || !d.audio) return;
+            const oldBn = d.audio.split('/').pop();
+            if (/^V\d+_/.test(oldBn)) {
+              const loc = { scriptKey: k, sceneId, kind: 'desc', descIndex: i, isOld: true };
+              const newBn = generateAudioName(loc);
+              const newPath = getAudioTargetPath(newBn, 'voice');
+              pathMap[d.audio] = newPath;
+              d.audio = newPath;
+            }
+          });
+        }
+        if (Array.isArray(scene.dialogues)) {
+          scene.dialogues.forEach((d, i) => {
+            if (!d || !d.audio) return;
+            const oldBn = d.audio.split('/').pop();
+            if (/^V\d+_/.test(oldBn)) {
+              const loc = { scriptKey: k, sceneId, kind: 'dialogue', dlgIndex: i, isOld: true };
+              const newBn = generateAudioName(loc);
+              const newPath = getAudioTargetPath(newBn, 'voice');
+              pathMap[d.audio] = newPath;
+              d.audio = newPath;
+            }
+          });
+        }
+      });
+    });
+
+    scriptKeys.forEach(k => { syncScriptToRaw(k); });
+
+    let renamed = 0, skipped = 0;
+    const handled = new Set();
+    for (const rec of legacy) {
+      const oldBn = rec.basename;
+      if (handled.has(oldBn)) continue;
+      let matchedNew = null;
+      Object.keys(pathMap).forEach(oldPath => {
+        if (oldPath.split('/').pop() === oldBn) matchedNew = pathMap[oldPath];
+      });
+      if (!matchedNew) { skipped++; continue; }
+      const newBn = matchedNew.split('/').pop();
+      if (newBn === oldBn) { skipped++; continue; }
+      try {
+        await idbRename(oldBn, newBn, { migratedFrom: oldBn });
+        handled.add(oldBn);
+        state.audioUploaded[newBn] = true;
+        delete state.audioUploaded[oldBn];
+        renamed++;
+      } catch (e) {
+        console.warn('迁移失败', oldBn, e);
+        skipped++;
+      }
+    }
+
+    if (renamed > 0 || skipped > 0) {
+      state.files = parseAllFromRaw(state.rawFiles);
+      scheduleSave();
+    }
+    return { renamed, skipped };
+  }
+
+  // ============================================================
+  // 渲染 Tab 1
+  // ============================================================
+  function renderTab1() {
+    renderZoneBody('zoneInitBody', 'init', state.rawFiles.init);
+    renderZoneBody('zoneScriptsBody', 'scripts', state.rawFiles.scripts);
+    renderZoneBody('zoneResultBody', 'result', state.rawFiles.result);
+    renderValidation();
+    updateTabBadges();
+    updateFooter();
+  }
+  function renderZoneBody(containerId, kind, data) {
+    const container = $(containerId);
+    container.innerHTML = '';
+    if (kind === 'scripts') {
+      const keys = getSortedScriptKeys(state.rawFiles.scripts);
+      keys.forEach(key => {
+        const f = state.rawFiles.scripts[key];
+        container.appendChild(buildFileRow(key, f.text, 'script', key));
+      });
+      const btn = document.createElement('button');
+      btn.className = 'upload-btn';
+      btn.textContent = '＋ 选择 script_XX.json（可多选，或拖拽到此处）';
+      btn.onclick = () => $('filePickScripts').click();
+      container.appendChild(btn);
+    } else {
+      const f = data;
+      if (f) container.appendChild(buildFileRow(f.name, f.text, kind, kind));
+      const btn = document.createElement('button');
+      btn.className = 'upload-btn';
+      btn.textContent = '＋ 选择 ' + kind + '.json（或拖拽到此处）';
+      btn.onclick = () => $('filePick' + (kind === 'init' ? 'Init' : 'Result')).click();
+      container.appendChild(btn);
+    }
+  }
+  function buildFileRow(name, text, kind, key) {
+    const row = document.createElement('div');
+    row.className = 'file-row';
+    let valid = false, sceneCount = 0;
+    try {
+      const parsed = JSON.parse(text);
+      valid = true;
+      if (kind === 'script' && parsed.scenes) sceneCount = Object.keys(parsed.scenes).length;
+    } catch (e) {}
+    const icon = document.createElement('span');
+    icon.className = 'file-icon';
+    icon.textContent = kind === 'script' ? '📜' : kind === 'init' ? '📋' : '🏁';
+    row.appendChild(icon);
+    const nm = document.createElement('span');
+    nm.className = 'file-name';
+    nm.textContent = name + (kind === 'script' && sceneCount ? ' （' + sceneCount + ' 个场景）' : '');
+    row.appendChild(nm);
+    const st = document.createElement('span');
+    st.className = 'file-status ' + (valid ? 'ok' : 'err');
+    st.textContent = valid ? '✓' : '✗';
+    row.appendChild(st);
+    const editBtn = document.createElement('button');
+    editBtn.className = 'file-edit';
+    editBtn.textContent = '编辑';
+    editBtn.onclick = () => editJsonFile(key);
+    row.appendChild(editBtn);
+    const rm = document.createElement('button');
+    rm.className = 'file-remove';
+    rm.textContent = '✕';
+    rm.title = '移除';
+    rm.onclick = () => {
+      if (kind === 'scripts') delete state.rawFiles.scripts[key];
+      else if (kind === 'init') state.rawFiles.init = null;
+      else if (kind === 'result') state.rawFiles.result = null;
+      state.files = parseAllFromRaw(state.rawFiles);
+      renderTab1();
+      scheduleSave();
+    };
+    row.appendChild(rm);
+    return row;
+  }
+  function editJsonFile(key) {
+    let raw, title;
+    if (key === 'init') { raw = state.rawFiles.init; title = 'init.json'; }
+    else if (key === 'result') { raw = state.rawFiles.result; title = 'result.json'; }
+    else { raw = state.rawFiles.scripts[key]; title = key; }
+    if (!raw) return;
+    confirmModal('编辑 ' + title, '直接修改 JSON 内容（Ctrl/Cmd+Enter 保存，点击确认后重新校验）', {
+      input: true, multiline: true, inputValue: raw.text, inputPlaceholder: 'JSON 内容', confirmText: '保存'
+    }).then(val => {
+      if (val == null) return;
+      try { JSON.parse(val); } catch (e) { toast('JSON 语法错误：' + e.message, 'err'); return; }
+      if (key === 'init') state.rawFiles.init = { name: 'init.json', text: val };
+      else if (key === 'result') state.rawFiles.result = { name: 'result.json', text: val };
+      else state.rawFiles.scripts[key] = { name: key, text: val };
+      state.files = parseAllFromRaw(state.rawFiles);
+      renderTab1();
+      scheduleSave();
+      toast('已保存', 'ok');
+    });
+  }
+  function renderValidation() {
+    const { errors, warnings, oks, ranAt } = state.validation;
+    const total = errors.length + warnings.length + oks.length;
+    if (!ranAt || total === 0) {
+      valList.innerHTML = '<div class="val-empty">尚未校验，请点击左侧"校验所有文件"</div>';
+      valCount.textContent = '—';
+      return;
+    }
+    valCount.textContent = '✓ ' + oks.length + ' · ⚠ ' + warnings.length + ' · ✗ ' + errors.length;
+    valList.innerHTML = '';
+    errors.forEach(e => {
+      const div = document.createElement('div');
+      div.className = 'val-item err';
+      div.innerHTML = '<div class="val-icon">✗</div><div class="val-text">' + escapeHtml(e.text) + '</div>';
+      valList.appendChild(div);
+    });
+    warnings.forEach(w => {
+      const div = document.createElement('div');
+      div.className = 'val-item warn';
+      div.innerHTML = '<div class="val-icon">⚠</div><div class="val-text">' + escapeHtml(w.text) + '</div>';
+      valList.appendChild(div);
+    });
+    oks.forEach(o => {
+      const div = document.createElement('div');
+      div.className = 'val-item ok';
+      div.innerHTML = '<div class="val-icon">✓</div><div class="val-text">' + escapeHtml(o.text) + '</div>';
+      valList.appendChild(div);
+    });
+  }
+  function updateTabBadges() {
+    const scriptCount = getSortedScriptKeys(state.rawFiles.scripts).length;
+    let fileCount = 0;
+    if (state.rawFiles.init) fileCount++;
+    if (state.rawFiles.result) fileCount++;
+    fileCount += scriptCount;
+    tabBadge1.textContent = fileCount + '/3';
+    tabBadge1.className = 'tab-badge';
+    if (state.validation.errors.length > 0) tabBadge1.classList.add('err');
+    else if (state.validation.warnings.length > 0) tabBadge1.classList.add('warn');
+    tabBadge2.textContent = scriptCount + ' 个剧本';
+    tabBadge2.className = 'tab-badge';
+
+    const totalImgs = Object.keys(state.imageMeta).length;
+    const doneImgs = Object.keys(state.imageMeta).filter(k => state.imageUploaded[k]).length;
+    tabBadge3.textContent = doneImgs + '/' + totalImgs;
+    tabBadge3.className = 'tab-badge';
+    if (totalImgs > 0 && doneImgs === totalImgs) tabBadge3.classList.add('ok');
+    else if (totalImgs > 0 && doneImgs < totalImgs) tabBadge3.classList.add('warn');
+
+    const totalAudios = Object.keys(state.audioMeta).length;
+    const doneAudios = Object.keys(state.audioMeta).filter(k => state.audioUploaded[k]).length;
+    tabBadge4.textContent = doneAudios + '/' + totalAudios;
+    tabBadge4.className = 'tab-badge';
+    if (totalAudios > 0 && doneAudios === totalAudios) tabBadge4.classList.add('ok');
+    else if (totalAudios > 0 && doneAudios < totalAudios) tabBadge4.classList.add('warn');
+
+    const totalScenes = Object.keys(state.sceneAssetMeta).length;
+    const doneScenes = Object.keys(state.sceneAssetMeta).filter(k => state.sceneAssetUploaded[k]).length;
+    tabBadge5.textContent = doneScenes + '/' + totalScenes;
+    tabBadge5.className = 'tab-badge';
+    if (totalScenes > 0 && doneScenes === totalScenes) tabBadge5.classList.add('ok');
+    else if (totalScenes > 0 && doneScenes < totalScenes) tabBadge5.classList.add('warn');
+  }
+  function updateFooter() {
+    const scriptCount = getSortedScriptKeys(state.rawFiles.scripts).length;
+    let jsonCount = 0;
+    if (state.rawFiles.init) jsonCount++;
+    if (state.rawFiles.result) jsonCount++;
+    jsonCount += scriptCount;
+    footJson.textContent = jsonCount + '/3';
+    footJson.className = 'pi-val';
+    if (jsonCount >= 1 && state.rawFiles.init && state.rawFiles.result) footJson.classList.add('ok');
+    else if (jsonCount >= 1) footJson.classList.add('warn');
+
+    const totalImgs = Object.keys(state.imageMeta).length;
+    const doneImgs = Object.keys(state.imageMeta).filter(k => state.imageUploaded[k]).length;
+    footImg.textContent = doneImgs + '/' + totalImgs;
+    footImg.className = 'pi-val';
+    if (totalImgs === 0) footImg.classList.add('warn');
+    else if (doneImgs === totalImgs) footImg.classList.add('ok');
+    else footImg.classList.add('warn');
+
+    const totalAudios = Object.keys(state.audioMeta).length;
+    const doneAudios = Object.keys(state.audioMeta).filter(k => state.audioUploaded[k]).length;
+    footAudio.textContent = doneAudios + '/' + totalAudios;
+    footAudio.className = 'pi-val';
+    if (totalAudios === 0) footAudio.classList.add('ok');
+    else if (doneAudios === totalAudios) footAudio.classList.add('ok');
+    else footAudio.classList.add('warn');
+
+    const totalScenes = Object.keys(state.sceneAssetMeta).length;
+    const doneScenes = Object.keys(state.sceneAssetMeta).filter(k => state.sceneAssetUploaded[k]).length;
+    footScene.textContent = doneScenes + '/' + totalScenes;
+    footScene.className = 'pi-val';
+    if (totalScenes === 0) footScene.classList.add('ok');
+    else if (doneScenes === totalScenes) footScene.classList.add('ok');
+    else footScene.classList.add('warn');
+
+    let statusText = '', statusClass = '';
+    if (state.validation.errors.length > 0) { statusText = '存在 ' + state.validation.errors.length + ' 个错误'; statusClass = 'err'; }
+    else if (state.validation.warnings.length > 0) { statusText = '存在 ' + state.validation.warnings.length + ' 个警告'; statusClass = 'warn'; }
+    else if (state.validation.oks.length > 0) { statusText = '校验通过'; statusClass = 'ok'; }
+    else { statusText = '等待上传'; }
+    footStatus.textContent = statusText;
+    footStatus.className = 'pi-val ' + statusClass;
+
+    const hasScripts = getSortedScriptKeys(state.rawFiles.scripts).length > 0;
+    const noErrors = state.validation.errors.length === 0 && state.validation.ranAt > 0;
+    packageBtn.disabled = !(hasScripts && noErrors);
+  }
+
+  // ============================================================
+  // 渲染 Tab 2
+  // ============================================================
+  let dagNetwork = null, dagNodes = null, dagEdges = null;
+  function renderTab2() {
+    const container = $('scriptListInTab2');
+    container.innerHTML = '';
+    const scriptKeys = getSortedScriptKeys(state.files.scripts);
+    if (scriptKeys.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'val-empty';
+      empty.style.padding = '20px 0';
+      empty.textContent = '暂无剧本';
+      container.appendChild(empty);
+      $('dagPlaceholder').style.display = 'flex';
+      if (dagNetwork) { dagNetwork.destroy(); dagNetwork = null; }
+      return;
+    }
+    scriptKeys.forEach(k => {
+      const script = state.files.scripts[k];
+      if (!script) return;
+      const meta = script.meta || {};
+      const item = document.createElement('div');
+      item.className = 'script-list-item' + (k === state.currentScriptKey ? ' active' : '');
+      item.innerHTML = '<div class="si-title">' + escapeHtml(meta.title || k) + '</div><div class="si-sub">' + escapeHtml(k) + '</div>';
+      item.onclick = () => selectScript(k);
+      container.appendChild(item);
+    });
+    if (state.currentScriptKey && state.files.scripts[state.currentScriptKey]) selectScript(state.currentScriptKey);
+    else { state.currentScriptKey = scriptKeys[0]; selectScript(scriptKeys[0]); }
+  }
+  function selectScript(key) {
+    state.currentScriptKey = key;
+    document.querySelectorAll('.script-list-item').forEach(el => {
+      const sub = el.querySelector('.si-sub');
+      el.classList.toggle('active', !!sub && sub.textContent === key);
+    });
+    const script = state.files.scripts[key];
+    if (!script) return;
+    renderDAG(key, script);
+    scheduleSave();
+  }
+  function renderDAG(key, script) {
+    $('dagPlaceholder').style.display = 'none';
+    const container = $('dagContainer');
+    container.innerHTML = '';
+    const sceneIds = Object.keys(script.scenes || {});
+    const startScene = (script.meta && script.meta.startScene) || script.startScene || 'N1';
+    const nodes = [], edges = [], nodeSet = new Set();
+    sceneIds.forEach(id => {
+      const scene = script.scenes[id];
+      const isStart = id === startScene;
+      const isEnding = !!scene.isEnding;
+      const sceneType = scene.type || 'dialogue';
+      let color = '#1a1f2e', border = '#2a3452', fontColor = '#e0e0e0';
+      if (isEnding) { color = 'rgba(245,101,101,0.15)'; border = '#f56565'; fontColor = '#f88'; }
+      else if (sceneType !== 'dialogue') { color = 'rgba(160,120,255,0.15)'; border = '#a078ff'; fontColor = '#d6c4ff'; }
+      else if (isStart) { color = 'rgba(74,222,128,0.15)'; border = '#4ade80'; fontColor = '#8de'; }
+      let label = id;
+      if (scene.sceneName) label += '\n' + scene.sceneName;
+      if (sceneType !== 'dialogue') label += '\n[' + sceneType + ']';
+      nodes.push({ id, label, shape: 'box', color: { background: color, border }, font: { color: fontColor, size: 13, face: 'sans-serif' }, borderWidth: isStart ? 2 : 1, margin: 12, widthConstraint: { maximum: 200 } });
+      nodeSet.add(id);
+    });
+    const edgesMap = [];
+    sceneIds.forEach(id => {
+      const scene = script.scenes[id];
+      if (!scene) return;
+      (scene.choices || []).forEach(c => {
+        if (c.next) edgesMap.push({ from: id, to: c.next, label: '【' + c.id + '】', color: c.pathType === '安全路径' ? '#4ade80' : c.pathType === '错误路径' ? '#f56565' : c.pathType === '灰色选项' ? '#f0a542' : '#4c9aff' });
+      });
+      if (Array.isArray(scene.steps)) {
+        scene.steps.forEach(st => {
+          if (st && st.type === 'choice' && Array.isArray(st.choices)) {
+            st.choices.forEach(c => {
+              if (c.next) edgesMap.push({ from: id, to: c.next, label: '【' + c.id + '】', color: c.pathType === '安全路径' ? '#4ade80' : c.pathType === '错误路径' ? '#f56565' : c.pathType === '灰色选项' ? '#f0a542' : '#4c9aff' });
+            });
+          }
+          if (st && st.type === 'jump' && st.to) edgesMap.push({ from: id, to: st.to, label: 'jump', color: '#6b7a8f', dashes: true });
+        });
+      }
+      if (scene.input && scene.input.next) edgesMap.push({ from: id, to: scene.input.next, label: '输入', color: '#f0a542' });
+      if (scene.next) {
+        const next = scene.next;
+        if (typeof next === 'string') edgesMap.push({ from: id, to: next, label: 'next', color: '#4c9aff' });
+        else if (Array.isArray(next.switch)) {
+          next.switch.forEach(r => { if (r.to) edgesMap.push({ from: id, to: r.to, label: 'if', color: '#a078ff' }); });
+          if (next.default) edgesMap.push({ from: id, to: next.default, label: 'else', color: '#a078ff' });
+        } else if (Array.isArray(next.random)) {
+          next.random.forEach(r => { if (r.to) edgesMap.push({ from: id, to: r.to, label: '随机', color: '#f0a542' }); });
+        }
+      }
+    });
+    edgesMap.forEach((e, i) => {
+      if (!nodeSet.has(e.to)) return;
+      edges.push({ id: 'e' + i, from: e.from, to: e.to, label: e.label, arrows: 'to', color: { color: e.color, highlight: e.color }, font: { color: '#9aa9c1', size: 10, align: 'middle' }, smooth: { type: 'cubicBezier', forceDirection: 'horizontal', roundness: 0.4 }, dashes: !!e.dashes });
+    });
+    dagNodes = new vis.DataSet(nodes);
+    dagEdges = new vis.DataSet(edges);
+    dagNetwork = new vis.Network(container, { nodes: dagNodes, edges: dagEdges }, {
+      layout: { hierarchical: { enabled: true, direction: 'LR', sortMethod: 'directed', levelSeparation: 260, nodeSpacing: 130, treeSpacing: 180 } },
+      physics: { enabled: false },
+      interaction: { hover: true, dragNodes: true, dragView: true, zoomView: true, zoomSpeed: 0.6, tooltipDelay: 200 },
+      nodes: { borderWidth: 1, shadow: false },
+      edges: { width: 1.5, smooth: { enabled: true } }
+    });
+    let layoutUnlocked = false;
+    const unlockLayout = () => {
+      if (layoutUnlocked || !dagNetwork) return;
+      layoutUnlocked = true;
+      try { dagNetwork.setOptions({ layout: { hierarchical: { enabled: false } } }); } catch (e) {}
+    };
+    dagNetwork.on('dragStart', unlockLayout);
+    setTimeout(() => { unlockLayout(); }, 280);
+    dagNetwork.on('click', params => { if (params.nodes.length > 0) selectScene(params.nodes[0]); });
+    setTimeout(() => { try { dagNetwork.fit({ animation: false }); } catch (e) {} }, 100);
+  }
+  function selectScene(sceneId) {
+    const key = state.currentScriptKey;
+    const script = state.files.scripts[key];
+    if (!script) return;
+    const scene = script.scenes[sceneId];
+    if (!scene) return;
+    renderSceneInfo(key, sceneId, scene);
+  }
+  function renderSceneInfo(scriptKey, sceneId, scene) {
+    const panel = $('sceneInfoPanel');
+    panel.innerHTML = '';
+    const titleWrap = document.createElement('div');
+    titleWrap.style.cssText = 'font-size:15px;font-weight:600;color:#4c9aff;margin-bottom:4px;';
+    titleWrap.textContent = sceneId;
+    panel.appendChild(titleWrap);
+    const subtitle = document.createElement('div');
+    subtitle.style.cssText = 'font-size:12px;color:#6b7a8f;margin-bottom:16px;font-family:monospace;';
+    subtitle.textContent = scriptKey + (scene.type ? ' · ' + scene.type : '');
+    panel.appendChild(subtitle);
+    panel.appendChild(buildField('场景名', scene.sceneName || '', v => { scene.sceneName = v; refreshDAGNode(sceneId); scheduleSave(); syncScriptToRaw(scriptKey); }));
+    panel.appendChild(buildField('背景', scene.background || '', v => { scene.background = v ? normalizeAssetPath(v) : ''; if (!scene.background) delete scene.background; rebuildImageMeta(); renderTab3(); scheduleSave(); syncScriptToRaw(scriptKey); }));
+    panel.appendChild(buildField('BGM', scene.bgm || '', v => {
+      if (v) scene.bgm = normalizeAssetPath(v);
+      else delete scene.bgm;
+      rebuildAudioMeta(); renderTab4(); scheduleSave(); syncScriptToRaw(scriptKey);
+    }));
+    if (Array.isArray(scene.descriptions) && scene.descriptions.length > 0) {
+      const sec = document.createElement('div');
+      sec.className = 'info-section';
+      sec.innerHTML = '<h4>描述（' + scene.descriptions.length + '）</h4>';
+      scene.descriptions.forEach((d, i) => {
+        const el = document.createElement('div');
+        el.className = 'info-list-item';
+        const ta = document.createElement('textarea');
+        ta.className = 'editable';
+        ta.style.cssText = 'width:100%;background:transparent;border:none;border-bottom:1px dashed #2a3452;color:#e0e0e0;font-family:inherit;font-size:12px;resize:vertical;min-height:36px;outline:none;';
+        ta.value = typeof d === 'string' ? d : (d.text || '');
+        ta.onchange = () => {
+          if (typeof d === 'string') scene.descriptions[i] = ta.value;
+          else if (d && typeof d === 'object') d.text = ta.value;
+          scheduleSave(); syncScriptToRaw(scriptKey);
+        };
+        el.appendChild(ta);
+        sec.appendChild(el);
+      });
+      panel.appendChild(sec);
+    }
+    if (Array.isArray(scene.characters) && scene.characters.length > 0) {
+      const sec = document.createElement('div');
+      sec.className = 'info-section';
+      sec.innerHTML = '<h4>角色（' + scene.characters.length + '）</h4>';
+      scene.characters.forEach(c => {
+        const el = document.createElement('div');
+        el.className = 'info-list-item';
+        el.innerHTML = '<span class="kw">' + escapeHtml(c.name || '') + '</span> · <span class="vv">' + escapeHtml(c.position || 'center') + '</span>' +
+          (c.appearAt ? ' · <span class="vv">' + escapeHtml(String(c.appearAt)) + '</span>' : '') +
+          '<br><span class="kw" style="font-family:monospace;font-size:10px;">' + escapeHtml(c.defaultSprite || '无立绘') + '</span>';
+        sec.appendChild(el);
+      });
+      panel.appendChild(sec);
+    }
+    if (Array.isArray(scene.dialogues) && scene.dialogues.length > 0) {
+      const sec = document.createElement('div');
+      sec.className = 'info-section';
+      sec.innerHTML = '<h4>对话（' + scene.dialogues.length + '）</h4>';
+      scene.dialogues.forEach((d, i) => {
+        const el = document.createElement('div');
+        el.className = 'info-list-item';
+        let html = '<div><span class="kw">#' + (i + 1) + '</span> <span class="vv">' + escapeHtml(d.speaker || '') + '</span>';
+        if (d.hide) html += ' <span class="kw">[隐藏]</span>';
+        if (d.sprite) html += '<br><span class="kw" style="font-family:monospace;font-size:10px;">' + escapeHtml(d.sprite) + '</span>';
+        if (d.audio) html += '<br><span class="kw" style="font-family:monospace;font-size:10px;color:#4c9aff;">🔊 ' + escapeHtml(d.audio) + '</span>';
+        html += '</div>';
+        const textDiv = document.createElement('div');
+        textDiv.style.cssText = 'margin-top:4px;color:#e0e0e0;';
+        textDiv.textContent = d.text || '';
+        el.innerHTML = html;
+        el.appendChild(textDiv);
+        sec.appendChild(el);
+      });
+      panel.appendChild(sec);
+    }
+    if (Array.isArray(scene.steps) && scene.steps.length > 0) {
+      const sec = document.createElement('div');
+      sec.className = 'info-section';
+      sec.innerHTML = '<h4>步骤（' + scene.steps.length + '）</h4>';
+      scene.steps.forEach((st, i) => {
+        const el = document.createElement('div');
+        el.className = 'info-list-item';
+        let html = '<div><span class="kw">#' + (i + 1) + '</span> <span class="vv">' + escapeHtml(st.type || '') + '</span>';
+        if (st.speaker) html += ' · <span class="vv">' + escapeHtml(st.speaker) + '</span>';
+        if (st.autoHidePrev) html += ' <span class="kw" style="color:#f0a542;">[自动隐藏上一人]</span>';
+        if (st.audio) html += ' <span style="color:#4c9aff;">🔊</span>';
+        html += '</div>';
+        if (st.text) html += '<div style="margin-top:2px;color:#9aa9c1;font-size:11px;">' + escapeHtml(st.text.substring(0, 80)) + (st.text.length > 80 ? '…' : '') + '</div>';
+        el.innerHTML = html;
+        sec.appendChild(el);
+      });
+      panel.appendChild(sec);
+    }
+    if (Array.isArray(scene.choices) && scene.choices.length > 0) {
+      const sec = document.createElement('div');
+      sec.className = 'info-section';
+      sec.innerHTML = '<h4>选项（' + scene.choices.length + '）</h4>';
+      scene.choices.forEach(c => {
+        const el = document.createElement('div');
+        el.className = 'info-list-item';
+        let html = '<div><span class="kw">【' + c.id + '】</span> ';
+        if (c.pathType === '安全路径') html += '<span class="path-badge safe">安全</span>';
+        else if (c.pathType === '错误路径') html += '<span class="path-badge err">错误</span>';
+        else if (c.pathType === '灰色选项') html += '<span class="path-badge gray">灰色</span>';
+        else if (c.pathType) html += '<span class="path-badge">' + escapeHtml(c.pathType) + '</span>';
+        html += '</div>';
+        const textDiv = document.createElement('div');
+        textDiv.style.cssText = 'margin-top:4px;color:#e0e0e0;';
+        textDiv.textContent = c.text || '';
+        html += '<div style="margin-top:4px;"><span class="kw">next：</span><span class="vv" style="font-family:monospace;font-size:11px;">' + escapeHtml(typeof c.next === 'string' ? c.next : JSON.stringify(c.next || '')) + '</span></div>';
+        el.innerHTML = html;
+        el.insertBefore(textDiv, el.lastChild);
+        sec.appendChild(el);
+      });
+      panel.appendChild(sec);
+    }
+    if (scene.isEnding) {
+      const sec = document.createElement('div');
+      sec.className = 'info-section';
+      sec.innerHTML = '<h4 style="color:#f88;">🏁 结算场景</h4><div class="info-list-item">此场景标记为 isEnding，走到这里会触发结算或结束。</div>';
+      panel.appendChild(sec);
+    }
+  }
+  function buildField(label, value, onChange) {
+    const wrap = document.createElement('div');
+    wrap.className = 'info-field';
+    const lbl = document.createElement('label');
+    lbl.textContent = label;
+    wrap.appendChild(lbl);
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = value;
+    input.onchange = () => onChange(input.value);
+    wrap.appendChild(input);
+    return wrap;
+  }
+  function refreshDAGNode(sceneId) {
+    if (!dagNodes) return;
+    const node = dagNodes.get(sceneId);
+    if (!node) return;
+    const script = state.files.scripts[state.currentScriptKey];
+    if (!script) return;
+    const scene = script.scenes[sceneId];
+    if (!scene) return;
+    let label = sceneId;
+    if (scene.sceneName) label += '\n' + scene.sceneName;
+    dagNodes.update({ id: sceneId, label });
+  }
+
+  // ============================================================
+  // 渲染 Tab 3（图片）
+  // ============================================================
+  function renderTab3() {
+    revokePreviewUrls('tab3');
+    const token = ++_renderToken.tab3;
+    const container = $('imgListCol');
+    container.innerHTML = '';
+    const imgMeta = state.imageMeta;
+    const imgKeys = Object.keys(imgMeta);
+    if (imgKeys.length === 0) {
+      container.innerHTML = '<div class="val-empty" style="padding: 30px 0;">暂无图片需求<br>请先在标签 ① 上传剧本</div>';
+      renderPreview(null, token);
+      return;
+    }
+    const groups = { background: [], character: [], item: [] };
+    imgKeys.forEach(k => { const m = imgMeta[k]; if (groups[m.category]) groups[m.category].push(m); });
+    const groupNames = { background: '背景', character: '人物立绘', item: '道具' };
+    Object.keys(groups).forEach(cat => {
+      const list = groups[cat];
+      if (list.length === 0) return;
+      const doneCount = list.filter(m => state.imageUploaded[m.basename]).length;
+      const title = document.createElement('div');
+      title.className = 'img-group-title';
+      title.innerHTML = '<span>' + groupNames[cat] + '（' + list.length + '）</span><span class="progress' + (doneCount === list.length ? ' done' : '') + '">' + doneCount + '/' + list.length + '</span>';
+      container.appendChild(title);
+      const grp = document.createElement('div');
+      grp.className = 'img-group';
+      list.forEach(m => {
+        const uploaded = !!state.imageUploaded[m.basename];
+        const item = document.createElement('div');
+        item.className = 'img-list-item' + (uploaded ? ' uploaded' : '') + (m.basename === state.currentImageBasename ? ' active' : '');
+        item.innerHTML = '<div class="status-dot"></div><div class="ii-info"><div class="ii-name">' + escapeHtml(m.basename) + '</div><div class="ii-meta">' + escapeHtml(m.usages[0] || '') + '</div></div><div class="ii-thumb">' + (uploaded ? '🖼️' : '∅') + '</div>';
+        item.onclick = () => selectImage(m.basename);
+        grp.appendChild(item);
+      });
+      container.appendChild(grp);
+    });
+    const extra = Object.keys(state.imageUploaded).filter(k => state.imageUploaded[k] && !imgMeta[k]);
+    if (extra.length > 0) {
+      const title = document.createElement('div');
+      title.className = 'img-group-title';
+      title.style.color = '#f0a542';
+      title.innerHTML = '<span>多余图片（' + extra.length + '）</span>';
+      container.appendChild(title);
+      const grp = document.createElement('div');
+      grp.className = 'img-group';
+      extra.forEach(bn => {
+        const item = document.createElement('div');
+        item.className = 'img-list-item uploaded' + (bn === state.currentImageBasename ? ' active' : '');
+        item.innerHTML = '<div class="status-dot" style="background:#f0a542;"></div><div class="ii-info"><div class="ii-name">' + escapeHtml(bn) + '</div><div class="ii-meta">当前剧本不再需要</div></div><div class="ii-thumb">🖼️</div>';
+        item.onclick = () => selectImage(bn);
+        grp.appendChild(item);
+      });
+      container.appendChild(grp);
+    }
+    if (state.currentImageBasename) selectImage(state.currentImageBasename);
+    else renderPreview(null, token);
+  }
+  async function selectImage(basename) {
+    state.currentImageBasename = basename;
+    document.querySelectorAll('.img-list-item').forEach(el => {
+      const nm = el.querySelector('.ii-name');
+      el.classList.toggle('active', !!nm && nm.textContent === basename);
+    });
+    const token = _renderToken.tab3;
+    await renderPreview(basename, token);
+    scheduleSave();
+  }
+  async function renderPreview(basename, token) {
+    const col = $('previewCol');
+    revokePreviewUrls('tab3');
+    col.innerHTML = '';
+    if (!basename) {
+      col.innerHTML = '<div class="preview-placeholder"><div class="icon">🖼️</div><div>从左侧选择一项查看或上传<br><span style="font-size:12px;opacity:.7;">（也可以直接拖拽图片到这里）</span></div></div>';
+      return;
+    }
+    const meta = state.imageMeta[basename] || { basename, targetPath: 'assets/' + basename, category: 'extra', usages: ['（不再需要）'] };
+    const header = document.createElement('div');
+    header.className = 'preview-header';
+    header.innerHTML = '<div class="ph-name">' + escapeHtml(meta.basename) + '</div><div class="ph-path">' + escapeHtml(meta.targetPath) + '</div><div class="ph-usages">' + (meta.usages || []).map(u => '<span>' + escapeHtml(u) + '</span>').join('') + '</div>';
+    col.appendChild(header);
+    const body = document.createElement('div');
+    body.className = 'preview-body';
+    const wrapper = document.createElement('div');
+    wrapper.className = 'image-wrapper';
+    const rec = await idbGet(basename);
+    if (token !== _renderToken.tab3) return;
+    if (rec && rec.blob) {
+      const url = URL.createObjectURL(rec.blob);
+      trackPreviewUrl('tab3', url);
+      const img = document.createElement('img');
+      img.src = url;
+      wrapper.appendChild(img);
+    } else {
+      wrapper.innerHTML = '<div class="empty">尚未上传<br>点击下方按钮选择图片，或直接拖拽图片到此区域</div>';
+    }
+    body.appendChild(wrapper);
+    body.appendChild(buildFileInfoEl(rec));
+    const actions = document.createElement('div');
+    actions.className = 'preview-actions';
+    const uploadBtn = document.createElement('button');
+    uploadBtn.className = 'btn-primary';
+    uploadBtn.textContent = rec ? '🔄 重新上传' : '📤 上传图片';
+    uploadBtn.onclick = () => {
+      const inp = $('filePickImage');
+      inp.onchange = () => {
+        const f = inp.files[0];
+        if (!f) return;
+        handleImageUpload(basename, f);
+        inp.value = '';
+      };
+      inp.click();
+    };
+    actions.appendChild(uploadBtn);
+    if (rec) {
+      actions.appendChild(buildCompressBtn(basename, 'png', () => renderTab3()));
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn-danger';
+      delBtn.textContent = '🗑 删除';
+      delBtn.onclick = async () => {
+        await idbDelete(basename);
+        state.imageUploaded[basename] = false;
+        scheduleSave();
+        renderTab3();
+        updateFooter();
+        updateTabBadges();
+        toast('已删除', 'ok');
+      };
+      actions.appendChild(delBtn);
+    }
+    body.appendChild(actions);
+    col.appendChild(body);
+  }
+  async function handleImageUpload(basename, file) {
+    if (file.type !== 'image/png') { toast('只接受 PNG 格式', 'err'); return; }
+    try {
+      await idbPut(basename, file, { originalName: file.name, kind: 'image', size: file.size });
+      state.imageUploaded[basename] = true;
+      scheduleSave();
+      renderTab3();
+      updateFooter();
+      updateTabBadges();
+      toast('已上传 ' + basename, 'ok');
+    } catch (e) { console.error(e); toast('上传失败：' + e.message, 'err'); }
+  }
+
+  // ============================================================
+  // 渲染 Tab 4（音频）
+  // ============================================================
+  function renderTab4() {
+    revokePreviewUrls('tab4');
+    const token = ++_renderToken.tab4;
+    const container = $('audioListCol');
+    container.innerHTML = '';
+    const scriptKeys = getSortedScriptKeys(state.files.scripts);
+
+    if (scriptKeys.length === 0) {
+      container.innerHTML = '<div class="val-empty" style="padding: 30px 0;">请先在标签 ① 上传剧本</div>';
+      renderAudioPreview(null, token);
+      return;
+    }
+
+    // BGM 按剧本分组
+    const bgmByScript = {};
+    scriptKeys.forEach(k => {
+      const script = state.files.scripts[k];
+      if (!script || !script.scenes) return;
+      const scriptTitle = (script.meta && script.meta.title) || k;
+      Object.keys(script.scenes).forEach(sceneId => {
+        const scene = script.scenes[sceneId];
+        if (!scene) return;
+        if (scene.bgmContinue === true) return;
+        const bgmLoc = { scriptKey: k, sceneId, kind: 'bgm', isOld: false };
+        const key = buildAudioKey(bgmLoc);
+        const path = scene.bgm || '';
+        const basename = path ? path.split('/').pop() : '';
+        const sceneTitle = scene.sceneName || sceneId;
+        if (!bgmByScript[k]) bgmByScript[k] = { title: scriptTitle, items: [] };
+        bgmByScript[k].items.push({
+          scriptKey: k, sceneId, kind: 'bgm', isOld: false,
+          basename, hasAudio: !!path,
+          speakerLabel: 'BGM',
+          text: '',
+          usages: scriptTitle + ' · ' + sceneTitle + ' · 场景 BGM'
+        });
+      });
+    });
+
+    const bgmTotal = Object.keys(bgmByScript).reduce((s, k) => s + bgmByScript[k].items.length, 0);
+    if (bgmTotal > 0) {
+      const bgmDone = Object.keys(bgmByScript).reduce((s, k) =>
+        s + bgmByScript[k].items.filter(x => x.hasAudio && state.audioUploaded[x.basename]).length, 0);
+      const titleDiv = document.createElement('div');
+      titleDiv.className = 'audio-script-title';
+      titleDiv.innerHTML = '<span>背景声音</span><span class="title-progress">' + bgmDone + '/' + bgmTotal + '</span>';
+      container.appendChild(titleDiv);
+
+      Object.keys(bgmByScript).forEach(k => {
+        const group = bgmByScript[k];
+        const subTitle = document.createElement('div');
+        subTitle.className = 'audio-script-title';
+        subTitle.style.background = 'rgba(10,15,28,0.95)';
+        subTitle.style.fontSize = '12px';
+        subTitle.style.color = 'var(--text-secondary)';
+        const done = group.items.filter(x => x.hasAudio && state.audioUploaded[x.basename]).length;
+        subTitle.innerHTML = '<span>📖 ' + escapeHtml(group.title) + '</span><span class="title-progress">' + done + '/' + group.items.length + '</span>';
+        container.appendChild(subTitle);
+
+        group.items.forEach(it => {
+          const uploaded = it.hasAudio && !!state.audioUploaded[it.basename];
+          const key = buildAudioKey(it);
+          const el = document.createElement('div');
+          el.className = 'audio-item' + (uploaded ? ' uploaded' : '') + (key === state.currentAudioKey ? ' active' : '');
+          el.dataset.key = key;
+          el.dataset.scriptKey = it.scriptKey;
+          el.dataset.sceneId = it.sceneId;
+          el.dataset.kind = it.kind;
+          el.dataset.stepIndex = '';
+          el.dataset.descIndex = '';
+          el.dataset.dlgIndex = '';
+          el.dataset.isOld = '0';
+          el.dataset.basename = it.hasAudio ? it.basename : '';
+          el.dataset.speakerLabel = it.speakerLabel;
+
+          const displayName = it.hasAudio ? it.basename : '未上传';
+          el.innerHTML =
+            '<div class="ai-dot"></div>' +
+            '<div class="ai-info">' +
+              '<div class="ai-name">' +
+                '<span class="ai-speaker">BGM：</span>' +
+                escapeHtml(displayName) +
+              '</div>' +
+              '<div class="ai-loc">' + escapeHtml(it.usages) + '</div>' +
+            '</div>';
+
+          el.onclick = () => {
+            state.currentAudioKey = key;
+            document.querySelectorAll('.audio-item').forEach(x => { x.classList.toggle('active', x.dataset.key === key); });
+            renderAudioPreview(key, _renderToken.tab4);
+            scheduleSave();
+          };
+          container.appendChild(el);
+        });
+      });
+    }
+
+    // 语音按剧本分组
+    const voiceByScript = {};
+    scriptKeys.forEach(k => {
+      const script = state.files.scripts[k];
+      if (!script || !script.scenes) return;
+      const scriptTitle = (script.meta && script.meta.title) || k;
+      Object.keys(script.scenes).forEach(sceneId => {
+        const scene = script.scenes[sceneId];
+        if (!scene) return;
+        const sceneTitle = scene.sceneName || sceneId;
+
+        if (Array.isArray(scene.steps) && scene.steps.length > 0) {
+          scene.steps.forEach((st, i) => {
+            if (!st) return;
+            if (st.type === 'desc') {
+              const path = st.audio || '';
+              const basename = path ? path.split('/').pop() : '';
+              if (!voiceByScript[k]) voiceByScript[k] = { title: scriptTitle, items: [] };
+              voiceByScript[k].items.push({
+                scriptKey: k, sceneId, kind: 'desc', stepIndex: i, isOld: false,
+                basename, hasAudio: !!path,
+                speakerLabel: '旁白',
+                text: st.text || '',
+                usages: scriptTitle + ' · ' + sceneTitle + ' · 旁白 #' + (i + 1)
+              });
+            } else if (st.type === 'dialogue') {
+              const path = st.audio || '';
+              const basename = path ? path.split('/').pop() : '';
+              const speaker = st.speaker || '对话';
+              const speakerLabel = speaker.indexOf('{{') === 0 ? '玩家' : speaker;
+              if (!voiceByScript[k]) voiceByScript[k] = { title: scriptTitle, items: [] };
+              voiceByScript[k].items.push({
+                scriptKey: k, sceneId, kind: 'dialogue', stepIndex: i, isOld: false,
+                basename, hasAudio: !!path,
+                speakerLabel,
+                text: st.text || '',
+                usages: scriptTitle + ' · ' + sceneTitle + ' · ' + speakerLabel + ' #' + (i + 1)
+              });
+            }
+          });
+        } else {
+          (scene.descriptions || []).forEach((d, i) => {
+            let path = '', text = '';
+            if (typeof d === 'string') { text = d; }
+            else if (d && typeof d === 'object') { path = d.audio || ''; text = d.text || ''; }
+            const basename = path ? path.split('/').pop() : '';
+            if (!voiceByScript[k]) voiceByScript[k] = { title: scriptTitle, items: [] };
+            voiceByScript[k].items.push({
+              scriptKey: k, sceneId, kind: 'desc', descIndex: i, isOld: true,
+              basename, hasAudio: !!path,
+              speakerLabel: '旁白',
+              text,
+              usages: scriptTitle + ' · ' + sceneTitle + ' · 旁白 #' + (i + 1)
+            });
+          });
+          (scene.dialogues || []).forEach((d, i) => {
+            const path = (d && d.audio) || '';
+            const basename = path ? path.split('/').pop() : '';
+            const speaker = (d && d.speaker) || '对话';
+            const speakerLabel = speaker.indexOf('{{') === 0 ? '玩家' : speaker;
+            if (!voiceByScript[k]) voiceByScript[k] = { title: scriptTitle, items: [] };
+            voiceByScript[k].items.push({
+              scriptKey: k, sceneId, kind: 'dialogue', dlgIndex: i, isOld: true,
+              basename, hasAudio: !!path,
+              speakerLabel,
+              text: (d && d.text) || '',
+              usages: scriptTitle + ' · ' + sceneTitle + ' · ' + speakerLabel + ' #' + (i + 1)
+            });
+          });
+        }
+      });
+    });
+
+    const voiceTotal = Object.keys(voiceByScript).reduce((s, k) => s + voiceByScript[k].items.length, 0);
+    if (voiceTotal > 0) {
+      const voiceDone = Object.keys(voiceByScript).reduce((s, k) =>
+        s + voiceByScript[k].items.filter(x => x.hasAudio && state.audioUploaded[x.basename]).length, 0);
+      const voiceTitleDiv = document.createElement('div');
+      voiceTitleDiv.className = 'audio-script-title';
+      voiceTitleDiv.innerHTML = '<span>语音</span><span class="title-progress">' + voiceDone + '/' + voiceTotal + '</span>';
+      container.appendChild(voiceTitleDiv);
+
+      Object.keys(voiceByScript).forEach(k => {
+        const group = voiceByScript[k];
+        const scriptSubTitle = document.createElement('div');
+        scriptSubTitle.className = 'audio-script-title';
+        scriptSubTitle.style.background = 'rgba(10,15,28,0.95)';
+        scriptSubTitle.style.fontSize = '12px';
+        scriptSubTitle.style.color = 'var(--text-secondary)';
+        const sDone = group.items.filter(x => x.hasAudio && state.audioUploaded[x.basename]).length;
+        scriptSubTitle.innerHTML = '<span>📖 ' + escapeHtml(group.title) + '</span><span class="title-progress">' + sDone + '/' + group.items.length + '</span>';
+        container.appendChild(scriptSubTitle);
+
+        group.items.forEach(it => {
+          const uploaded = it.hasAudio && !!state.audioUploaded[it.basename];
+          const key = buildAudioKey(it);
+          const el = document.createElement('div');
+          el.className = 'audio-item' + (uploaded ? ' uploaded' : '') + (key === state.currentAudioKey ? ' active' : '');
+          el.dataset.key = key;
+          el.dataset.scriptKey = it.scriptKey;
+          el.dataset.sceneId = it.sceneId;
+          el.dataset.kind = it.kind;
+          el.dataset.stepIndex = it.stepIndex != null ? it.stepIndex : '';
+          el.dataset.descIndex = it.descIndex != null ? it.descIndex : '';
+          el.dataset.dlgIndex = it.dlgIndex != null ? it.dlgIndex : '';
+          el.dataset.isOld = it.isOld ? '1' : '0';
+          el.dataset.basename = it.hasAudio ? it.basename : '';
+          el.dataset.speakerLabel = it.speakerLabel;
+
+          const displayName = it.hasAudio ? it.basename : '未配音';
+          el.innerHTML =
+            '<div class="ai-dot"></div>' +
+            '<div class="ai-info">' +
+              '<div class="ai-name">' +
+                '<span class="ai-speaker">' + escapeHtml(it.speakerLabel) + '：</span>' +
+                escapeHtml(displayName) +
+              '</div>' +
+              '<div class="ai-text">' + escapeHtml(it.text || '（无文字）') + '</div>' +
+              '<div class="ai-loc">' + escapeHtml(it.usages) + '</div>' +
+            '</div>';
+
+          el.onclick = () => {
+            state.currentAudioKey = key;
+            document.querySelectorAll('.audio-item').forEach(x => { x.classList.toggle('active', x.dataset.key === key); });
+            renderAudioPreview(key, _renderToken.tab4);
+            scheduleSave();
+          };
+          container.appendChild(el);
+        });
+      });
+    }
+
+    if (bgmTotal === 0 && voiceTotal === 0) {
+      container.innerHTML = '<div class="val-empty" style="padding: 30px 0;">当前剧本没有音频需求</div>';
+      renderAudioPreview(null, token);
+      return;
+    }
+
+    if (state.currentAudioKey) {
+      const el = document.querySelector('.audio-item[data-key="' + state.currentAudioKey + '"]');
+      if (el) { el.classList.add('active'); renderAudioPreview(state.currentAudioKey, token); }
+      else renderAudioPreview(null, token);
+    } else {
+      renderAudioPreview(null, token);
+    }
+  }
+
+  function extractVoiceText(loc) {
+    const script = state.files.scripts[loc.scriptKey];
+    if (!script) return '';
+    const scene = script.scenes[loc.sceneId];
+    if (!scene) return '';
+    if (loc.kind === 'bgm') return '';
+    if (loc.isOld) {
+      if (loc.kind === 'desc') {
+        const d = (scene.descriptions || [])[loc.descIndex];
+        if (typeof d === 'string') return d;
+        return (d && d.text) || '';
+      } else if (loc.kind === 'dialogue') {
+        const d = (scene.dialogues || [])[loc.dlgIndex];
+        return (d && d.text) || '';
+      }
+    } else {
+      const st = (scene.steps || [])[loc.stepIndex];
+      return (st && st.text) || '';
+    }
+    return '';
+  }
+
+  async function renderAudioPreview(key, token) {
+    const col = $('audioPreviewCol');
+    revokePreviewUrls('tab4');
+    col.innerHTML = '';
+    if (!key) {
+      col.innerHTML = '<div class="preview-placeholder"><div class="icon">🔊</div><div>从左侧选择一项上传或试听<br><span style="font-size:12px;opacity:.7;">（背景声音 + 语音，上传后自动写入 JSON）</span></div></div>';
+      return;
+    }
+    const el = document.querySelector('.audio-item[data-key="' + key + '"]');
+    if (!el) {
+      col.innerHTML = '<div class="preview-placeholder"><div class="icon">🔊</div><div>该项已失效，请重新选择</div></div>';
+      return;
+    }
+    const loc = {
+      scriptKey: el.dataset.scriptKey,
+      sceneId: el.dataset.sceneId,
+      kind: el.dataset.kind,
+      stepIndex: el.dataset.stepIndex !== '' ? parseInt(el.dataset.stepIndex, 10) : null,
+      descIndex: el.dataset.descIndex !== '' ? parseInt(el.dataset.descIndex, 10) : null,
+      dlgIndex: el.dataset.dlgIndex !== '' ? parseInt(el.dataset.dlgIndex, 10) : null,
+      isOld: el.dataset.isOld === '1'
+    };
+    const speakerLabel = el.dataset.speakerLabel || (loc.kind === 'bgm' ? 'BGM' : loc.kind === 'desc' ? '旁白' : '对话');
+    const basename = el.dataset.basename || '';
+    const text = extractVoiceText(loc);
+    const uploaded = basename && !!state.audioUploaded[basename];
+
+    const header = document.createElement('div');
+    header.className = 'preview-header';
+    const displayBasename = basename || '（未命名）';
+    const pathHint = loc.kind === 'bgm'
+      ? (basename ? 'assets/bgm/' + basename : '上传后自动写入 assets/bgm/')
+      : (basename ? 'assets/audio/' + basename : '上传后自动写入 assets/audio/');
+    header.innerHTML =
+      '<div class="ph-name">' +
+        '<span class="ph-speaker">' + escapeHtml(speakerLabel) + '：</span>' +
+        escapeHtml(displayBasename) +
+      '</div>' +
+      '<div class="ph-path">' + escapeHtml(pathHint) + '</div>';
+    col.appendChild(header);
+
+    const locDiv = document.createElement('div');
+    locDiv.className = 'audio-location-info';
+    const kindLabel = loc.kind === 'bgm' ? '场景 BGM' : loc.kind === 'desc' ? '旁白' : '对话';
+    locDiv.innerHTML =
+      '<span class="kw">剧本：</span><code>' + escapeHtml(loc.scriptKey) + '</code><br>' +
+      '<span class="kw">场景：</span><code>' + escapeHtml(loc.sceneId) + '</code><br>' +
+      '<span class="kw">类型：</span>' + kindLabel;
+    col.appendChild(locDiv);
+
+    if (text) {
+      const textDiv = document.createElement('div');
+      textDiv.className = 'audio-preview-text';
+      textDiv.textContent = text;
+      col.appendChild(textDiv);
+    }
+
+    const body = document.createElement('div');
+    body.className = 'preview-body';
+    const wrapper = document.createElement('div');
+    wrapper.className = 'audio-preview-wrapper';
+
+    let rec = null;
+    if (uploaded && basename) {
+      rec = await idbGet(basename);
+      if (token !== _renderToken.tab4) return;
+      if (rec && rec.blob) {
+        const url = URL.createObjectURL(rec.blob);
+        trackPreviewUrl('tab4', url);
+        const audio = document.createElement('audio');
+        audio.controls = true;
+        audio.src = url;
+        audio.style.cssText = 'width:100%; max-width:500px;';
+        audio.addEventListener('play', () => {
+          document.querySelectorAll('audio').forEach(a => {
+            if (a !== audio) { try { a.pause(); } catch (e) {} }
+          });
+        });
+        wrapper.appendChild(audio);
+      } else {
+        wrapper.innerHTML = '<div class="audio-preview-empty">文件已丢失，请重新上传</div>';
+      }
+    } else {
+      const kindTip = loc.kind === 'bgm' ? '上传后自动写入 JSON 的 scene.bgm 字段' : '上传后自动写入 JSON 的 audio 字段';
+      wrapper.innerHTML =
+        '<div class="audio-preview-empty">尚未上传<br>' +
+        (basename ? '预期文件名：' + escapeHtml(basename) + '<br>' : '') +
+        '点击下方按钮上传，或直接拖拽音频文件到此区域<br>' +
+        '<span style="font-size:11px;opacity:.7;">' + kindTip + '</span></div>';
+    }
+    body.appendChild(wrapper);
+
+    if (uploaded && basename) {
+      body.appendChild(buildFileInfoEl(rec));
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'preview-actions';
+
+    const uploadBtn = document.createElement('button');
+    uploadBtn.className = 'btn-primary';
+    uploadBtn.textContent = uploaded ? '🔄 重新上传' : '📤 上传音频';
+    uploadBtn.onclick = () => {
+      const inp = $('filePickAudio');
+      inp.onchange = () => {
+        const f = inp.files[0];
+        if (!f) return;
+        doAudioUploadForLocation(loc, basename, f);
+        inp.value = '';
+      };
+      inp.click();
+    };
+    actions.appendChild(uploadBtn);
+
+    if (uploaded && basename) {
+      actions.appendChild(buildCompressBtn(basename, 'mp3', () => renderTab4()));
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn-danger';
+      delBtn.textContent = '🗑 删除';
+      delBtn.onclick = async () => {
+        await idbDelete(basename);
+        state.audioUploaded[basename] = false;
+        removeAudioFromJson(loc);
+        rebuildAudioMeta();
+        renderTab4();
+        updateFooter();
+        updateTabBadges();
+        scheduleSave();
+        toast('已删除并移除 JSON 字段', 'ok');
+      };
+      actions.appendChild(delBtn);
+    }
+    body.appendChild(actions);
+    col.appendChild(body);
+  }
+
+  async function doAudioUploadForLocation(loc, basename, file) {
+    const isMp3 = file.type === 'audio/mpeg' || /\.mp3$/i.test(file.name);
+    if (!isMp3) { toast('只接受 MP3 格式', 'err'); return; }
+    if (file.size > CONFIG.MAX_AUDIO_SIZE) { toast('文件过大，上限 20MB', 'err'); return; }
+
+    let useBasename = basename;
+    if (!useBasename) {
+      useBasename = generateAudioName(loc);
+    }
+
+    try {
+      await idbPut(useBasename, file, { originalName: file.name, kind: 'audio', size: file.size });
+      state.audioUploaded[useBasename] = true;
+      const ok2 = injectAudioToJson(loc, useBasename);
+      if (ok2) toast('已上传 ' + useBasename + ' 并写入 JSON', 'ok');
+      else toast('已上传 ' + useBasename + '，但写入 JSON 失败', 'warn');
+      rebuildAudioMeta();
+      state.currentAudioKey = buildAudioKey(loc);
+      renderTab4();
+      updateFooter();
+      updateTabBadges();
+      scheduleSave();
+    } catch (e) { console.error(e); toast('上传失败：' + e.message, 'err'); }
+  }
+
+  // ============================================================
+  // 渲染 Tab 5（场景素材）
+  // ============================================================
+  function renderTab5() {
+    revokePreviewUrls('tab5');
+    const token = ++_renderToken.tab5;
+    const container = $('sceneAssetListCol');
+    container.innerHTML = '';
+    const meta = state.sceneAssetMeta;
+    const keys = Object.keys(meta);
+    const scriptKeys = getSortedScriptKeys(state.files.scripts);
+
+    if (scriptKeys.length === 0) {
+      container.innerHTML = '<div class="val-empty" style="padding: 30px 0;">请先在标签 ① 上传剧本</div>';
+      renderSceneAssetPreview(null, token);
+      return;
+    }
+
+    if (keys.length === 0) {
+      container.innerHTML =
+        '<div class="scene-asset-empty">当前剧本没有 CG / 视频 / HTML 场景素材需求。<br><br>' +
+        '如需使用，请在 <code style="background:rgba(76,154,255,0.12);color:#4c9aff;padding:1px 6px;border-radius:4px;">scene.type</code> 中设置为 <code style="background:rgba(76,154,255,0.12);color:#4c9aff;padding:1px 6px;border-radius:4px;">cg</code> / <code style="background:rgba(76,154,255,0.12);color:#4c9aff;padding:1px 6px;border-radius:4px;">video</code> / <code style="background:rgba(76,154,255,0.12);color:#4c9aff;padding:1px 6px;border-radius:4px;">html</code>，并配置对应的 cg.images / video.src / html.path。</div>';
+      renderSceneAssetPreview(null, token);
+      return;
+    }
+
+    const byScript = {};
+    scriptKeys.forEach(k => { byScript[k] = { cg: [], video: [], html: [] }; });
+    keys.forEach(bn => {
+      const m = meta[bn];
+      const loc = m.location;
+      if (!loc) return;
+      if (!byScript[loc.scriptKey]) byScript[loc.scriptKey] = { cg: [], video: [], html: [] };
+      byScript[loc.scriptKey][loc.kind].push({ basename: bn, meta: m });
+    });
+
+    scriptKeys.forEach(k => {
+      const script = state.files.scripts[k];
+      if (!script) return;
+      const group = byScript[k];
+      if (!group) return;
+      const total = group.cg.length + group.video.length + group.html.length;
+      if (total === 0) return;
+
+      const titleDiv = document.createElement('div');
+      titleDiv.className = 'audio-script-title';
+      const done = group.cg.filter(x => state.sceneAssetUploaded[x.basename]).length +
+        group.video.filter(x => state.sceneAssetUploaded[x.basename]).length +
+        group.html.filter(x => state.sceneAssetUploaded[x.basename]).length;
+      titleDiv.innerHTML = '<span>' + escapeHtml((script.meta && script.meta.title) || k) + '</span><span class="title-progress">' + done + '/' + total + '</span>';
+      container.appendChild(titleDiv);
+
+      renderSceneAssetGroup(container, k, 'cg', 'CG 序列帧', group.cg);
+      renderSceneAssetGroup(container, k, 'video', '视频', group.video);
+      renderSceneAssetGroup(container, k, 'html', 'HTML 页面', group.html);
+    });
+
+    const hintDiv = document.createElement('div');
+    hintDiv.className = 'scene-asset-hint';
+    hintDiv.innerHTML = '<span class="kw">📌 功能预留：</span>本标签用于上传场景素材。上传后文件会按 JSON 中写的路径放进 zip 的 <code style="background:rgba(76,154,255,0.12);color:#4c9aff;padding:1px 6px;border-radius:4px;">assets/</code> 对应位置。暂不自动生成编号和路径，请在 JSON 中写对路径。';
+    container.appendChild(hintDiv);
+
+    if (state.currentSceneAssetKey) {
+      const el = document.querySelector('.scene-asset-item[data-key="' + state.currentSceneAssetKey + '"]');
+      if (el) { el.classList.add('active'); renderSceneAssetPreview(state.currentSceneAssetKey, token); }
+      else renderSceneAssetPreview(null, token);
+    } else renderSceneAssetPreview(null, token);
+  }
+  function renderSceneAssetGroup(container, scriptKey, kind, label, list) {
+    if (list.length === 0) return;
+    const collapseKey = scriptKey + '::' + kind;
+    const doneCount = list.filter(x => state.sceneAssetUploaded[x.basename]).length;
+    let collapsed = state.sceneAssetCollapsed[collapseKey];
+    if (collapsed === undefined) collapsed = (doneCount === list.length);
+
+    const groupDiv = document.createElement('div');
+    groupDiv.className = 'scene-asset-group' + (collapsed ? ' collapsed' : '');
+
+    const header = document.createElement('div');
+    header.className = 'scene-asset-header';
+    header.innerHTML = '<span class="sah-left"><span class="sah-arrow">▼</span>' + label + '（' + list.length + '）</span><span class="sah-progress' + (doneCount === list.length ? ' done' : '') + '">' + doneCount + '/' + list.length + '</span>';
+    header.onclick = () => {
+      const cur = !!state.sceneAssetCollapsed[collapseKey];
+      state.sceneAssetCollapsed[collapseKey] = !cur;
+      groupDiv.classList.toggle('collapsed', !cur);
+      scheduleSave();
+    };
+    groupDiv.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'scene-asset-body';
+
+    list.forEach(item => {
+      const m = item.meta;
+      const loc = m.location;
+      const uploaded = !!state.sceneAssetUploaded[item.basename];
+      const key = loc.scriptKey + '::' + loc.sceneId + '::' + loc.kind + '::' + (loc.index != null ? loc.index : '');
+      const el = document.createElement('div');
+      el.className = 'scene-asset-item' + (uploaded ? ' uploaded' : '') + (key === state.currentSceneAssetKey ? ' active' : '');
+      el.dataset.key = key;
+      el.dataset.basename = item.basename;
+      el.dataset.scriptKey = loc.scriptKey;
+      el.dataset.sceneId = loc.sceneId;
+      el.dataset.kind = loc.kind;
+      el.dataset.index = loc.index != null ? loc.index : '';
+      el.innerHTML = '<div class="sai-dot"></div><div class="sai-info"><div class="sai-name">' + escapeHtml(item.basename) + '</div><div class="sai-loc">' + escapeHtml(m.usages[0] || '') + '</div></div>';
+      el.onclick = () => {
+        state.currentSceneAssetKey = key;
+        document.querySelectorAll('.scene-asset-item').forEach(x => { x.classList.toggle('active', x.dataset.key === key); });
+        renderSceneAssetPreview(key, _renderToken.tab5);
+        scheduleSave();
+      };
+      body.appendChild(el);
+    });
+    groupDiv.appendChild(body);
+    container.appendChild(groupDiv);
+  }
+  async function renderSceneAssetPreview(key, token) {
+    const col = $('sceneAssetPreviewCol');
+    revokePreviewUrls('tab5');
+    col.innerHTML = '';
+    if (!key) {
+      col.innerHTML = '<div class="preview-placeholder"><div class="icon">🎞️</div><div>从左侧选择一项 CG / 视频 / HTML 上传或预览<br><span style="font-size:12px;opacity:.7;">（本功能预留，上传后文件会进 zip 的对应位置）</span></div></div>';
+      return;
+    }
+    const el = document.querySelector('.scene-asset-item[data-key="' + key + '"]');
+    if (!el) {
+      col.innerHTML = '<div class="preview-placeholder"><div class="icon">🎞️</div><div>该项已失效，请重新选择</div></div>';
+      return;
+    }
+    const loc = {
+      scriptKey: el.dataset.scriptKey,
+      sceneId: el.dataset.sceneId,
+      kind: el.dataset.kind,
+      index: el.dataset.index !== '' ? parseInt(el.dataset.index, 10) : null
+    };
+    const basename = el.dataset.basename;
+    const meta = state.sceneAssetMeta[basename];
+    const uploaded = !!state.sceneAssetUploaded[basename];
+
+    const header = document.createElement('div');
+    header.className = 'preview-header';
+    header.innerHTML = '<div class="ph-name">' + escapeHtml(basename) + '</div><div class="ph-path">' + escapeHtml(meta ? meta.targetPath : '') + '</div><div class="ph-usages">' + (meta ? (meta.usages || []).map(u => '<span>' + escapeHtml(u) + '</span>').join('') : '') + '</div>';
+    col.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'preview-body';
+    const wrapper = document.createElement('div');
+    wrapper.className = 'scene-preview-wrapper';
+
+    const rec = await idbGet(basename);
+    if (token !== _renderToken.tab5) return;
+    if (rec && rec.blob) {
+      const url = URL.createObjectURL(rec.blob);
+      trackPreviewUrl('tab5', url);
+      if (loc.kind === 'cg') {
+        const img = document.createElement('img');
+        img.src = url;
+        wrapper.appendChild(img);
+      } else if (loc.kind === 'video') {
+        const video = document.createElement('video');
+        video.controls = true;
+        video.src = url;
+        wrapper.appendChild(video);
+      } else if (loc.kind === 'html') {
+        const iframe = document.createElement('iframe');
+        iframe.src = url;
+        iframe.sandbox = 'allow-scripts allow-same-origin';
+        wrapper.appendChild(iframe);
+      }
+    } else {
+      const kindLabel = loc.kind === 'cg' ? 'PNG 图片' : loc.kind === 'video' ? 'MP4 / WebM 视频' : 'HTML 文件';
+      wrapper.innerHTML = '<div class="scene-preview-empty">尚未上传<br>点击下方按钮选择 ' + kindLabel + '，或直接拖拽到此区域</div>';
+    }
+    body.appendChild(wrapper);
+
+    if (rec) body.appendChild(buildFileInfoEl(rec));
+
+    const actions = document.createElement('div');
+    actions.className = 'preview-actions';
+    const uploadBtn = document.createElement('button');
+    uploadBtn.className = 'btn-primary';
+    uploadBtn.textContent = rec ? '🔄 重新上传' : '📤 上传';
+    uploadBtn.onclick = () => {
+      const inp = $('filePickSceneAsset');
+      inp.onchange = () => {
+        const f = inp.files[0];
+        if (!f) return;
+        handleSceneAssetUpload(basename, f, loc.kind);
+        inp.value = '';
+      };
+      inp.click();
+    };
+    actions.appendChild(uploadBtn);
+
+    if (rec) {
+      // 只有 CG 是 PNG，可压缩；视频 / HTML 不压缩
+      if (loc.kind === 'cg') {
+        actions.appendChild(buildCompressBtn(basename, 'png', () => renderTab5()));
+      }
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn-danger';
+      delBtn.textContent = '🗑 删除';
+      delBtn.onclick = async () => {
+        await idbDelete(basename);
+        state.sceneAssetUploaded[basename] = false;
+        scheduleSave();
+        renderTab5();
+        updateFooter();
+        updateTabBadges();
+        toast('已删除', 'ok');
+      };
+      actions.appendChild(delBtn);
+    }
+    body.appendChild(actions);
+    col.appendChild(body);
+  }
+  async function handleSceneAssetUpload(basename, file, kind) {
+    let valid = false;
+    if (kind === 'cg') valid = file.type === 'image/png';
+    else if (kind === 'video') valid = /^video\//.test(file.type) || /\.(mp4|webm)$/i.test(file.name);
+    else if (kind === 'html') valid = /\.html?$/i.test(file.name) || file.type === 'text/html';
+    if (!valid) {
+      const kindLabel = kind === 'cg' ? 'PNG' : kind === 'video' ? 'MP4 / WebM' : 'HTML';
+      toast('该类型只接受 ' + kindLabel + ' 文件', 'err');
+      return;
+    }
+    if (kind === 'video' && file.size > CONFIG.MAX_VIDEO_SIZE) {
+      toast('视频过大，上限 100MB', 'err');
+      return;
+    }
+    try {
+      await idbPut(basename, file, { originalName: file.name, kind: 'scene_' + kind, size: file.size });
+      state.sceneAssetUploaded[basename] = true;
+      scheduleSave();
+      renderTab5();
+      updateFooter();
+      updateTabBadges();
+      toast('已上传 ' + basename, 'ok');
+    } catch (e) { console.error(e); toast('上传失败：' + e.message, 'err'); }
+  }
+
+  // ============================================================
+  // 打包
+  // ============================================================
+  async function packageZip() {
+    if (state.validation.errors.length > 0) { toast('存在校验错误，请先修正', 'err'); return; }
+
+    const missingImgs = Object.keys(state.imageMeta).filter(k => !state.imageUploaded[k]);
+    const missingAudiosReal = Object.keys(state.audioMeta).filter(k => !state.audioUploaded[k] && !state.audioMeta[k].isPlaceholder);
+    const missingAudiosPlaceholder = Object.keys(state.audioMeta).filter(k => !state.audioUploaded[k] && state.audioMeta[k].isPlaceholder);
+    const missingScenes = Object.keys(state.sceneAssetMeta).filter(k => !state.sceneAssetUploaded[k]);
+    if (missingImgs.length > 0 || missingAudiosReal.length > 0 || missingAudiosPlaceholder.length > 0 || missingScenes.length > 0) {
+      let msg = '';
+      if (missingImgs.length > 0) msg += '还有 ' + missingImgs.length + ' 张图片未上传\n';
+      if (missingAudiosReal.length > 0) msg += '还有 ' + missingAudiosReal.length + ' 个音频已声明但未上传\n';
+      if (missingAudiosPlaceholder.length > 0) msg += '还有 ' + missingAudiosPlaceholder.length + ' 条音频需求未上传（未上传的条目将不打包）\n';
+      if (missingScenes.length > 0) msg += '还有 ' + missingScenes.length + ' 个场景素材未上传\n';
+      msg += '\n是否继续打包？';
+      const ok = await confirmModal('缺少资源', msg, { confirmText: '仍然打包' });
+      if (!ok) return;
+    }
+
+    const name = await confirmModal('打包文件名', '请输入 zip 文件名（不含扩展名）：', {
+      input: true, inputValue: state.packageName || 'pack', inputPlaceholder: 'pack', confirmText: '打包'
+    });
+    if (name == null) return;
+    const cleanName = (name || 'pack').trim().replace(/\.zip$/i, '') || 'pack';
+    state.packageName = cleanName;
+    scheduleSave();
+
+    const zip = new JSZip();
+    zip.folder('assets');
+
+    if (state.rawFiles.init) zip.file('init.json', state.rawFiles.init.text);
+    Object.keys(state.rawFiles.scripts).forEach(k => { zip.file(k, state.rawFiles.scripts[k].text); });
+    if (state.rawFiles.result) zip.file('result.json', state.rawFiles.result.text);
+
+    const allAssets = await idbAll();
+    const assetMap = {};
+    allAssets.forEach(r => { assetMap[r.basename] = r; });
+
+    // 图片
+    Object.keys(state.imageMeta).forEach(bn => {
+      const rec = assetMap[bn];
+      const kind = rec && rec.meta && rec.meta.kind;
+      const isImage = kind === 'image' || kind == null;
+      if (rec && rec.blob && isImage) {
+        const target = state.imageMeta[bn].targetPath;
+        const rel = target.replace(/^assets\//, '');
+        zip.file('assets/' + rel, rec.blob);
+      }
+    });
+    Object.keys(state.imageUploaded).forEach(bn => {
+      if (state.imageUploaded[bn] && !state.imageMeta[bn]) {
+        const rec = assetMap[bn];
+        const kind = rec && rec.meta && rec.meta.kind;
+        const isImage = kind === 'image' || kind == null;
+        if (rec && rec.blob && isImage) zip.file('assets/' + bn, rec.blob);
+      }
+    });
+
+    // 音频
+    Object.keys(state.audioMeta).forEach(bn => {
+      if (state.audioMeta[bn].isPlaceholder) return;
+      const rec = assetMap[bn];
+      if (rec && rec.blob) {
+        const target = state.audioMeta[bn].targetPath;
+        const rel = target.replace(/^assets\//, '');
+        zip.file('assets/' + rel, rec.blob);
+      }
+    });
+    Object.keys(state.audioUploaded).forEach(bn => {
+      if (state.audioUploaded[bn] && !state.audioMeta[bn]) {
+        const rec = assetMap[bn];
+        if (rec && rec.blob) zip.file('assets/audio/' + bn, rec.blob);
+      }
+    });
+
+    // 场景素材
+    Object.keys(state.sceneAssetMeta).forEach(bn => {
+      const rec = assetMap[bn];
+      if (rec && rec.blob) {
+        const target = state.sceneAssetMeta[bn].targetPath;
+        const rel = target.replace(/^assets\//, '');
+        zip.file('assets/' + rel, rec.blob);
+      }
+    });
+
+    try {
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = cleanName + '.zip';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setStatus('✅ 已打包', 'ok');
+      toast('已打包 ' + cleanName + '.zip', 'ok');
+    } catch (e) { console.error(e); toast('打包失败：' + e.message, 'err'); }
+  }
+
+  // ============================================================
+  // 标签切换
+  // ============================================================
+  function switchTab(num) {
+    state.currentTab = num;
+    tabs.forEach(t => t.classList.toggle('active', parseInt(t.dataset.tab, 10) === num));
+    tabPanes.forEach(p => p.classList.toggle('active', p.id === 'tab' + num));
+    if (num === 2) setTimeout(() => { if (dagNetwork) dagNetwork.fit({ animation: false }); }, 50);
+    if (num === 3) renderTab3();
+    if (num === 4) renderTab4();
+    if (num === 5) renderTab5();
+    scheduleSave();
+  }
+  async function startNewTask() {
+    const ok = await confirmModal('开始新任务', '将清空所有已上传的 JSON、图片、音频、场景素材与进度，无法恢复。是否继续？', { confirmText: '清空并开始' });
+    if (!ok) return;
+    clearState();
+    try { await idbClear(); } catch (e) {
+      toast('清空 IndexedDB 失败，请手动清理浏览器数据', 'err');
+      return;
+    }
+    location.reload();
+  }
+
+  // ============================================================
+  // 拖拽上传
+  // ============================================================
+  function hasFiles(e) {
+    if (!e.dataTransfer || !e.dataTransfer.types) return false;
+    return Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') >= 0;
+  }
+  function resetDragUI() { document.querySelectorAll('.dragover').forEach(el => el.classList.remove('dragover')); }
+  function splitByKind(files) {
+    const buckets = { init: [], result: [], scripts: [], unknown: [] };
+    files.forEach(f => {
+      const n = normalizeFileName(f.name);
+      if (n === 'init.json') buckets.init.push(f);
+      else if (n === 'result.json') buckets.result.push(f);
+      else if (n && n.indexOf('script_') === 0) buckets.scripts.push(f);
+      else buckets.unknown.push(f);
+    });
+    return buckets;
+  }
+  function handleZoneDrop(kind, files) {
+    const b = splitByKind(files);
+    if (b.init.length) handleFilesUpload('init', [b.init[0]]);
+    if (b.result.length) handleFilesUpload('result', [b.result[0]]);
+    if (b.scripts.length) handleFilesUpload('scripts', b.scripts);
+    if (b.unknown.length) {
+      if (kind === 'init') handleFilesUpload('init', [b.unknown[0]]);
+      else if (kind === 'result') handleFilesUpload('result', [b.unknown[0]]);
+      else handleFilesUpload('scripts', b.unknown);
+    }
+  }
+  function setupZoneDrop(el, kind) {
+    if (!el) return;
+    el.addEventListener('dragover', e => {
+      if (!hasFiles(e)) return;
+      e.preventDefault(); e.stopPropagation();
+      try { e.dataTransfer.dropEffect = 'copy'; } catch (err) {}
+      el.classList.add('dragover');
+    });
+    el.addEventListener('dragenter', e => {
+      if (!hasFiles(e)) return;
+      e.preventDefault(); e.stopPropagation();
+      el.classList.add('dragover');
+    });
+    el.addEventListener('dragleave', e => {
+      if (!hasFiles(e)) return;
+      if (e.relatedTarget && el.contains(e.relatedTarget)) return;
+      el.classList.remove('dragover');
+    });
+    el.addEventListener('drop', e => {
+      if (!hasFiles(e)) return;
+      e.preventDefault(); e.stopPropagation();
+      el.classList.remove('dragover');
+      resetDragUI();
+      const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
+      if (files.length) handleZoneDrop(kind, files);
+    });
+  }
+  async function handleImageDrop(files) {
+    const imgs = files.filter(f => f.type === 'image/png');
+    if (!imgs.length) { toast('请拖入 PNG 图片文件', 'err'); return; }
+    const imgKeys = Object.keys(state.imageMeta);
+    let count = 0;
+    for (const f of imgs) {
+      const base = f.name.replace(/\.[^.]+$/, '');
+      const match = imgKeys.find(k => {
+        const last = k.split('/').pop();
+        return last === f.name || last.replace(/\.[^.]+$/, '') === base;
+      });
+      if (match) { await handleImageUpload(match, f); count++; }
+    }
+    if (count === 0 && state.currentImageBasename) {
+      await handleImageUpload(state.currentImageBasename, imgs[0]);
+      count = 1;
+    }
+    if (count === 0) toast('未能匹配到对应项，请先在左侧选中目标再拖入', 'warn');
+  }
+  async function handleAudioDrop(files) {
+    const audios = files.filter(f => /\.(mp3|wav|ogg|m4a)$/i.test(f.name) || /^audio\//.test(f.type));
+    if (!audios.length) { toast('请拖入音频文件（MP3/WAV/OGG/M4A）', 'err'); return; }
+    if (!state.currentAudioKey) { toast('请先在左侧选中一条再拖入', 'warn'); return; }
+    const el = document.querySelector('.audio-item[data-key="' + state.currentAudioKey + '"]');
+    if (!el) return;
+    const loc = {
+      scriptKey: el.dataset.scriptKey,
+      sceneId: el.dataset.sceneId,
+      kind: el.dataset.kind,
+      stepIndex: el.dataset.stepIndex !== '' ? parseInt(el.dataset.stepIndex, 10) : null,
+      descIndex: el.dataset.descIndex !== '' ? parseInt(el.dataset.descIndex, 10) : null,
+      dlgIndex: el.dataset.dlgIndex !== '' ? parseInt(el.dataset.dlgIndex, 10) : null,
+      isOld: el.dataset.isOld === '1'
+    };
+    const basename = el.dataset.basename;
+    await doAudioUploadForLocation(loc, basename, audios[0]);
+  }
+  async function handleSceneAssetDrop(files) {
+    if (!state.currentSceneAssetKey) { toast('请先在左侧选中一项再拖入', 'warn'); return; }
+    const el = document.querySelector('.scene-asset-item[data-key="' + state.currentSceneAssetKey + '"]');
+    if (!el) return;
+    const kind = el.dataset.kind;
+    const basename = el.dataset.basename;
+    const f = files[0];
+    if (!f) return;
+    await handleSceneAssetUpload(basename, f, kind);
+  }
+  function setupDrop(el, handler) {
+    if (!el) return;
+    el.addEventListener('dragover', e => {
+      if (!hasFiles(e)) return;
+      e.preventDefault(); e.stopPropagation();
+      try { e.dataTransfer.dropEffect = 'copy'; } catch (err) {}
+      el.classList.add('dragover');
+    });
+    el.addEventListener('dragenter', e => {
+      if (!hasFiles(e)) return;
+      e.preventDefault(); e.stopPropagation();
+      el.classList.add('dragover');
+    });
+    el.addEventListener('dragleave', e => {
+      if (!hasFiles(e)) return;
+      if (e.relatedTarget && el.contains(e.relatedTarget)) return;
+      el.classList.remove('dragover');
+    });
+    el.addEventListener('drop', e => {
+      if (!hasFiles(e)) return;
+      e.preventDefault(); e.stopPropagation();
+      el.classList.remove('dragover');
+      resetDragUI();
+      const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
+      if (files.length) handler(files);
+    });
+  }
+  window.addEventListener('blur', resetDragUI);
+
+  // ============================================================
+  // 事件绑定
+  // ============================================================
+  tabs.forEach(t => { t.onclick = () => switchTab(parseInt(t.dataset.tab, 10)); });
+  document.querySelectorAll('[data-pick]').forEach(btn => {
+    btn.onclick = () => {
+      const kind = btn.dataset.pick;
+      if (kind === 'init') $('filePickInit').click();
+      else if (kind === 'scripts') $('filePickScripts').click();
+      else if (kind === 'result') $('filePickResult').click();
+    };
+  });
+  $('filePickInit').onchange = e => { handleFilesUpload('init', e.target.files); e.target.value = ''; };
+  $('filePickScripts').onchange = e => { handleFilesUpload('scripts', e.target.files); e.target.value = ''; };
+  $('filePickResult').onchange = e => { handleFilesUpload('result', e.target.files); e.target.value = ''; };
+  $('validateBtn').onclick = () => {
+    const { errors, warnings, oks } = validateAll();
+    renderValidation();
+    renderTab2();
+    renderTab3();
+    renderTab4();
+    renderTab5();
+    updateTabBadges();
+    updateFooter();
+    if (errors.length > 0) { setStatus('✗ ' + errors.length + ' 个错误', 'err'); toast('校验发现 ' + errors.length + ' 个错误', 'err'); }
+    else if (warnings.length > 0) { setStatus('⚠ ' + warnings.length + ' 个警告', 'warn'); toast('校验通过，有 ' + warnings.length + ' 个警告', 'warn'); }
+    else { setStatus('✓ 全部通过', 'ok'); toast('校验通过', 'ok'); }
+  };
+  packageBtn.onclick = packageZip;
+  newTaskBtn.onclick = startNewTask;
+  setupZoneDrop($('zoneInit'), 'init');
+  setupZoneDrop($('zoneScripts'), 'scripts');
+  setupZoneDrop($('zoneResult'), 'result');
+  setupDrop($('previewCol'), handleImageDrop);
+  setupDrop($('audioPreviewCol'), handleAudioDrop);
+  setupDrop($('sceneAssetPreviewCol'), handleSceneAssetDrop);
+
+  // ============================================================
+  // 初始化
+  // ============================================================
+  async function init() {
+    try { await openIDB(); } catch (e) { console.warn('IDB 打开失败', e); }
+    const loaded = loadState();
+    if (loaded) toast('已恢复上次进度', 'ok');
+    try {
+      const all = await idbAll();
+      const imgMap = {}, audMap = {}, scMap = {};
+      all.forEach(r => {
+        const kind = (r.meta && r.meta.kind) || 'image';
+        if (kind === 'audio') audMap[r.basename] = true;
+        else if (String(kind).startsWith('scene_')) scMap[r.basename] = true;
+        else imgMap[r.basename] = true;
+      });
+      Object.keys(imgMap).forEach(k => { state.imageUploaded[k] = true; });
+      Object.keys(audMap).forEach(k => { state.audioUploaded[k] = true; });
+      Object.keys(scMap).forEach(k => { state.sceneAssetUploaded[k] = true; });
+    } catch (e) {}
+
+    try {
+      const mig = await migrateLegacyAudioNames();
+      if (mig.renamed > 0) toast('已迁移 ' + mig.renamed + ' 个旧音频名到规范格式', 'ok');
+      if (mig.skipped > 0) toast('有 ' + mig.skipped + ' 个旧音频未能自动迁移，请重新上传', 'warn');
+    } catch (e) { console.warn('旧音频迁移失败', e); }
+
+    if (!state.rawFiles.init && Object.keys(state.rawFiles.scripts).length === 0 && !state.rawFiles.result) {
+      state.currentTab = 1;
+    }
+    renderTab1();
+    renderTab2();
+    renderTab3();
+    renderTab4();
+    renderTab5();
+    switchTab(state.currentTab || 1);
+    updateTabBadges();
+    updateFooter();
+    setStatus('🟢 就绪', null);
+  }
+  init();
+})();
+</script>
+</body>
+</html>

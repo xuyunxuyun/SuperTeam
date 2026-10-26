@@ -1,0 +1,4175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <!--
+        **以下版权声明和版本历史为页面一部分，AI优化时请不要省略**
+    -->
+  <!--
+        SPDX-License-Identifier: CC-BY-NC-SA-4.0
+        本文件是"汉末废柴堆 · 超级团队组建系统"的一部分。
+        完整项目受 CC BY-NC-SA 4.0 许可证保护，详见根目录 LICENSE 文件。
+        本项目核心设计思想、架构方案、方法论受 NOTICE 文件独立保护。
+        个人可免费使用，严禁用于商业目的。
+        商业授权请联系：xxuuyyuunn@sina.com
+    -->
+  <!--
+        **版本历史**
+        | 版本号 | 过程节点说明 | 修订人 | 修订日期 | 修订内容 |
+        | :----- | :----------- | :----- | :------- | :------- |
+        | V0.1.0 | 初稿创建     | 徐昀 | 2026-10-12 | 根据用户需求生成 |
+        | V0.1.1 | 交互优化     | 徐昀 | 2026-10-13 | 增加背景与人物立绘的渐变过渡效果 |
+        | V0.1.2 | 架构升级     | 徐昀 | 2026-10-23 | steps 步骤流 / 5 角色位 / 音频系统 / 场景类型 / next 条件与随机 / 表达式扩展 |
+        | V0.1.3 | 规则更新     | 徐昀 | 2026-10-26 | 执行规则更新，修复BUG |
+    -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>超级现场 · 铜雀老戏台</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Segoe UI', 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+      background: #0a0f1c;
+      color: #e0e0e0;
+      user-select: none;
+    }
+
+    :root {
+      --bg-deep: #0a0f1c;
+      --bg-card: #111827;
+      --bg-elevated: #1a1f2e;
+      --border-subtle: #2a3452;
+      --border-glow: rgba(76, 154, 255, 0.4);
+      --primary-blue: #4c9aff;
+      --primary-blue-dark: #3b82f6;
+      --text-primary: #e0e0e0;
+      --text-secondary: #9aa9c1;
+      --text-muted: #6b7a8f;
+      --accent-danger: #f56565;
+      --shadow-glow: 0 0 12px rgba(76, 154, 255, 0.2);
+    }
+
+    #app {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      overflow: hidden;
+      background: var(--bg-deep);
+    }
+
+    /* 背景双图层：交叉淡入淡出 */
+    #bg,
+    #bgFade {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    #bg {
+      transition: opacity 0.6s ease;
+      z-index: 1;
+    }
+
+    #bgFade {
+      opacity: 0;
+      transition: opacity 0.6s ease;
+      z-index: 2;
+    }
+
+    #charLayer {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    /* 立绘：10px 边缘渐变淡出 + 透明度过渡
+       5 位置：left / midLeft / center / midRight / right
+       z-index 中心最高，向外递减
+    */
+    .char-sprite {
+      position: absolute;
+      bottom: 0;
+      height: 80vh;
+      max-height: 90vh;
+      opacity: 0;
+      transition: opacity 0.5s ease, transform 0.5s ease;
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 10px, black calc(100% - 10px), transparent 100%),
+        linear-gradient(to right, transparent 0, black 10px, black calc(100% - 10px), transparent 100%);
+      -webkit-mask-composite: source-in;
+      mask-image: linear-gradient(to bottom, transparent 0, black 10px, black calc(100% - 10px), transparent 100%),
+        linear-gradient(to right, transparent 0, black 10px, black calc(100% - 10px), transparent 100%);
+      mask-composite: intersect;
+    }
+
+    .char-sprite.show {
+      opacity: 1;
+    }
+
+    .char-sprite.left {
+      left: 0;
+      z-index: 6;
+    }
+
+    .char-sprite.midLeft {
+      left: 20%;
+      z-index: 8;
+    }
+
+    .char-sprite.center {
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+    }
+
+    .char-sprite.midRight {
+      right: 20%;
+      z-index: 8;
+    }
+
+    .char-sprite.right {
+      right: 0;
+      z-index: 6;
+    }
+
+    #topBar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 20;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 28px;
+      background: linear-gradient(180deg, rgba(10, 15, 28, 0.85) 0%, transparent 100%);
+      pointer-events: none;
+    }
+
+    #topBar h1 {
+      font-size: 18px;
+      font-weight: 600;
+      background: linear-gradient(135deg, #e0f2fe, #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: 0.3px;
+    }
+
+    #topBarRight {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      pointer-events: auto;
+    }
+
+    #statusBadge {
+      font-size: 12px;
+      color: var(--text-secondary);
+      background: rgba(17, 24, 39, 0.8);
+      padding: 4px 14px;
+      border-radius: 30px;
+      border: 1px solid var(--border-subtle);
+      backdrop-filter: blur(8px);
+    }
+
+    #rewindBtn {
+      display: none;
+      background: rgba(17, 24, 39, 0.85);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      padding: 5px 16px;
+      border-radius: 30px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      backdrop-filter: blur(8px);
+    }
+
+    #rewindBtn:hover:not(:disabled) {
+      border-color: var(--primary-blue);
+      color: var(--primary-blue);
+      box-shadow: var(--shadow-glow);
+    }
+
+    #rewindBtn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    #bottomLayer {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 30;
+      padding: 0 28px 24px 28px;
+      background: linear-gradient(0deg, rgba(10, 15, 28, 0.92) 0%, transparent 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    #bottomLayer>* {
+      pointer-events: auto;
+    }
+
+    #descBox {
+      background: rgba(17, 24, 39, 0.9);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 18px 24px 14px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.5);
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+      display: none;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    #descBox:hover {
+      border-color: var(--border-glow);
+    }
+
+    #descText {
+      font-size: 17px;
+      line-height: 1.7;
+      color: var(--text-primary);
+      padding: 6px 0 8px;
+      min-height: 56px;
+      white-space: pre-wrap;
+    }
+
+    #descHint {
+      text-align: right;
+      font-size: 12px;
+      color: var(--text-muted);
+      border-top: 1px solid rgba(42, 52, 82, 0.6);
+      padding-top: 8px;
+    }
+
+    #descHint kbd,
+    #dialogHint kbd {
+      background: rgba(76, 154, 255, 0.12);
+      color: var(--primary-blue);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 12px;
+      border: none;
+    }
+
+    #dialogBox {
+      background: rgba(17, 24, 39, 0.9);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 18px 24px 14px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.5);
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+      display: none;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    #dialogBox:hover {
+      border-color: var(--border-glow);
+    }
+
+    #dialogMeta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    #dialogName {
+      font-weight: 700;
+      font-size: 19px;
+      background: linear-gradient(135deg, #e0f2fe, #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    #dialogProgress {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    #dialogText {
+      font-size: 17px;
+      line-height: 1.7;
+      color: var(--text-primary);
+      padding: 6px 0 8px;
+      min-height: 56px;
+      white-space: pre-wrap;
+    }
+
+    #dialogHint {
+      text-align: right;
+      font-size: 12px;
+      color: var(--text-muted);
+      border-top: 1px solid rgba(42, 52, 82, 0.6);
+      padding-top: 8px;
+    }
+
+    #inputBox {
+      background: rgba(17, 24, 39, 0.9);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 18px 24px 14px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.5);
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+      display: none;
+      transition: border-color 0.2s;
+    }
+
+    #inputBox:hover {
+      border-color: var(--border-glow);
+    }
+
+    #inputPrompt {
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      padding: 2px 0 10px;
+      white-space: pre-wrap;
+    }
+
+    #inputField {
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 15px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      color: var(--text-primary);
+      outline: none;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 80px;
+      transition: 0.15s;
+    }
+
+    #inputField:focus {
+      border-color: var(--primary-blue);
+      box-shadow: 0 0 0 3px rgba(76, 154, 255, 0.15);
+    }
+
+    #inputFooter {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+      border-top: 1px solid rgba(42, 52, 82, 0.6);
+      padding-top: 10px;
+    }
+
+    #inputCounter {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    #inputSubmit {
+      background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
+      border: none;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 10px 28px;
+      border-radius: 30px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+    }
+
+    #inputSubmit:hover {
+      background: linear-gradient(135deg, var(--primary-blue-dark), #2563eb);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(59, 130, 246, 0.5);
+    }
+
+    #choiceBox {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .choice-btn {
+      background: rgba(17, 24, 39, 0.9);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      font-size: 15px;
+      line-height: 1.6;
+      padding: 14px 20px;
+      border-radius: 12px;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s;
+      backdrop-filter: blur(8px);
+      font-family: inherit;
+    }
+
+    .choice-btn:hover {
+      background: rgba(76, 154, 255, 0.12);
+      border-color: var(--primary-blue);
+      transform: translateX(4px);
+      box-shadow: var(--shadow-glow);
+    }
+
+    .choice-num {
+      color: var(--primary-blue);
+      font-weight: 700;
+      margin-right: 8px;
+    }
+
+    #itemPanel {
+      position: absolute;
+      top: 90px;
+      right: 28px;
+      z-index: 15;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 260px;
+      pointer-events: auto;
+    }
+
+    #itemLayer {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    .item-icon {
+      width: 76px;
+      height: 76px;
+      border-radius: 12px;
+      background: rgba(17, 24, 39, 0.85);
+      border: 1px solid var(--border-subtle);
+      padding: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      backdrop-filter: blur(8px);
+    }
+
+    .item-icon:hover {
+      transform: scale(1.08);
+      border-color: var(--primary-blue);
+      box-shadow: var(--shadow-glow);
+    }
+
+    .item-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    #itemPopup {
+      position: absolute;
+      inset: 0;
+      z-index: 50;
+      background: rgba(10, 15, 28, 0.85);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    #itemPopupBox {
+      background: var(--bg-card);
+      border: 1px solid var(--border-glow);
+      border-radius: 20px;
+      padding: 24px;
+      max-width: 640px;
+      width: 85%;
+      max-height: 85vh;
+      overflow-y: auto;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+      cursor: default;
+    }
+
+    #itemPopupTabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .item-popup-tab {
+      background: rgba(17, 24, 39, 0.8);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      max-width: 140px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-popup-tab:hover {
+      border-color: var(--primary-blue);
+      color: var(--primary-blue);
+    }
+
+    .item-popup-tab.active {
+      background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+    }
+
+    #itemPopupBox img {
+      max-width: 100%;
+      max-height: 50vh;
+      margin-bottom: 16px;
+      border-radius: 12px;
+    }
+
+    #itemPopupBox h3 {
+      color: var(--primary-blue);
+      margin-bottom: 8px;
+    }
+
+    #itemPopupBox p {
+      color: var(--text-secondary);
+      line-height: 1.7;
+      white-space: pre-wrap;
+    }
+
+    #formModal {
+      position: absolute;
+      inset: 0;
+      z-index: 100;
+      background: rgba(10, 15, 28, 0.88);
+      backdrop-filter: blur(12px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    #formModalBox {
+      background: var(--bg-card);
+      border: 1px solid var(--border-glow);
+      border-radius: 24px;
+      padding: 36px 40px;
+      text-align: center;
+      max-width: 520px;
+      width: 100%;
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
+    }
+
+    #formModalBox h2 {
+      color: var(--primary-blue);
+      margin-bottom: 12px;
+      font-size: 22px;
+      background: linear-gradient(135deg, #e0f2fe, #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    #formModalBox>p {
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+      line-height: 1.7;
+      font-size: 14px;
+      white-space: pre-wrap;
+    }
+
+    .form-field {
+      text-align: left;
+      margin-bottom: 16px;
+    }
+
+    .form-field label {
+      display: block;
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+
+    .form-field input[type="text"],
+    .form-field input[type="number"],
+    .form-field input[type="date"],
+    .form-field textarea,
+    .form-field select {
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 15px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      color: var(--text-primary);
+      outline: none;
+      font-family: inherit;
+      transition: 0.15s;
+    }
+
+    .form-field input:focus,
+    .form-field textarea:focus,
+    .form-field select:focus {
+      border-color: var(--primary-blue);
+      box-shadow: 0 0 0 3px rgba(76, 154, 255, 0.15);
+    }
+
+    .form-field textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .form-radio-group,
+    .form-checkbox-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .form-radio-group label,
+    .form-checkbox-group label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-primary);
+      font-size: 14px;
+      cursor: pointer;
+      padding: 8px 12px;
+      border-radius: 10px;
+      transition: 0.15s;
+    }
+
+    .form-radio-group label:hover,
+    .form-checkbox-group label:hover {
+      background: rgba(76, 154, 255, 0.08);
+    }
+
+    .form-radio-group input,
+    .form-checkbox-group input {
+      accent-color: var(--primary-blue);
+      cursor: pointer;
+    }
+
+    .form-slider-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .form-slider-row input[type="range"] {
+      flex: 1;
+      accent-color: var(--primary-blue);
+    }
+
+    .form-slider-value {
+      min-width: 40px;
+      text-align: center;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--primary-blue);
+      font-weight: 600;
+    }
+
+    .form-error {
+      color: var(--accent-danger);
+      font-size: 13px;
+      margin-bottom: 12px;
+      display: none;
+    }
+
+    #formConfirmBtn {
+      background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
+      border: none;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      padding: 14px 40px;
+      border-radius: 40px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      margin-top: 8px;
+      box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+    }
+
+    #formConfirmBtn:hover {
+      background: linear-gradient(135deg, var(--primary-blue-dark), #2563eb);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(59, 130, 246, 0.5);
+    }
+
+    #introModal {
+      position: absolute;
+      inset: 0;
+      z-index: 102;
+      background: rgba(10, 15, 28, 0.88);
+      backdrop-filter: blur(12px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    #introModalBox {
+      background: var(--bg-card);
+      border: 1px solid var(--border-glow);
+      border-radius: 24px;
+      padding: 36px 40px;
+      max-width: 640px;
+      width: 100%;
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
+      text-align: left;
+    }
+
+    #introModalTag {
+      display: inline-block;
+      background: rgba(76, 154, 255, 0.12);
+      color: var(--primary-blue);
+      font-size: 12px;
+      padding: 3px 12px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+      letter-spacing: 0.1em;
+    }
+
+    #introModalTitle {
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: var(--primary-blue);
+      background: linear-gradient(135deg, #e0f2fe, #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    #introModalContent {
+      color: var(--text-secondary);
+      font-size: 15px;
+      line-height: 1.9;
+      margin-bottom: 28px;
+      white-space: pre-wrap;
+      max-height: 50vh;
+      overflow-y: auto;
+      padding-right: 8px;
+    }
+
+    #introModalBtn {
+      display: block;
+      background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
+      border: none;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      padding: 14px 40px;
+      border-radius: 40px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+      margin: 0 auto;
+    }
+
+    #introModalBtn:hover {
+      background: linear-gradient(135deg, var(--primary-blue-dark), #2563eb);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(59, 130, 246, 0.5);
+    }
+
+    #endingPage {
+      position: absolute;
+      inset: 0;
+      z-index: 80;
+      background: var(--bg-deep);
+      overflow-y: auto;
+      display: none;
+      padding: 40px 20px;
+    }
+
+    #endingInner {
+      max-width: 820px;
+      margin: 0 auto;
+      color: var(--text-primary);
+    }
+
+    #endingInner h1 {
+      color: var(--primary-blue);
+      text-align: center;
+      margin-bottom: 32px;
+      font-size: 28px;
+      background: linear-gradient(135deg, #e0f2fe, #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .e-section {
+      margin-bottom: 32px;
+    }
+
+    .e-section>h2 {
+      color: var(--primary-blue);
+      font-size: 20px;
+      margin-bottom: 16px;
+      border-left: 4px solid var(--primary-blue);
+      padding-left: 12px;
+    }
+
+    .e-box {
+      padding: 16px;
+      border-radius: 12px;
+      line-height: 1.9;
+      font-size: 15px;
+    }
+
+    .e-box.red {
+      color: #f88;
+      border: 2px solid #c00;
+      background: rgba(200, 0, 0, 0.08);
+    }
+
+    .e-box.red strong {
+      color: #c00;
+    }
+
+    .e-actions {
+      text-align: center;
+      margin-top: 40px;
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .e-btn {
+      background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
+      border: none;
+      color: #fff;
+      font-size: 15px;
+      padding: 12px 32px;
+      border-radius: 40px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+    }
+
+    .e-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(59, 130, 246, 0.5);
+    }
+
+    .e-btn.export {
+      background: rgba(76, 154, 255, 0.12);
+      border: 1px solid rgba(76, 154, 255, 0.4);
+      color: var(--primary-blue);
+      box-shadow: none;
+    }
+
+    .e-btn.export:hover {
+      background: rgba(76, 154, 255, 0.2);
+      box-shadow: var(--shadow-glow);
+    }
+
+    #loading {
+      position: absolute;
+      inset: 0;
+      z-index: 110;
+      background: rgba(10, 15, 28, 0.9);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary-blue);
+      font-size: 18px;
+      letter-spacing: 1px;
+    }
+
+    #uploadPage {
+      position: absolute;
+      inset: 0;
+      z-index: 90;
+      background: var(--bg-deep);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      transition: background 0.3s;
+    }
+
+    #uploadPage.dragging {
+      background: #0f1a2e;
+    }
+
+    #uploadBox {
+      text-align: center;
+      max-width: 680px;
+      width: 100%;
+      background: var(--bg-card);
+      border-radius: 32px;
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.6);
+      padding: 48px 40px;
+      transition: border-color 0.25s, transform 0.25s;
+    }
+
+    #uploadPage.dragging #uploadBox {
+      border-color: var(--primary-blue);
+      transform: scale(1.01);
+    }
+
+    #uploadBox .logo {
+      font-size: 64px;
+      margin-bottom: 16px;
+      line-height: 1;
+      filter: drop-shadow(0 0 20px rgba(76, 154, 255, 0.4));
+    }
+
+    #uploadBox h1 {
+      font-size: 26px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #e0f2fe, #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
+    }
+
+    #uploadBox .subtitle {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+
+    #dropZone {
+      border: 2px dashed var(--border-subtle);
+      border-radius: 24px;
+      padding: 48px 24px;
+      background: rgba(15, 20, 34, 0.6);
+      transition: all 0.25s ease;
+      cursor: pointer;
+      position: relative;
+    }
+
+    #dropZone:hover,
+    #dropZone.dragover {
+      border-color: var(--primary-blue);
+      background: rgba(76, 154, 255, 0.08);
+    }
+
+    #dropZone.dragover {
+      transform: scale(1.01);
+      box-shadow: 0 0 0 4px rgba(76, 154, 255, 0.15);
+    }
+
+    .drop-icon {
+      font-size: 56px;
+      margin-bottom: 16px;
+      opacity: 0.85;
+      filter: drop-shadow(0 0 12px rgba(76, 154, 255, 0.3));
+    }
+
+    .drop-text {
+      font-size: 18px;
+      color: var(--text-primary);
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+
+    .drop-sub {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+
+    #fileInput {
+      display: none;
+    }
+
+    #uploadLabel {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
+      color: #fff;
+      padding: 12px 36px;
+      border-radius: 40px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+    }
+
+    #uploadLabel:hover {
+      background: linear-gradient(135deg, var(--primary-blue-dark), #2563eb);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(59, 130, 246, 0.5);
+    }
+
+    #uploadBox .footer-hint {
+      margin-top: 28px;
+      font-size: 12px;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    #uploadBox .footer-hint kbd {
+      background: rgba(76, 154, 255, 0.12);
+      color: var(--primary-blue);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 12px;
+    }
+
+    #globalDragOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(10, 15, 28, 0.85);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    #globalDragOverlay.active {
+      display: flex;
+    }
+
+    #globalDragOverlay .overlay-inner {
+      border: 3px dashed var(--primary-blue);
+      border-radius: 32px;
+      padding: 80px 120px;
+      background: rgba(76, 154, 255, 0.08);
+      text-align: center;
+      animation: pulseBorder 1.2s ease infinite;
+    }
+
+    #globalDragOverlay .overlay-icon {
+      font-size: 72px;
+      margin-bottom: 16px;
+      filter: drop-shadow(0 0 20px rgba(76, 154, 255, 0.5));
+    }
+
+    #globalDragOverlay .overlay-text {
+      font-size: 22px;
+      color: #e0f2fe;
+      font-weight: 600;
+    }
+
+    @keyframes pulseBorder {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 rgba(76, 154, 255, 0.4);
+      }
+
+      50% {
+        box-shadow: 0 0 0 20px rgba(76, 154, 255, 0);
+      }
+    }
+
+    #scriptSelectorModal {
+      position: absolute;
+      inset: 0;
+      z-index: 105;
+      background: rgba(10, 15, 28, 0.88);
+      backdrop-filter: blur(12px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    #scriptSelectorBox {
+      background: var(--bg-card);
+      border: 1px solid var(--border-glow);
+      border-radius: 24px;
+      padding: 36px 40px;
+      max-width: 600px;
+      width: 100%;
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
+    }
+
+    #scriptSelectorBox h2 {
+      font-size: 22px;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #e0f2fe, #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-align: center;
+    }
+
+    #scriptSelectorBox>p {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin-bottom: 24px;
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    #scriptList {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .script-item {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 20px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .script-item:hover {
+      border-color: var(--primary-blue);
+      background: rgba(76, 154, 255, 0.08);
+      transform: translateX(4px);
+      box-shadow: var(--shadow-glow);
+    }
+
+    .script-item .script-index {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
+      color: #fff;
+      font-weight: 700;
+      font-size: 18px;
+      border-radius: 12px;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+
+    .script-item .script-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .script-item .script-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .script-item .script-sub {
+      font-size: 13px;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .script-item .script-arrow {
+      color: var(--text-muted);
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .script-item:hover .script-arrow {
+      color: var(--primary-blue);
+    }
+
+    @media (max-width: 600px) {
+      #topBar h1 {
+        font-size: 15px;
+      }
+
+      #statusBadge {
+        font-size: 11px;
+        padding: 3px 10px;
+      }
+
+      #rewindBtn {
+        font-size: 11px;
+        padding: 4px 12px;
+      }
+
+      #topBarRight {
+        gap: 8px;
+      }
+
+      #descBox,
+      #dialogBox,
+      #inputBox {
+        padding: 12px 16px 10px;
+      }
+
+      #descText,
+      #dialogText,
+      #inputPrompt {
+        font-size: 15px;
+      }
+
+      #bottomLayer {
+        padding: 0 12px 16px 12px;
+      }
+
+      .choice-btn {
+        font-size: 14px;
+        padding: 12px 14px;
+      }
+
+      .char-sprite {
+        height: 55vh;
+      }
+
+      .item-icon {
+        width: 56px;
+        height: 56px;
+      }
+
+      #itemPanel {
+        top: 70px;
+        right: 12px;
+        max-width: 160px;
+      }
+
+      #formModalBox,
+      #introModalBox {
+        padding: 24px 20px;
+      }
+
+      #uploadBox {
+        padding: 32px 20px;
+      }
+
+      #uploadBox h1 {
+        font-size: 22px;
+      }
+
+      #dropZone {
+        padding: 32px 16px;
+      }
+
+      .drop-icon {
+        font-size: 44px;
+      }
+
+      #globalDragOverlay .overlay-inner {
+        padding: 48px 32px;
+      }
+
+      #globalDragOverlay .overlay-text {
+        font-size: 18px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="app">
+
+    <div id="uploadPage">
+      <div id="uploadBox">
+        <div class="logo">📖</div>
+        <h1>超级现场 · 铜雀老戏台</h1>
+        <div class="subtitle">拖拽数据包到此处，或点击下方按钮选择文件</div>
+        <div id="dropZone">
+          <div class="drop-icon">📦</div>
+          <div class="drop-text">拖拽 zip 文件到此处</div>
+          <div class="drop-sub">或</div>
+          <input type="file" id="fileInput" accept=".zip" />
+          <label for="fileInput" id="uploadLabel">📂 选择 zip 文件</label>
+        </div>
+        <div class="footer-hint">支持拖拽到方框内 · <kbd>Esc</kbd> 可取消上传</div>
+      </div>
+    </div>
+
+    <div id="globalDragOverlay">
+      <div class="overlay-inner">
+        <div class="overlay-icon">📥</div>
+        <div class="overlay-text">松开鼠标，上传 zip 数据包</div>
+      </div>
+    </div>
+
+    <div id="introModal">
+      <div id="introModalBox">
+        <div id="introModalTag"></div>
+        <h2 id="introModalTitle"></h2>
+        <div id="introModalContent"></div>
+        <button id="introModalBtn">开始</button>
+      </div>
+    </div>
+
+    <div id="formModal">
+      <div id="formModalBox">
+        <h2 id="formModalTitle"></h2>
+        <p id="formModalDesc"></p>
+        <div id="formModalFields"></div>
+        <div class="form-error" id="formError"></div>
+        <button id="formConfirmBtn">确认</button>
+      </div>
+    </div>
+
+    <div id="scriptSelectorModal">
+      <div id="scriptSelectorBox">
+        <h2>📚 选择剧本</h2>
+        <p>当前数据包包含多个剧本，请选择你要体验的：</p>
+        <div id="scriptList"></div>
+      </div>
+    </div>
+
+    <!-- 双背景层：交叉淡入淡出 -->
+    <div id="bg"></div>
+    <div id="bgFade"></div>
+
+    <div id="charLayer"></div>
+
+    <div id="itemPanel">
+      <div id="itemLayer"></div>
+    </div>
+
+    <div id="topBar">
+      <h1 id="gameTitle">超级现场</h1>
+      <div id="topBarRight">
+        <button id="rewindBtn" title="上一步 (Backspace / Ctrl+Z)">↩ 上一步</button>
+        <span id="statusBadge">🟢 就绪</span>
+      </div>
+    </div>
+
+    <div id="bottomLayer">
+      <div id="descBox">
+        <div id="descText"></div>
+        <div id="descHint">点击 <kbd>继续</kbd> 或按 <kbd>空格</kbd> 推进</div>
+      </div>
+      <div id="dialogBox">
+        <div id="dialogMeta">
+          <span id="dialogName"></span>
+          <span id="dialogProgress"></span>
+        </div>
+        <div id="dialogText"></div>
+        <div id="dialogHint">点击继续 或 按 <kbd>空格</kbd></div>
+      </div>
+      <div id="inputBox">
+        <div id="inputPrompt"></div>
+        <textarea id="inputField"></textarea>
+        <div id="inputFooter">
+          <span id="inputCounter">0 字</span>
+          <button id="inputSubmit">提交</button>
+        </div>
+      </div>
+      <div id="choiceBox"></div>
+    </div>
+
+    <div id="itemPopup">
+      <div id="itemPopupBox">
+        <div id="itemPopupTabs"></div>
+        <img id="itemPopupImg" src="" alt="" />
+        <h3 id="itemPopupName"></h3>
+        <p id="itemPopupDesc"></p>
+      </div>
+    </div>
+
+    <div id="endingPage">
+      <div id="endingInner"></div>
+    </div>
+
+    <div id="loading">加载中…</div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://registry.npmmirror.com/echarts/5.5.0/files/dist/echarts.min.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      const state = {
+        vars: {},
+        files: {},
+        assetMap: {},
+        currentScript: null,
+        currentSceneId: null,
+        currentNode: null,
+        // steps 状态
+        _steps: [],
+        _stepIndex: 0,
+        _stepWait: false,
+        _descCount: 0,
+        _hideUI: false,
+        // 阶段：idle | step | auto | input | choice | ending
+        phase: 'idle',
+        choices: [],
+        _onFormConfirm: null,
+        _formFields: [],
+        _formVarNames: [],
+        _charts: [],
+        _items: [],
+        _currentItemIndex: 0,
+        _stepStack: [],
+        _allowRewind: false,
+        _timeline: [],
+        _inputConfig: null,
+        _pendingInputNext: null,
+        _endingLock: false,
+        _charVisible: {},
+        _lastSpeaker: null,
+        _dialogStageEntered: false,
+        _parallelPending: null,
+        _sceneCleanup: null,
+        _audioUnlocked: false
+      };
+
+      const $ = id => document.getElementById(id);
+
+      // ============================================================
+      // 音频管理器
+      // ============================================================
+      const AudioManager = {
+        _voice: null, _voicePath: '',
+        _bgm: null, _bgmPath: '',
+        _bgmFadeRaf: null,
+
+        playVoice(path, opts) {
+          opts = opts || {};
+          if (!path) return Promise.resolve();
+          this.stopVoice();
+          const url = assetUrl(path);
+          if (!url) return Promise.resolve();
+          const a = new Audio(url);
+          a.volume = opts.volume != null ? opts.volume : 1;
+          this._voice = a;
+          this._voicePath = path;
+          return new Promise(resolve => {
+            let settled = false;
+            const done = () => {
+              if (settled) return;
+              settled = true;
+              if (this._voice === a) { this._voice = null; this._voicePath = ''; }
+              resolve();
+            };
+            a._resolveVoice = done;
+            a.onended = done;
+            a.onerror = done;
+            a.play().catch(done);
+          });
+        },
+
+        stopVoice() {
+          if (this._voice) {
+            const a = this._voice;
+            try { a.pause(); a.currentTime = 0; } catch (e) {}
+            if (a._resolveVoice) a._resolveVoice();
+            this._voice = null;
+            this._voicePath = '';
+          }
+        },
+
+        playBgm(path, opts) {
+          opts = opts || {};
+          const vol = opts.volume != null ? opts.volume : 0.6;
+          if (!path) { this.stopBgm(600); return; }
+          const url = assetUrl(path);
+          if (!url) return;
+          if (this._bgmPath === path && this._bgm && !this._bgm.paused) {
+            this._bgm.volume = vol;
+            return;
+          }
+          this._fadeOutBgm(400, () => {
+            const a = new Audio(url);
+            a.loop = true;
+            a.volume = 0;
+            this._bgm = a;
+            this._bgmPath = path;
+            a.play().catch(() => {});
+            this._fadeInBgm(vol, 600);
+          });
+        },
+
+        setBgmVolume(v) {
+          if (this._bgm) { try { this._bgm.volume = v; } catch (e) {} }
+        },
+
+        stopBgm(fade) {
+          if (!this._bgm) { this._bgmPath = ''; return; }
+          const doStop = () => {
+            if (this._bgm) {
+              try { this._bgm.pause(); this._bgm.currentTime = 0; } catch (e) {}
+              this._bgm = null;
+              this._bgmPath = '';
+            }
+          };
+          if (fade > 0) this._fadeOutBgm(fade, doStop);
+          else doStop();
+        },
+
+        _fadeOutBgm(ms, cb) {
+          if (!this._bgm) { cb && cb(); return; }
+          const a = this._bgm;
+          const start = a.volume;
+          const t0 = performance.now();
+          if (this._bgmFadeRaf) cancelAnimationFrame(this._bgmFadeRaf);
+          const tick = () => {
+            const p = Math.min(1, (performance.now() - t0) / ms);
+            try { a.volume = start * (1 - p); } catch (e) {}
+            if (p < 1) this._bgmFadeRaf = requestAnimationFrame(tick);
+            else { this._bgmFadeRaf = null; cb && cb(); }
+          };
+          this._bgmFadeRaf = requestAnimationFrame(tick);
+        },
+
+        _fadeInBgm(target, ms) {
+          const a = this._bgm;
+          if (!a) return;
+          const t0 = performance.now();
+          const tick = () => {
+            const p = Math.min(1, (performance.now() - t0) / ms);
+            try { a.volume = target * p; } catch (e) {}
+            if (p < 1) requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        }
+      };
+
+      const uploadPage = $('uploadPage');
+      const fileInput = $('fileInput');
+      const formModal = $('formModal');
+      const formModalTitle = $('formModalTitle');
+      const formModalDesc = $('formModalDesc');
+      const formModalFields = $('formModalFields');
+      const formError = $('formError');
+      const formConfirmBtn = $('formConfirmBtn');
+      const introModal = $('introModal');
+      const introModalTag = $('introModalTag');
+      const introModalTitle = $('introModalTitle');
+      const introModalContent = $('introModalContent');
+      const introModalBtn = $('introModalBtn');
+      const bg = $('bg');
+      const bgFade = $('bgFade');
+      const charLayer = $('charLayer');
+      const itemLayer = $('itemLayer');
+      const gameTitle = $('gameTitle');
+      const statusBadge = $('statusBadge');
+      const descBox = $('descBox');
+      const descText = $('descText');
+      const dialogBox = $('dialogBox');
+      const dialogName = $('dialogName');
+      const dialogProgress = $('dialogProgress');
+      const dialogText = $('dialogText');
+      const inputBox = $('inputBox');
+      const inputPrompt = $('inputPrompt');
+      const inputField = $('inputField');
+      const inputCounter = $('inputCounter');
+      const inputSubmit = $('inputSubmit');
+      const choiceBox = $('choiceBox');
+      const itemPopup = $('itemPopup');
+      const itemPopupTabs = $('itemPopupTabs');
+      const itemPopupImg = $('itemPopupImg');
+      const itemPopupName = $('itemPopupName');
+      const itemPopupDesc = $('itemPopupDesc');
+      const endingPage = $('endingPage');
+      const endingInner = $('endingInner');
+      const loading = $('loading');
+      const rewindBtn = $('rewindBtn');
+
+      let _bgOnFade = false;
+
+      // ============================================================
+      // 基础工具
+      // ============================================================
+      function setStatus(t, ok) {
+        statusBadge.textContent = t;
+        statusBadge.style.color = ok ? '#8aa4c8' : '#fc5c7d';
+      }
+      function showLoading(t) { loading.textContent = t || '加载中…'; loading.style.display = 'flex'; }
+      function hideLoading() { loading.style.display = 'none'; }
+      function hideAll() {
+        descBox.style.display = 'none';
+        dialogBox.style.display = 'none';
+        inputBox.style.display = 'none';
+        choiceBox.style.display = 'none';
+      }
+      function hideUI() { hideAll(); state._hideUI = true; }
+      function deepClone(obj) {
+        if (obj === null || typeof obj !== 'object') return obj;
+        try { return JSON.parse(JSON.stringify(obj)); } catch (e) { return obj; }
+      }
+      function disposeCharts() {
+        (state._charts || []).forEach(c => { try { c.dispose(); } catch (e) {} });
+        state._charts = [];
+      }
+      function cleanupCurrentScene() {
+        if (state._sceneCleanup) {
+          try { state._sceneCleanup(); } catch (e) {}
+          state._sceneCleanup = null;
+        }
+      }
+
+      // ============================================================
+      // 资源路径
+      // ============================================================
+      function assetUrl(name) {
+        if (!name || typeof name !== 'string') return '';
+        if (state.assetMap[name]) return state.assetMap[name];
+        if (name.indexOf('assets/') !== 0) {
+          const k = 'assets/' + name;
+          if (state.assetMap[k]) return state.assetMap[k];
+        }
+        if (name.indexOf('assets/') === 0) {
+          const k = name.substring('assets/'.length);
+          if (state.assetMap[k]) return state.assetMap[k];
+        }
+        // 短名解析：meta.audios
+        if (state.currentScript && state.currentScript.meta && state.currentScript.meta.audios) {
+          const p = state.currentScript.meta.audios[name];
+          if (p) return assetUrl(p);
+        }
+        // 短名解析：sprites
+        const trySprites = (scene) => {
+          if (!scene || !Array.isArray(scene.characters)) return '';
+          for (const c of scene.characters) {
+            if (c.sprites && c.sprites[name]) return assetUrl(c.sprites[name]);
+          }
+          return '';
+        };
+        let r = trySprites(state.currentNode);
+        if (r) return r;
+        if (state.currentScript && state.currentScript.scenes) {
+          for (const sid in state.currentScript.scenes) {
+            r = trySprites(state.currentScript.scenes[sid]);
+            if (r) return r;
+          }
+        }
+        return '';
+      }
+
+      // ============================================================
+      // 模板填充
+      // ============================================================
+      function fill(str) {
+        if (typeof str !== 'string') return str;
+        const d = new Date();
+        const base = {
+          year: d.getFullYear(),
+          month: d.getMonth() + 1,
+          day: d.getDate(),
+          date: `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`
+        };
+        const allVars = Object.assign({}, base, state.vars);
+        return str.replace(/\{\{([^}]+)\}\}/g, (m, key) => {
+          const k = key.trim();
+          if (allVars[k] !== undefined) return allVars[k];
+          const parts = k.split('.');
+          let cur = allVars;
+          for (const p of parts) {
+            if (cur == null) return m;
+            cur = cur[p];
+          }
+          if (cur !== undefined) return cur;
+          return m;
+        });
+      }
+
+      function showIntro(intro, tagText, onConfirm) {
+        introModalTag.textContent = tagText || '介绍';
+        introModalTitle.textContent = intro.title || '';
+        introModalContent.textContent = intro.content || '';
+        introModal.style.display = 'flex';
+        introModalBtn.onclick = function () {
+          introModal.style.display = 'none';
+          if (typeof onConfirm === 'function') onConfirm();
+        };
+      }
+
+      // ============================================================
+      // 动作执行器
+      // ============================================================
+      function executeActions(actions, ctx) {
+        ctx = ctx || {};
+        if (!Array.isArray(actions)) return Promise.resolve();
+        let p = Promise.resolve();
+        actions.forEach(a => { p = p.then(() => executeAction(a, ctx)); });
+        return p;
+      }
+
+      function executeAction(action, ctx) {
+        if (!action || !action.type) return Promise.resolve();
+        const t = action.type;
+
+        switch (t) {
+          case 'setTitle':
+            gameTitle.textContent = fill(action.text || '');
+            return Promise.resolve();
+
+          case 'setVariable': {
+            const v = resolveValue(action.value, ctx);
+            state.vars[action.name] = typeof v === 'string' ? fill(v) : v;
+            return Promise.resolve();
+          }
+
+          case 'showUploadPage':
+            uploadPage.style.display = 'flex';
+            return Promise.resolve();
+
+          case 'hideUploadPage':
+            uploadPage.style.display = 'none';
+            return Promise.resolve();
+
+          case 'formModal': {
+            uploadPage.style.display = 'none';
+            formModal.style.display = 'flex';
+            formModalTitle.textContent = fill(action.title || '');
+            formModalDesc.textContent = fill(action.description || '');
+            formError.style.display = 'none';
+            formConfirmBtn.textContent = fill(action.buttonText || '确认');
+            state._onFormConfirm = action.onConfirm || [];
+            state._formFields = action.fields || [];
+            state._formVarNames = state._formFields.map(f => f.name);
+            formModalFields.innerHTML = '';
+            state._formFields.forEach(f => {
+              const wrap = document.createElement('div');
+              wrap.className = 'form-field';
+              if (f.label) {
+                const label = document.createElement('label');
+                label.textContent = fill(f.label);
+                wrap.appendChild(label);
+              }
+              const ftype = f.type || 'text';
+              let input;
+
+              if (ftype === 'textarea') {
+                input = document.createElement('textarea');
+                input.name = f.name;
+                input.value = f.default || '';
+                if (f.placeholder) input.placeholder = fill(f.placeholder);
+                if (f.maxLength) input.maxLength = f.maxLength;
+                wrap.appendChild(input);
+              } else if (ftype === 'select') {
+                input = document.createElement('select');
+                input.name = f.name;
+                (f.options || []).forEach(opt => {
+                  const o = document.createElement('option');
+                  o.value = typeof opt === 'string' ? opt : (opt.value || '');
+                  o.textContent = typeof opt === 'string' ? opt : (opt.label || opt.value || '');
+                  if (o.value === (f.default || '')) o.selected = true;
+                  input.appendChild(o);
+                });
+                wrap.appendChild(input);
+              } else if (ftype === 'radio') {
+                const group = document.createElement('div');
+                group.className = 'form-radio-group';
+                (f.options || []).forEach(opt => {
+                  const val = typeof opt === 'string' ? opt : (opt.value || '');
+                  const label = typeof opt === 'string' ? opt : (opt.label || opt.value || '');
+                  const row = document.createElement('label');
+                  const rb = document.createElement('input');
+                  rb.type = 'radio';
+                  rb.name = f.name;
+                  rb.value = val;
+                  if (val === (f.default || '')) rb.checked = true;
+                  row.appendChild(rb);
+                  row.appendChild(document.createTextNode(label));
+                  group.appendChild(row);
+                });
+                wrap.appendChild(group);
+              } else if (ftype === 'checkbox') {
+                const group = document.createElement('div');
+                group.className = 'form-checkbox-group';
+                const defaults = Array.isArray(f.default) ? f.default : [];
+                (f.options || []).forEach(opt => {
+                  const val = typeof opt === 'string' ? opt : (opt.value || '');
+                  const label = typeof opt === 'string' ? opt : (opt.label || opt.value || '');
+                  const row = document.createElement('label');
+                  const cb = document.createElement('input');
+                  cb.type = 'checkbox';
+                  cb.name = f.name;
+                  cb.value = val;
+                  if (defaults.includes(val)) cb.checked = true;
+                  row.appendChild(cb);
+                  row.appendChild(document.createTextNode(label));
+                  group.appendChild(row);
+                });
+                wrap.appendChild(group);
+              } else if (ftype === 'slider') {
+                const row = document.createElement('div');
+                row.className = 'form-slider-row';
+                input = document.createElement('input');
+                input.type = 'range';
+                input.name = f.name;
+                input.min = f.min != null ? f.min : 0;
+                input.max = f.max != null ? f.max : 10;
+                input.step = f.step != null ? f.step : 1;
+                input.value = f.default != null ? f.default : input.min;
+                const valueEl = document.createElement('span');
+                valueEl.className = 'form-slider-value';
+                valueEl.textContent = input.value;
+                input.addEventListener('input', () => { valueEl.textContent = input.value; });
+                row.appendChild(input);
+                row.appendChild(valueEl);
+                wrap.appendChild(row);
+              } else {
+                input = document.createElement('input');
+                input.type = ftype;
+                input.name = f.name;
+                if (ftype === 'date') {
+                  input.value = f.default || new Date().toISOString().slice(0, 10);
+                } else {
+                  input.value = f.default || '';
+                }
+                if (f.placeholder) input.placeholder = fill(f.placeholder);
+                if (f.maxLength) input.maxLength = f.maxLength;
+                if (f.min != null) input.min = f.min;
+                if (f.max != null) input.max = f.max;
+                wrap.appendChild(input);
+              }
+
+              formModalFields.appendChild(wrap);
+            });
+            const first = formModalFields.querySelector('input, textarea, select');
+            if (first) first.focus();
+            return Promise.resolve();
+          }
+
+          case 'showEndingPage':
+            disposeCharts();
+            endingInner.innerHTML = '';
+            endingPage.style.display = 'block';
+            return Promise.resolve();
+
+          case 'renderTree': {
+            const tree = resolveValue(action.tree, ctx);
+            const container = action.target ? $(action.target) : endingInner;
+            if (container) {
+              if (!action.append) container.innerHTML = '';
+              container.appendChild(renderTree(tree, ctx));
+            }
+            return Promise.resolve();
+          }
+
+          case 'renderText': {
+            const text = fill(String(resolveValue(action.text, ctx) || ''));
+            const container = action.target ? $(action.target) : endingInner;
+            if (container) {
+              if (!action.append) container.innerHTML = '';
+              const p = document.createElement('p');
+              p.textContent = text;
+              container.appendChild(p);
+            }
+            return Promise.resolve();
+          }
+
+          case 'computeScore': {
+            const result = computeScore(action, ctx);
+            if (action.target) state.vars[action.target] = result;
+            return Promise.resolve();
+          }
+
+          case 'judgeCase': {
+            const result = judgeCase(action.rules || [], state.choices);
+            if (action.target) state.vars[action.target] = result;
+            return Promise.resolve();
+          }
+
+          case 'condition': {
+            const val = evaluateCondition(action.if, ctx);
+            const branch = val ? action.then : action.else;
+            return executeActions(branch || [], ctx);
+          }
+
+          case 'loop': {
+            const items = resolveValue(action.source, ctx) || [];
+            let p = Promise.resolve();
+            items.forEach((item, index) => {
+              p = p.then(() => {
+                const childCtx = Object.assign({}, ctx, { item, index, loop: item });
+                return executeActions(action.template || [], childCtx);
+              });
+            });
+            return p;
+          }
+
+          case 'showButtons': {
+            const container = action.target ? $(action.target) : endingInner;
+            if (container) {
+              const scripts = getSortedScripts();
+              const curKey = state.currentScript && state.currentScript._key;
+              const curIdx = curKey ? scripts.indexOf(curKey) : -1;
+              const bar = document.createElement('div');
+              bar.className = 'e-actions';
+              (action.buttons || []).forEach(b => {
+                const loadActions = (b.actions || []).filter(a =>
+                  a.type === 'loadScriptByIndex' || a.type === 'loadNextScript');
+                const allOverBound = loadActions.length > 0 && loadActions.every(a => {
+                  if (a.type === 'loadNextScript') return curIdx + 1 >= scripts.length;
+                  const idx = a.index != null ? Number(a.index) : 0;
+                  return idx >= scripts.length;
+                });
+                if (allOverBound) return;
+
+                const btn = document.createElement('button');
+                btn.className = 'e-btn';
+                btn.textContent = fill(b.text || '');
+                btn.addEventListener('click', () => { executeActions(b.actions || [], ctx); });
+                bar.appendChild(btn);
+              });
+              container.appendChild(bar);
+            }
+            return Promise.resolve();
+          }
+
+          case 'exportButtons': {
+            const container = action.target ? $(action.target) : endingInner;
+            if (container) {
+              const bar = document.createElement('div');
+              bar.className = 'e-actions';
+              (action.buttons || []).forEach(b => {
+                const btn = document.createElement('button');
+                btn.className = 'e-btn export';
+                btn.textContent = fill(b.text || '导出');
+                btn.addEventListener('click', () => { handleExport(b); });
+                bar.appendChild(btn);
+              });
+              container.appendChild(bar);
+            }
+            return Promise.resolve();
+          }
+
+          case 'loadScript':
+            return loadScript(resolveValue(action.scriptId, ctx) || action.scriptId, ctx);
+
+          case 'loadResult':
+            return loadResult(ctx);
+
+          case 'goToScene': {
+            const sceneId = resolveValue(action.sceneId, ctx) || action.sceneId;
+            goToScene(sceneId);
+            return Promise.resolve();
+          }
+
+          case 'showScriptSelector':
+            showScriptSelector();
+            return Promise.resolve();
+
+          case 'goToInit':
+            return runInit(ctx);
+
+          case 'next':
+            return Promise.resolve();
+
+          case 'delay':
+            return new Promise(r => setTimeout(r, action.ms || 1000));
+
+          case 'loadScriptByIndex': {
+            const scripts = getSortedScripts();
+            if (scripts.length === 0) {
+              console.error('无可用剧本');
+              return Promise.resolve();
+            }
+            const idx = action.index != null ? Number(resolveValue(action.index, ctx)) : null;
+            if (idx != null && (idx < 0 || idx >= scripts.length)) {
+              setStatus('⚠️ 剧本编号越界', false);
+              return Promise.resolve();
+            }
+            if (state._endingLock && idx != null) {
+              return loadScript(scripts[idx], ctx);
+            }
+            if (scripts.length === 1) {
+              return loadScript(scripts[0], ctx);
+            }
+            showScriptSelector();
+            return Promise.resolve();
+          }
+
+          case 'loadNextScript': {
+            const scripts = getSortedScripts();
+            const curKey = state.currentScript && state.currentScript._key;
+            const curIdx = curKey ? scripts.indexOf(curKey) : -1;
+            const nextIdx = curIdx + 1;
+            if (nextIdx < 0 || nextIdx >= scripts.length) {
+              setStatus('⚠️ 已经是最后一则剧情了', false);
+              return Promise.resolve();
+            }
+            return loadScript(scripts[nextIdx], ctx);
+          }
+
+          default:
+            console.warn('未知动作:', t, action);
+            return Promise.resolve();
+        }
+      }
+
+      function resolveValue(v, ctx) {
+        if (typeof v === 'string' && v.indexOf('{{') === 0 && v.indexOf('}}') === v.length - 2) {
+          const key = v.slice(2, -2).trim();
+          const parts = key.split('.');
+          let cur;
+          if (parts[0] === 'item' || parts[0] === 'loop') {
+            cur = ctx[parts[0]];
+            parts.shift();
+          } else if (parts[0] === 'vars') {
+            parts.shift();
+            cur = state.vars;
+          } else {
+            cur = state.vars;
+          }
+          for (const p of parts) {
+            if (cur == null) return undefined;
+            cur = cur[p];
+          }
+          return cur;
+        }
+        if (Array.isArray(v)) return v;
+        return v;
+      }
+
+      // ============================================================
+      // 条件求值器
+      // ============================================================
+      function evaluateCondition(expr, ctx) {
+        if (typeof expr !== 'string') return !!expr;
+        let s = expr.trim();
+        if (!s) return false;
+        if (s.startsWith('!') && s[1] !== '=') return !evaluateCondition(s.slice(1).trim(), ctx);
+        const orParts = splitTopLevel(s, '||');
+        if (orParts.length > 1) return orParts.some(p => evaluateCondition(p, ctx));
+        const andParts = splitTopLevel(s, '&&');
+        if (andParts.length > 1) return andParts.every(p => evaluateCondition(p, ctx));
+
+        let m = s.match(/^isNull\s*\(\s*(.+?)\s*\)$/);
+        if (m) return resolveExprValue(m[1], ctx) == null;
+        m = s.match(/^isNotNull\s*\(\s*(.+?)\s*\)$/);
+        if (m) return resolveExprValue(m[1], ctx) != null;
+        m = s.match(/^count\s*\(\s*(.+?)\s*,\s*(.+)\s*\)$/);
+        if (m) {
+          const arr = resolveExprValue(m[1], ctx) || [];
+          const sub = m[2];
+          return arr.filter(item => evaluateCondition(sub, Object.assign({}, ctx, { item }))).length;
+        }
+        m = s.match(/^length\s*\(\s*(.+?)\s*\)$/);
+        if (m) {
+          const arr = resolveExprValue(m[1], ctx);
+          if (Array.isArray(arr) || typeof arr === 'string') return arr.length;
+          return 0;
+        }
+
+        const ops = ['contains', 'notContains', 'startsWith', 'endsWith', ' notIn ', ' in ', '==', '!=', '>=', '<=', '>', '<'];
+        for (const op of ops) {
+          const idx = findTopLevelOp(s, op);
+          if (idx < 0) continue;
+          const left = s.slice(0, idx).trim();
+          const right = s.slice(idx + op.length).trim();
+          const lv = resolveExprValue(left, ctx);
+          const rv = resolveExprValue(right, ctx);
+          const o = op.trim();
+          switch (o) {
+            case 'contains': return Array.isArray(lv) ? lv.includes(rv) : String(lv).indexOf(String(rv)) >= 0;
+            case 'notContains': return Array.isArray(lv) ? !lv.includes(rv) : String(lv).indexOf(String(rv)) < 0;
+            case 'startsWith': return String(lv).startsWith(String(rv));
+            case 'endsWith': return String(lv).endsWith(String(rv));
+            case '==': return lv == rv;
+            case '!=': return lv != rv;
+            case '>=': return Number(lv) >= Number(rv);
+            case '<=': return Number(lv) <= Number(rv);
+            case '>': return Number(lv) > Number(rv);
+            case '<': return Number(lv) < Number(rv);
+            case 'in': return Array.isArray(rv) ? rv.includes(lv) : String(rv).indexOf(String(lv)) >= 0;
+            case 'notIn': return Array.isArray(rv) ? !rv.includes(lv) : String(rv).indexOf(String(lv)) < 0;
+          }
+        }
+        return !!resolveExprValue(s, ctx);
+      }
+
+      function findTopLevelOp(str, op) {
+        let depth = 0;
+        for (let i = 0; i <= str.length - op.length; i++) {
+          if (str[i] === '{' && str[i + 1] === '{') { depth++; i++; continue; }
+          if (str[i] === '}' && str[i + 1] === '}') { depth--; i++; continue; }
+          if (depth === 0 && str.slice(i, i + op.length) === op) return i;
+        }
+        return -1;
+      }
+
+      function resolveExprValue(raw, ctx) {
+        if (typeof raw !== 'string') return raw;
+        raw = raw.trim();
+        if ((raw.startsWith("'") && raw.endsWith("'")) || (raw.startsWith('"') && raw.endsWith('"'))) {
+          return raw.slice(1, -1);
+        }
+        if (/^-?\d+(\.\d+)?$/.test(raw)) return Number(raw);
+        if (raw === 'true') return true;
+        if (raw === 'false') return false;
+        if (raw === 'null') return null;
+        if (raw === 'undefined') return undefined;
+        return resolveValue(raw, ctx);
+      }
+
+      function splitTopLevel(str, sep) {
+        const parts = [];
+        let depth = 0;
+        let start = 0;
+        for (let i = 0; i < str.length; i++) {
+          const ch = str[i];
+          if (ch === '{' && str[i + 1] === '{') { depth++; i++; continue; }
+          if (ch === '}' && str[i + 1] === '}') { depth--; i++; continue; }
+          if (depth === 0 && str.slice(i, i + sep.length) === sep) {
+            parts.push(str.slice(start, i));
+            start = i + sep.length;
+            i += sep.length - 1;
+          }
+        }
+        parts.push(str.slice(start));
+        return parts.map(p => p.trim()).filter(Boolean);
+      }
+
+      // ============================================================
+      // 渲染树
+      // ============================================================
+      function renderTree(nodes, ctx) {
+        const frag = document.createDocumentFragment();
+        (nodes || []).forEach(n => {
+          const el = renderNode(n, ctx);
+          if (el) frag.appendChild(el);
+        });
+        return frag;
+      }
+
+      function renderNode(n, ctx) {
+        if (!n || !n.type) return null;
+        switch (n.type) {
+          case 'section': {
+            const sec = document.createElement('div');
+            sec.className = 'e-section';
+            if (n.title) {
+              const h = document.createElement('h2');
+              h.textContent = fill(String(resolveValue(n.title, ctx) || ''));
+              sec.appendChild(h);
+            }
+            sec.appendChild(renderTree(n.children, ctx));
+            return sec;
+          }
+          case 'box': {
+            const box = document.createElement('div');
+            box.className = 'e-box' + (n.style ? ' ' + n.style : '');
+            box.appendChild(renderTree(n.children, ctx));
+            return box;
+          }
+          case 'p': {
+            const p = document.createElement('p');
+            p.appendChild(renderInline(n.children, ctx));
+            return p;
+          }
+          case 'strong': {
+            const s = document.createElement('strong');
+            s.textContent = fill(String(resolveValue(n.text, ctx) || ''));
+            return s;
+          }
+          case 'text':
+            return document.createTextNode(fill(String(resolveValue(n.text, ctx) || '')));
+          case 'ul': {
+            const ul = document.createElement('ul');
+            ul.style.cssText = 'margin-left:20px;line-height:1.9;';
+            (n.items || []).forEach(item => {
+              const li = document.createElement('li');
+              if (typeof item === 'string') {
+                li.textContent = fill(String(resolveValue(item, ctx) || ''));
+              } else {
+                li.appendChild(renderInline([
+                  { type: 'strong', text: item.name || '' },
+                  { type: 'text', text: '：' + (item.desc || '') }
+                ], ctx));
+              }
+              ul.appendChild(li);
+            });
+            return ul;
+          }
+          case 'ol': {
+            const ol = document.createElement('ol');
+            ol.style.cssText = 'margin-left:20px;line-height:1.9;';
+            (n.items || []).forEach(item => {
+              const li = document.createElement('li');
+              li.textContent = fill(String(resolveValue(item, ctx) || ''));
+              ol.appendChild(li);
+            });
+            return ol;
+          }
+          case 'stars': {
+            const div = document.createElement('div');
+            div.style.cssText = 'color:#f0c27f;font-size:18px;letter-spacing:2px;';
+            const score = Number(resolveValue(n.score, ctx)) || 0;
+            const max = n.max || 5;
+            div.textContent = '★'.repeat(score) + '☆'.repeat(max - score) + `（${score}/${max}）`;
+            return div;
+          }
+          case 'bar': {
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'background:rgba(76,154,255,0.2);border-radius:4px;height:10px;overflow:hidden;margin:4px 0;';
+            const inner = document.createElement('div');
+            const val = Number(resolveValue(n.value, ctx)) || 0;
+            const max = n.max || 5;
+            inner.style.cssText = `width:${Math.min(100, val / max * 100)}%;height:100%;background:#4c9aff;`;
+            wrap.appendChild(inner);
+            return wrap;
+          }
+          case 'table': {
+            const table = document.createElement('table');
+            table.style.cssText = 'width:100%;border-collapse:collapse;font-size:14px;';
+            let rows = n.rows;
+            if (typeof rows === 'string') {
+              const key = rows.replace(/^\{\{|\}\}$/g, '').trim();
+              if (key === 'choices' || key === 'choicesRows') {
+                rows = (state.choices || []).map(c => [c.scene, c.sceneName, c.text, c.pathType || '']);
+              } else if (key === 'timeline') {
+                rows = (state._timeline || []).map(t => {
+                  if (t.type === 'choice') return [t.scene, t.sceneName, t.text, t.pathType || ''];
+                  return [t.scene, t.sceneName, t.value, '输入'];
+                });
+              } else {
+                rows = state.vars[key] || [];
+              }
+            }
+            if (!Array.isArray(rows)) rows = [];
+            const thead = document.createElement('thead');
+            const trh = document.createElement('tr');
+            trh.style.background = 'rgba(76,154,255,0.12)';
+            (n.headers || []).forEach(h => {
+              const th = document.createElement('th');
+              th.style.cssText = 'padding:10px;border:1px solid rgba(76,154,255,0.3);text-align:left;color:#4c9aff;';
+              th.textContent = fill(String(resolveValue(h, ctx) || ''));
+              trh.appendChild(th);
+            });
+            thead.appendChild(trh);
+            table.appendChild(thead);
+            const tbody = document.createElement('tbody');
+            rows.forEach(row => {
+              const tr = document.createElement('tr');
+              const cells = Array.isArray(row) ? row : Object.values(row);
+              cells.forEach((cell, i) => {
+                const td = document.createElement('td');
+                const colorRule = (n.colorRules || []).find(r => r.col === i);
+                let colorStyle = '';
+                if (colorRule && colorRule.map && colorRule.map[cell]) {
+                  colorStyle = `color:${colorRule.map[cell]};`;
+                }
+                td.style.cssText = `padding:10px;border:1px solid rgba(76,154,255,0.2);${colorStyle}`;
+                td.textContent = fill(String(resolveValue(cell, ctx) || ''));
+                tr.appendChild(td);
+              });
+              tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+            return table;
+          }
+          case 'portrait': {
+            const wrap = document.createDocumentFragment();
+            const dims = n.dimensions || [];
+            const scores = state.vars[n.source || 'portraitScores'] || [];
+            dims.forEach((dim, i) => {
+              const score = scores[i] || 3;
+              const d = document.createElement('div');
+              d.style.marginBottom = '14px';
+              const name = document.createElement('div');
+              name.style.cssText = 'color:#4c9aff;font-weight:600;margin-bottom:4px;';
+              name.textContent = typeof dim === 'string' ? dim : (dim.name || '');
+              const stars = document.createElement('div');
+              stars.style.cssText = 'color:#4c9aff;font-size:18px;letter-spacing:2px;';
+              stars.textContent = '★'.repeat(score) + '☆'.repeat(5 - score) + `（${score}/5）`;
+              const desc = document.createElement('div');
+              desc.style.cssText = 'color:#9aa9c1;font-size:13px;margin-top:4px;';
+              desc.textContent = (typeof dim === 'object' && dim.description) || '';
+              d.appendChild(name); d.appendChild(stars); d.appendChild(desc);
+              wrap.appendChild(d);
+            });
+            return wrap;
+          }
+          case 'radar': {
+            const wrap = document.createElement('div');
+            const id = 'radar-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
+            wrap.id = id;
+            wrap.style.cssText = 'width:100%;height:420px;margin:16px 0;';
+            setTimeout(() => {
+              const dom = document.getElementById(id);
+              if (!dom || typeof echarts === 'undefined') return;
+              const chart = echarts.init(dom);
+              const dims = n.dimensions || [];
+              const scores = state.vars[n.source || 'portraitScores'] || [];
+              const max = n.max || 5;
+              const seriesName = n.seriesName || '你的选择';
+              chart.setOption({
+                backgroundColor: 'transparent',
+                radar: {
+                  indicator: dims.map(d => ({
+                    name: (typeof d === 'string' ? d : (d.name || '')),
+                    max: max
+                  })),
+                  shape: 'polygon',
+                  splitNumber: max,
+                  axisName: { color: '#9aa9c1', fontSize: 13 },
+                  splitArea: { areaStyle: { color: ['rgba(76,154,255,0.03)', 'rgba(76,154,255,0.08)'] } },
+                  splitLine: { lineStyle: { color: 'rgba(76,154,255,0.2)' } },
+                  axisLine: { lineStyle: { color: 'rgba(76,154,255,0.25)' } }
+                },
+                tooltip: { trigger: 'item' },
+                series: [{
+                  type: 'radar',
+                  data: [{
+                    value: scores,
+                    name: seriesName,
+                    symbol: 'circle',
+                    symbolSize: 6,
+                    lineStyle: { color: '#4c9aff', width: 2 },
+                    areaStyle: { color: 'rgba(76,154,255,0.25)' },
+                    itemStyle: { color: '#4c9aff' },
+                    label: {
+                      show: true,
+                      color: '#e0f2fe',
+                      fontSize: 12,
+                      formatter: function (params) { return params.value; }
+                    }
+                  }]
+                }]
+              });
+              state._charts.push(chart);
+            }, 0);
+            return wrap;
+          }
+          case 'br':
+            return document.createElement('br');
+          case 'image': {
+            const img = document.createElement('img');
+            const src = assetUrl(resolveValue(n.src, ctx));
+            if (src) img.src = src;
+            if (n.style) img.style.cssText = n.style;
+            return img;
+          }
+          default:
+            return null;
+        }
+      }
+
+      function renderInline(children, ctx) {
+        const frag = document.createDocumentFragment();
+        (children || []).forEach(c => {
+          if (typeof c === 'string') {
+            frag.appendChild(document.createTextNode(fill(c)));
+            return;
+          }
+          const el = renderNode(c, ctx);
+          if (el) frag.appendChild(el);
+        });
+        return frag;
+      }
+
+      // ============================================================
+      // 计分与判定
+      // ============================================================
+      function computeScore(action, ctx) {
+        const rules = action.rules || [];
+        const source = resolveValue(action.source, ctx) || state.choices;
+        let dimensions = action.dimensions;
+        if (!dimensions || (Array.isArray(dimensions) && dimensions.length === 0)) {
+          dimensions = state.vars.portraitDimensions || [];
+        }
+        if (typeof dimensions === 'string') {
+          dimensions = resolveValue(dimensions, ctx) || [];
+        }
+        const dimNames = dimensions.map(d => (typeof d === 'string' ? d : (d.name || '')));
+        const scores = dimNames.map(() => 0);
+        const counts = dimNames.map(() => 0);
+        rules.forEach(r => {
+          if (r.expr) {
+            if (evaluateCondition(r.expr, ctx)) {
+              if (r.scores && typeof r.scores === 'object') {
+                Object.keys(r.scores).forEach(dim => {
+                  const di = dimNames.indexOf(dim);
+                  if (di >= 0) { scores[di] += r.scores[dim]; counts[di] += 1; }
+                });
+              }
+            }
+          } else {
+            (source || []).forEach(c => {
+              if (r.pathType === c.pathType) {
+                const di = dimNames.indexOf(r.dimension);
+                if (di >= 0) { scores[di] += r.score; counts[di] += 1; }
+              }
+            });
+          }
+        });
+        if (action.mode === 'dimensionScores') {
+          return scores.map((s, i) => counts[i] === 0 ? (action.defaultScore || 3) : Math.round(s / counts[i]));
+        }
+        return { scores, counts };
+      }
+
+      function judgeCase(rules, choices) {
+        for (const rule of rules) {
+          const trig = rule.trigger;
+          if (!trig || !Array.isArray(trig.conditions)) continue;
+          const arr = choices || [];
+          const results = trig.conditions.map(cond => {
+            if (cond.expr) return evaluateCondition(cond.expr, {});
+            const quantifier = cond.quantifier || 'any';
+            const test = c => {
+              const val = c[cond.field];
+              if (cond.operator === 'equals') return val === cond.value;
+              if (cond.operator === 'notEquals') return val !== cond.value;
+              if (cond.operator === 'includes') return Array.isArray(val) && val.includes(cond.value);
+              return false;
+            };
+            if (arr.length === 0) return false;
+            return quantifier === 'all' ? arr.every(test) : arr.some(test);
+          });
+          const matched = trig.logic === 'all' ? results.every(Boolean) : results.some(Boolean);
+          if (matched) return rule;
+        }
+        return null;
+      }
+
+      // ============================================================
+      // 导出
+      // ============================================================
+      function buildExportData() {
+        const data = {};
+        Object.keys(state.vars).forEach(k => {
+          if (k.startsWith('_')) return;
+          if (k === 'caseRule' || k === 'portraitScores' || k === 'lastChoices' || k === 'timeline') return;
+          data[k] = state.vars[k];
+        });
+        data.timeline = state._timeline.slice();
+        return data;
+      }
+
+      function buildTxtExport(data) {
+        const lines = [];
+        lines.push('===== 用户信息 =====');
+        Object.keys(data).forEach(k => {
+          if (k === 'timeline') return;
+          lines.push(`${k}: ${data[k]}`);
+        });
+        lines.push('');
+        lines.push('===== 作答记录 =====');
+        (data.timeline || []).forEach((t, i) => {
+          lines.push(`[${i + 1}] 场景：${t.sceneName || t.scene}（${t.scene}）`);
+          if (t.type === 'choice') {
+            lines.push(`    类型：选择`);
+            lines.push(`    选择：${t.text}`);
+            if (t.pathType) lines.push(`    路径类型：${t.pathType}`);
+          } else if (t.type === 'input') {
+            lines.push(`    类型：输入`);
+            if (t.prompt) lines.push(`    提示：${t.prompt}`);
+            lines.push(`    输入：${t.value}`);
+          }
+          lines.push('');
+        });
+        return lines.join('\n');
+      }
+
+      function downloadBlob(blob, filename) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(a.href);
+        }, 100);
+      }
+
+      function handleExport(config) {
+        const format = config.format || 'json';
+        const ext = format === 'txt' ? 'txt' : 'json';
+        const filename = (config.filename || '导出') + '.' + ext;
+        const source = config.source || 'timeline';
+
+        let content = '';
+        let mime = 'text/plain;charset=utf-8';
+
+        let sourceValue;
+        if (source === 'timeline') {
+          sourceValue = buildExportData();
+        } else if (typeof source === 'string' && source.indexOf('{{') === 0) {
+          sourceValue = resolveValue(source, {});
+        } else {
+          sourceValue = state.vars[source];
+        }
+
+        if (format === 'json') {
+          content = JSON.stringify(sourceValue != null ? sourceValue : {}, null, 2);
+          mime = 'application/json;charset=utf-8';
+        } else if (format === 'txt') {
+          if (source === 'timeline') {
+            content = buildTxtExport(sourceValue);
+          } else {
+            content = typeof sourceValue === 'string' ? sourceValue : JSON.stringify(sourceValue, null, 2);
+          }
+        } else {
+          content = String(sourceValue != null ? sourceValue : '');
+        }
+
+        const blob = new Blob([content], { type: mime });
+        downloadBlob(blob, filename);
+        setStatus(`✅ 已导出：${filename}`, true);
+      }
+
+      function autoAddExportButtons() {
+        if (endingInner.querySelector('.e-btn.export')) return;
+        if (state._timeline.length === 0) return;
+
+        const wrap = document.createElement('div');
+        wrap.className = 'e-actions';
+        wrap.style.marginTop = '32px';
+        wrap.style.paddingTop = '20px';
+        wrap.style.borderTop = '1px solid rgba(76,154,255,0.15)';
+        wrap.style.flexDirection = 'column';
+        wrap.style.gap = '10px';
+
+        const tip = document.createElement('div');
+        tip.style.cssText = 'color:#9aa9c1;font-size:13px;text-align:center;margin-bottom:4px;letter-spacing:0.1em;';
+        tip.textContent = '—— 导出你的作答 ——';
+        wrap.appendChild(tip);
+
+        const btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex;gap:12px;justify-content:center;flex-wrap:wrap;';
+
+        const btnJson = document.createElement('button');
+        btnJson.className = 'e-btn export';
+        btnJson.textContent = '📥 导出作答（JSON）';
+        btnJson.addEventListener('click', () => {
+          handleExport({ format: 'json', filename: '我的作答', source: 'timeline' });
+        });
+        btnRow.appendChild(btnJson);
+
+        const btnTxt = document.createElement('button');
+        btnTxt.className = 'e-btn export';
+        btnTxt.textContent = '📄 导出作答（TXT）';
+        btnTxt.addEventListener('click', () => {
+          handleExport({ format: 'txt', filename: '我的作答', source: 'timeline' });
+        });
+        btnRow.appendChild(btnTxt);
+
+        wrap.appendChild(btnRow);
+
+        const existingActions = endingInner.querySelector('.e-actions');
+        if (existingActions) {
+          endingInner.insertBefore(wrap, existingActions);
+        } else {
+          endingInner.appendChild(wrap);
+        }
+      }
+
+      // ============================================================
+      // 拖拽上传
+      // ============================================================
+      (function initDragUpload() {
+        const dropZone = $('dropZone');
+        const globalOverlay = $('globalDragOverlay');
+        let dragCounter = 0;
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+          document.body.addEventListener(eventName, e => {
+            e.preventDefault();
+            e.stopPropagation();
+          });
+        });
+
+        document.addEventListener('dragenter', e => {
+          if (uploadPage.style.display === 'none') return;
+          dragCounter++;
+          if (dragCounter === 1) {
+            globalOverlay.classList.add('active');
+            uploadPage.classList.add('dragging');
+          }
+        });
+        document.addEventListener('dragover', e => {
+          if (uploadPage.style.display === 'none') return;
+          e.preventDefault();
+        });
+        document.addEventListener('dragleave', e => {
+          if (uploadPage.style.display === 'none') return;
+          dragCounter--;
+          if (dragCounter <= 0) {
+            dragCounter = 0;
+            globalOverlay.classList.remove('active');
+            uploadPage.classList.remove('dragging');
+          }
+        });
+        document.addEventListener('drop', e => {
+          if (uploadPage.style.display === 'none') return;
+          e.preventDefault();
+          dragCounter = 0;
+          globalOverlay.classList.remove('active');
+          uploadPage.classList.remove('dragging');
+          const files = e.dataTransfer.files;
+          if (!files || files.length === 0) return;
+          const file = files[0];
+          if (!/\.zip$/i.test(file.name)) { alert('请拖入 zip 文件'); return; }
+          handleZipFile(file);
+        });
+
+        dropZone.addEventListener('dragenter', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', e => {
+          e.preventDefault();
+          if (!dropZone.contains(e.relatedTarget)) dropZone.classList.remove('dragover');
+        });
+        dropZone.addEventListener('drop', e => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.remove('dragover');
+          const files = e.dataTransfer.files;
+          if (!files || files.length === 0) return;
+          const file = files[0];
+          if (!/\.zip$/i.test(file.name)) { alert('请拖入 zip 文件'); return; }
+          handleZipFile(file);
+        });
+
+        dropZone.addEventListener('click', e => {
+          if (e.target.id === 'uploadLabel' || e.target.id === 'fileInput') return;
+          fileInput.click();
+        });
+      })();
+
+      function handleZipFile(file) {
+        if (!/\.zip$/i.test(file.name)) { alert('请上传 zip 文件'); return; }
+        showLoading('正在解析 zip…');
+        const reader = new FileReader();
+        reader.onload = function (ev) {
+          JSZip.loadAsync(ev.target.result).then(handleZip).catch(err => {
+            hideLoading();
+            alert('zip 解析失败：' + err.message);
+          });
+        };
+        reader.readAsArrayBuffer(file);
+      }
+
+      fileInput.addEventListener('change', function (e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        handleZipFile(file);
+        fileInput.value = '';
+      });
+
+      function clearAllAssets() {
+        Object.values(state.assetMap).forEach(url => {
+          try { URL.revokeObjectURL(url); } catch (e) {}
+        });
+        state.assetMap = {};
+        state.files = {};
+        state.vars = {};
+        state._formVarNames = [];
+        state._stepStack = [];
+        state._items = [];
+        state._timeline = [];
+        state.choices = [];
+        state.currentScript = null;
+        state.currentNode = null;
+        state.currentSceneId = null;
+        state._inputConfig = null;
+        state._pendingInputNext = null;
+        state._endingLock = false;
+        state._charVisible = {};
+        state._lastSpeaker = null;
+        state._dialogStageEntered = false;
+        state._steps = [];
+        state._stepIndex = 0;
+        state._stepWait = false;
+        state._descCount = 0;
+        state._hideUI = false;
+        state._parallelPending = null;
+        disposeCharts();
+        cleanupCurrentScene();
+        AudioManager.stopVoice();
+        AudioManager.stopBgm(0);
+      }
+
+      function handleZip(zip) {
+        clearAllAssets();
+
+        const allFiles = [];
+        zip.forEach((path, entry) => {
+          if (entry.dir) return;
+          allFiles.push({ path, entry });
+        });
+
+        if (allFiles.length === 0) { hideLoading(); alert('zip 内没有任何文件'); return; }
+
+        let rootPrefix = '';
+        const rootJsonFiles = allFiles.filter(f => /^[^/]+\.json$/i.test(f.path));
+        if (rootJsonFiles.length === 0) {
+          const topDirs = new Set();
+          allFiles.forEach(f => {
+            const i = f.path.indexOf('/');
+            if (i > 0) topDirs.add(f.path.substring(0, i));
+          });
+
+          if (topDirs.size === 0) {
+            hideLoading();
+            alert('zip 内未找到 json 文件（根目录无 json，也没有文件夹）');
+            return;
+          }
+          if (topDirs.size > 1) {
+            hideLoading();
+            alert('zip 内未找到 json 文件（根目录无 json，且有多个顶层文件夹：' + Array.from(topDirs).join('、') + '）');
+            return;
+          }
+          rootPrefix = Array.from(topDirs)[0] + '/';
+        }
+
+        const jsonFiles = [];
+        const assetFiles = [];
+        allFiles.forEach(f => {
+          if (rootPrefix && !f.path.startsWith(rootPrefix)) return;
+          const relPath = rootPrefix ? f.path.substring(rootPrefix.length) : f.path;
+          const name = relPath.split('/').pop();
+          if (!name) return;
+          if (/\.json$/i.test(name)) {
+            jsonFiles.push({ path: f.path, name, entry: f.entry });
+          } else if (/\.(png|jpg|jpeg|gif|webp|mp3|wav|ogg|m4a|mp4|webm)$/i.test(name)) {
+            if (relPath.indexOf('assets/') === 0) {
+              assetFiles.push({ path: f.path, name, relPath, entry: f.entry });
+            }
+          }
+        });
+
+        if (jsonFiles.length === 0) {
+          hideLoading();
+          alert('zip 内未找到 json 文件' + (rootPrefix ? '（在文件夹 "' + rootPrefix.replace(/\/$/, '') + '" 内）' : ''));
+          return;
+        }
+
+        const imgPromises = assetFiles.map(f =>
+          f.entry.async('blob').then(blob => {
+            state.assetMap[f.relPath] = URL.createObjectURL(blob);
+          })
+        );
+
+        Promise.all(imgPromises).then(() => {
+          const jsonPromises = jsonFiles.map(f =>
+            f.entry.async('string').then(text => {
+              try { return { name: f.name, data: JSON.parse(text) }; }
+              catch (e) { console.error('JSON 解析失败:', f.name, e); return null; }
+            })
+          );
+          return Promise.all(jsonPromises);
+        }).then(list => {
+          list.filter(Boolean).forEach(item => { state.files[item.name] = item.data; });
+          hideLoading();
+          uploadPage.style.display = 'none';
+
+          const initFile = Object.keys(state.files).find(k => /^init\.json$/i.test(k));
+          const init = initFile ? state.files[initFile] : null;
+
+          const runInitFlow = () => {
+            if (init && Array.isArray(init.actions) && init.actions.length > 0) {
+              executeActions(init.actions, {}).catch(err => {
+                console.error('init 执行失败:', err);
+              });
+            } else {
+              startDefaultFlow();
+            }
+          };
+
+          if (init && init.intro && (init.intro.title || init.intro.content)) {
+            showIntro(init.intro, '数据包介绍', runInitFlow);
+          } else {
+            runInitFlow();
+          }
+        }).catch(err => {
+          hideLoading();
+          alert('资源加载失败：' + err.message);
+        });
+      }
+
+      function startDefaultFlow() {
+        formModal.style.display = 'flex';
+        formModalTitle.textContent = '请输入你的姓名';
+        formModalDesc.textContent = '';
+        formConfirmBtn.textContent = '开始体验';
+        state._onFormConfirm = [{ type: 'loadScriptByIndex', index: 0 }];
+        state._formFields = [
+          { name: 'playerName', type: 'text', default: '小郑', placeholder: '请输入姓名', maxLength: 12, required: true }
+        ];
+        state._formVarNames = ['playerName'];
+        formModalFields.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.className = 'form-field';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.name = 'playerName';
+        input.value = '小郑';
+        input.placeholder = '请输入姓名';
+        input.maxLength = 12;
+        wrap.appendChild(input);
+        formModalFields.appendChild(wrap);
+        input.focus();
+      }
+
+      formConfirmBtn.addEventListener('click', function () {
+        formError.style.display = 'none';
+        const values = {};
+        let valid = true;
+        state._formFields.forEach(f => {
+          const name = f.name;
+          const ftype = f.type || 'text';
+
+          if (ftype === 'checkbox') {
+            const checked = formModalFields.querySelectorAll(`input[name="${name}"]:checked`);
+            values[name] = Array.from(checked).map(cb => cb.value);
+          } else if (ftype === 'radio') {
+            const sel = formModalFields.querySelector(`input[name="${name}"]:checked`);
+            values[name] = sel ? sel.value : '';
+            if (f.required && !values[name]) valid = false;
+          } else {
+            const el = formModalFields.querySelector(`[name="${name}"]`);
+            if (!el) return;
+            const v = (el.value || '').trim();
+            if (f.required && !v) valid = false;
+            values[name] = v;
+          }
+        });
+        if (!valid) {
+          formError.textContent = '请填写必填项';
+          formError.style.display = 'block';
+          return;
+        }
+        formModal.style.display = 'none';
+        Object.keys(values).forEach(k => { state.vars[k] = values[k]; });
+        executeActions(state._onFormConfirm || [], {});
+      });
+
+      // ============================================================
+      // 剧本选择
+      // ============================================================
+      function getSortedScripts() {
+        return Object.keys(state.files)
+          .filter(k => /^script_\d{2}\.json$/i.test(k))
+          .sort((a, b) => parseInt(a.match(/\d+/)[0], 10) - parseInt(b.match(/\d+/)[0], 10));
+      }
+
+      function showScriptSelector() {
+        const scripts = getSortedScripts();
+        const modal = $('scriptSelectorModal');
+        const list = $('scriptList');
+        list.innerHTML = '';
+
+        scripts.forEach((fileKey, idx) => {
+          const script = state.files[fileKey];
+          const meta = (script && script.meta) || {};
+          const title = meta.title || meta.subtitle || fileKey.replace(/\.json$/i, '');
+          const sub = meta.subtitle && meta.title ? meta.subtitle : '';
+
+          const item = document.createElement('div');
+          item.className = 'script-item';
+
+          const idxEl = document.createElement('div');
+          idxEl.className = 'script-index';
+          idxEl.textContent = idx + 1;
+          item.appendChild(idxEl);
+
+          const info = document.createElement('div');
+          info.className = 'script-info';
+          const titleEl = document.createElement('div');
+          titleEl.className = 'script-title';
+          titleEl.textContent = title;
+          info.appendChild(titleEl);
+          if (sub) {
+            const subEl = document.createElement('div');
+            subEl.className = 'script-sub';
+            subEl.textContent = sub;
+            info.appendChild(subEl);
+          }
+          item.appendChild(info);
+
+          const arrow = document.createElement('div');
+          arrow.className = 'script-arrow';
+          arrow.textContent = '→';
+          item.appendChild(arrow);
+
+          item.addEventListener('click', () => {
+            modal.style.display = 'none';
+            loadScript(fileKey, {});
+          });
+          list.appendChild(item);
+        });
+
+        modal.style.display = 'flex';
+      }
+
+      // ============================================================
+      // 剧本加载
+      // ============================================================
+      function loadScript(scriptKey, ctx) {
+        state._endingLock = false;
+        state.phase = 'idle';
+        endingPage.style.display = 'none';
+        endingInner.innerHTML = '';
+        disposeCharts();
+        cleanupCurrentScene();
+
+        let key = scriptKey;
+        if (!state.files[key]) {
+          const candidate = Object.keys(state.files).find(k =>
+            /^script_\d{2}\.json$/i.test(k) && k.indexOf(scriptKey) >= 0);
+          if (candidate) key = candidate;
+        }
+        const script = state.files[key];
+        if (!script) { console.error('剧本不存在:', scriptKey); return Promise.resolve(); }
+
+        const reallyStart = () => {
+          const keep = {};
+          (state._formVarNames || []).forEach(k => {
+            if (state.vars[k] !== undefined) keep[k] = state.vars[k];
+          });
+          state.vars = keep;
+
+          state.currentScript = script;
+          state.currentScript._key = key;
+          state.choices = [];
+          state._items = [];
+          state._stepStack = [];
+          state._timeline = [];
+          state._allowRewind = script.allowRewind === true;
+          state._inputConfig = null;
+          state._pendingInputNext = null;
+          state._charVisible = {};
+          state._dialogStageEntered = false;
+          state._steps = [];
+          state._stepIndex = 0;
+          state._stepWait = false;
+          state._descCount = 0;
+          state._hideUI = false;
+          state._parallelPending = null;
+
+          if (script.portrait && Array.isArray(script.portrait.dimensions)) {
+            state.vars.portraitDimensions = script.portrait.dimensions;
+          }
+
+          itemLayer.innerHTML = '';
+          $('itemPanel').style.display = 'none';
+          itemPopup.style.display = 'none';
+
+          if (script.meta && script.meta.title) gameTitle.textContent = fill(script.meta.title);
+          const startScene = (script.meta && script.meta.startScene) || script.startScene || 'N1';
+          goToScene(startScene);
+          updateRewindBtn();
+        };
+
+        if (script.intro && (script.intro.title || script.intro.content)) {
+          showIntro(script.intro, '剧本介绍', reallyStart);
+          return Promise.resolve();
+        }
+
+        reallyStart();
+        return Promise.resolve();
+      }
+
+      function loadResult(ctx) {
+        const resultFile = Object.keys(state.files).find(k => /^result\.json$/i.test(k));
+        if (!resultFile) { console.error('result.json 不存在'); return Promise.resolve(); }
+        const result = state.files[resultFile];
+        return executeActions(result.actions || [], ctx);
+      }
+
+      // ============================================================
+      // 立绘管理
+      // ============================================================
+      function findCharImg(name) {
+        const list = charLayer.querySelectorAll('.char-sprite');
+        for (let i = 0; i < list.length; i++) {
+          if (list[i].alt === name) return list[i];
+        }
+        return null;
+      }
+
+            function applyCharTransform(img, name, scene) {
+        let charDef = null;
+        // 优先用当前场景的角色定义
+        if (scene && Array.isArray(scene.characters)) {
+          charDef = scene.characters.find(c => c.name === name) || null;
+        }
+        // 找不到再全剧本兜底
+        if (!charDef) {
+          const scenes = state.currentScript && state.currentScript.scenes;
+          if (scenes) {
+            for (const sid in scenes) {
+              const sc = scenes[sid];
+              if (!sc || !Array.isArray(sc.characters)) continue;
+              const f = sc.characters.find(c => c.name === name);
+              if (f) { charDef = f; break; }
+            }
+          }
+        }
+        const pos = img.classList.contains('center') ? 'center' :
+                    img.classList.contains('midLeft') ? 'midLeft' :
+                    img.classList.contains('midRight') ? 'midRight' :
+                    img.classList.contains('left') ? 'left' :
+                    img.classList.contains('right') ? 'right' : 'center';
+        const off = charDef && charDef.offsetX ? Number(charDef.offsetX) : 0;
+        if (pos === 'center') {
+          img.style.transform = off ? `translateX(calc(-50% + ${off}px))` : 'translateX(-50%)';
+        } else {
+          img.style.transform = off ? `translateX(${off}px)` : '';
+        }
+      }
+
+      function createCharImg(name, url, position, scene) {
+        const img = document.createElement('img');
+        img.className = 'char-sprite ' + (position || 'center');
+        img.src = url;
+        img.alt = name;
+        applyCharTransform(img, name, scene);
+        return img;
+      }
+
+      function showCharSprite(name, url, scene) {
+        if (!url) return;
+        let img = findCharImg(name);
+        if (img) {
+          delete img.dataset.removing;
+          img.src = url;
+          // 重新校准 position（关键修复）
+          const charDef = ((scene && scene.characters) || []).find(c => c.name === name);
+          const pos = charDef ? (charDef.position || 'center') : 'center';
+          img.classList.remove('left', 'midLeft', 'center', 'midRight', 'right');
+          img.classList.add(pos);
+          applyCharTransform(img, name, scene);
+          if (!img.classList.contains('show')) {
+            requestAnimationFrame(() => img.classList.add('show'));
+          }
+        } else {
+          const charDef = ((scene && scene.characters) || []).find(c => c.name === name);
+          const pos = charDef ? charDef.position : 'center';
+          img = createCharImg(name, url, pos, scene);
+          charLayer.appendChild(img);
+          requestAnimationFrame(() => img.classList.add('show'));
+        }
+        state._charVisible[name] = true;
+      }
+
+      function hideCharSprite(name) {
+        const img = findCharImg(name);
+        if (img) {
+          img.classList.remove('show');
+          img.dataset.removing = '1';
+          setTimeout(() => {
+            if (img.dataset.removing === '1' && img.parentNode) {
+              img.parentNode.removeChild(img);
+            }
+          }, 520);
+        }
+        state._charVisible[name] = false;
+      }
+
+      function clearAllCharSprites() {
+        const imgs = charLayer.querySelectorAll('.char-sprite');
+        if (imgs.length > 0) {
+          imgs.forEach(img => {
+            img.classList.remove('show');
+            img.dataset.removing = '1';
+          });
+          setTimeout(() => {
+            charLayer.querySelectorAll('.char-sprite').forEach(img => {
+              if (img.dataset.removing === '1' && img.parentNode) {
+                img.parentNode.removeChild(img);
+              }
+            });
+          }, 520);
+        }
+        state._charVisible = {};
+        state._dialogStageEntered = false;
+      }
+
+      function initSceneCharacters(scene) {
+        clearAllCharSprites();
+        (scene.characters || []).forEach(c => {
+          if (c.appearAt === 'scene') {
+            const url = assetUrl(c.defaultSprite);
+            if (url) showCharSprite(c.name, url, scene);
+          }
+        });
+      }
+
+      function handleDescAppear(scene) {
+        state._descCount++;
+        (scene.characters || []).forEach(c => {
+          if (typeof c.appearAt === 'number' && c.appearAt <= state._descCount) {
+            if (!state._charVisible[c.name]) {
+              const url = assetUrl(c.defaultSprite);
+              if (url) showCharSprite(c.name, url, scene);
+            }
+          }
+        });
+      }
+
+      function enterDialogueStage(scene) {
+        if (state._dialogStageEntered) return;
+        state._dialogStageEntered = true;
+        (scene.characters || []).forEach(c => {
+          if (c.appearAt === 'dialogue' || c.appearAt === undefined) {
+            const url = assetUrl(c.defaultSprite);
+            if (url) showCharSprite(c.name, url, scene);
+          }
+        });
+      }
+
+      function applyDialogueSprite(scene, d) {
+        if (!d) return;
+        // autoHidePrev：先把上一个说话人隐藏
+        if (d.autoHidePrev && state._lastSpeaker && state._lastSpeaker !== d.speaker) {
+          hideCharSprite(state._lastSpeaker);
+        }
+        if (d.hide) {
+          hideCharSprite(d.speaker);
+          if (state._lastSpeaker === d.speaker) state._lastSpeaker = null;
+          return;
+        }
+        if (d.sprite) {
+          let url = '';
+          // 短名（不含路径分隔符）：优先从当前 speaker 的 sprites 里解析
+          if (d.sprite.indexOf('/') < 0 && scene && Array.isArray(scene.characters)) {
+            const speakerDef = scene.characters.find(c => c.name === d.speaker);
+            if (speakerDef && speakerDef.sprites && speakerDef.sprites[d.sprite]) {
+              url = assetUrl(speakerDef.sprites[d.sprite]);
+            }
+          }
+          // 没找到或不是短名，走原逻辑
+          if (!url) url = assetUrl(d.sprite);
+          if (url) showCharSprite(d.speaker, url, scene);
+        }
+        state._lastSpeaker = d.speaker;
+      }
+
+      // ============================================================
+      // 快照与回退
+      // ============================================================
+      function takeSnapshot() {
+        const charSprites = {};
+        charLayer.querySelectorAll('.char-sprite').forEach(img => {
+          charSprites[img.alt] = img.src;
+        });
+        return {
+          sceneId: state.currentSceneId,
+          phase: state.phase,
+          stepIndex: state._stepIndex,
+          steps: deepClone(state._steps),
+          stepWait: state._stepWait,
+          descCount: state._descCount,
+          choices: deepClone(state.choices),
+          timeline: deepClone(state._timeline),
+          items: deepClone(state._items),
+          vars: deepClone(state.vars),
+          inputConfig: deepClone(state._inputConfig),
+          pendingInputNext: state._pendingInputNext,
+          inputValue: (state.phase === 'input' && inputField) ? inputField.value : null,
+          charVisible: deepClone(state._charVisible),
+          charSprites: charSprites,
+          dialogStageEntered: state._dialogStageEntered,
+          hideUI: state._hideUI
+        };
+      }
+
+      function pushStepHistory() {
+        if (!state._allowRewind) return;
+        state._stepStack.push(takeSnapshot());
+      }
+
+      function updateRewindBtn() {
+        if (!state._allowRewind) {
+          rewindBtn.style.display = 'none';
+          return;
+        }
+        rewindBtn.style.display = 'inline-block';
+        rewindBtn.disabled = state._stepStack.length === 0;
+      }
+
+      function displayCurrentStepStatic() {
+        const step = state._steps[state._stepIndex];
+        if (!step) { resolveNext(state.currentNode.next); return; }
+        if (step.type === 'desc') {
+          if (step.hideUI) {
+            hideUI();
+            state.phase = 'step';
+            state._stepWait = true;
+          } else {
+            hideAll();
+            state._hideUI = false;
+            descBox.style.display = 'block';
+            descText.textContent = fill(String(step.text || ''));
+            state.phase = 'step';
+            state._stepWait = true;
+          }
+        } else if (step.type === 'dialogue') {
+          enterDialogueStage(state.currentNode);
+          applyDialogueSprite(state.currentNode, step);
+          if (step.hideUI) {
+            hideUI();
+            state.phase = 'step';
+            state._stepWait = true;
+          } else {
+            hideAll();
+            state._hideUI = false;
+            dialogBox.style.display = 'block';
+            dialogName.textContent = fill(step.speaker || '');
+            dialogProgress.textContent = `${state._stepIndex + 1} / ${state._steps.length}`;
+            dialogText.textContent = fill(step.text || '');
+            state.phase = 'step';
+            state._stepWait = true;
+          }
+        } else if (step.type === 'tree') {
+          hideAll();
+          state._hideUI = false;
+          descBox.style.display = 'block';
+          descText.innerHTML = '';
+          descText.appendChild(renderTree(step.tree || [], {}));
+          state.phase = 'step';
+          state._stepWait = true;
+        } else if (step.type === 'pause') {
+          if (step.hideUI) hideUI();
+          else hideAll();
+          state.phase = 'step';
+          state._stepWait = true;
+        }
+      }
+
+      function restoreSnapshot(snap) {
+        cleanupCurrentScene();
+        state.currentSceneId = snap.sceneId;
+        state.currentNode = state.currentScript.scenes[snap.sceneId];
+        state.phase = snap.phase;
+        state._stepIndex = snap.stepIndex;
+        state._steps = snap.steps;
+        state._stepWait = snap.stepWait;
+        state._descCount = snap.descCount;
+        state.choices = snap.choices;
+        state._timeline = snap.timeline;
+        state._items = snap.items;
+        state.vars = snap.vars;
+        state._inputConfig = snap.inputConfig;
+        state._pendingInputNext = snap.pendingInputNext;
+        state._charVisible = snap.charVisible || {};
+        state._dialogStageEntered = snap.dialogStageEntered || false;
+        state._lastSpeaker = null;
+        state._hideUI = snap.hideUI || false;
+
+        renderBackground(state.currentNode);
+        applySceneBgm(state.currentNode);
+
+        charLayer.innerHTML = '';
+        (state.currentNode.characters || []).forEach(c => {
+          if (state._charVisible[c.name] && snap.charSprites[c.name]) {
+            const img = document.createElement('img');
+            img.className = 'char-sprite show ' + (c.position || 'center');
+            img.src = snap.charSprites[c.name];
+            img.alt = c.name;
+            applyCharTransform(img, c.name, state.currentNode);
+            charLayer.appendChild(img);
+          }
+        });
+        renderItemIcons();
+
+        if (state.phase === 'input') {
+          showInputAt(state._steps[state._stepIndex], snap.inputValue);
+        } else if (state.phase === 'choice') {
+          showChoices();
+        } else {
+          displayCurrentStepStatic();
+        }
+      }
+
+      function rewindOneStep() {
+        if (!state._allowRewind) return;
+        if (state._stepStack.length === 0) {
+          setStatus('⚠️ 已经是最开始了', false);
+          return;
+        }
+        AudioManager.stopVoice();
+        const snap = state._stepStack.pop();
+        restoreSnapshot(snap);
+        updateRewindBtn();
+        setStatus('↩ 已退回上一步', true);
+      }
+
+      rewindBtn.addEventListener('click', rewindOneStep);
+
+      // ============================================================
+      // 背景
+      // ============================================================
+      function renderBackground(scene) {
+        const url = (scene && scene.background) ? assetUrl(scene.background) : '';
+        const newBg = url ? `url('${url}')` : 'none';
+        const curTop = _bgOnFade ? bgFade : bg;
+        const curBottom = _bgOnFade ? bg : bgFade;
+
+        if (curTop.style.backgroundImage === newBg) return;
+
+        curBottom.style.transition = 'none';
+        curBottom.style.backgroundImage = newBg;
+        curBottom.style.opacity = '0';
+        void curBottom.offsetWidth;
+        curBottom.style.transition = 'opacity 0.6s ease';
+        curBottom.style.opacity = '1';
+
+        curTop.style.transition = 'opacity 0.6s ease';
+        curTop.style.opacity = '0';
+
+        _bgOnFade = !_bgOnFade;
+      }
+
+      // ============================================================
+      // 场景 BGM
+      // ============================================================
+      function applySceneBgm(scene) {
+        const bgm = scene.bgm || '';
+        const cont = scene.bgmContinue === true;
+        const vol = scene.bgmVolume != null ? scene.bgmVolume : 0.6;
+        if (cont) {
+          AudioManager.setBgmVolume(vol);
+          return;
+        }
+        if (!bgm) { AudioManager.stopBgm(600); return; }
+        AudioManager.playBgm(bgm, { volume: vol });
+      }
+
+      // ============================================================
+      // next 解析
+      // ============================================================
+      function resolveNext(next) {
+        if (!next) { handleSceneEnding(state.currentNode); return; }
+        if (typeof next === 'string') { goToScene(next); return; }
+        if (next.switch && Array.isArray(next.switch)) {
+          for (const r of next.switch) {
+            if (evaluateCondition(r.if)) { goToScene(r.to); return; }
+          }
+          if (next.default) goToScene(next.default);
+          else handleSceneEnding(state.currentNode);
+          return;
+        }
+        if (next.random && Array.isArray(next.random)) {
+          const total = next.random.reduce((s, r) => s + (r.weight || 1), 0);
+          let r = Math.random() * total;
+          for (const it of next.random) {
+            r -= (it.weight || 1);
+            if (r <= 0) { goToScene(it.to); return; }
+          }
+          goToScene(next.random[next.random.length - 1].to);
+          return;
+        }
+        if (next.parallel) {
+          console.error('parallel 未实现');
+          handleSceneEnding(state.currentNode);
+          return;
+        }
+        handleSceneEnding(state.currentNode);
+      }
+
+      // ============================================================
+      // 场景分流
+      // ============================================================
+      function goToScene(sceneId) {
+        const script = state.currentScript;
+        if (!script || !script.scenes) return;
+        const scene = script.scenes[sceneId];
+        if (!scene) { console.error('场景不存在:', sceneId); return; }
+
+        cleanupCurrentScene();
+        AudioManager.stopVoice();
+
+        state.currentSceneId = sceneId;
+        state.currentNode = scene;
+        state._lastSpeaker = null;
+
+        const afterEnter = () => {
+          applySceneBgm(scene);
+          const type = scene.type || 'dialogue';
+          if (type === 'cg') return renderCgScene(scene);
+          if (type === 'video') return renderVideoScene(scene);
+          if (type === 'html') return renderHtmlScene(scene);
+          if (type === 'showcase') return renderShowcaseScene(scene);
+          return renderDialogueScene(scene);
+        };
+
+        if (scene.onEnter && scene.onEnter.length) {
+          executeActions(scene.onEnter, { scene }).then(afterEnter).catch(afterEnter);
+        } else {
+          afterEnter();
+        }
+      }
+
+      // ============================================================
+      // dialogue 场景（steps）
+      // ============================================================
+      function normalizeScene(scene) {
+        if (Array.isArray(scene.steps) && scene.steps.length > 0) return scene.steps.slice();
+        const steps = [];
+        (scene.descriptions || []).forEach(d => {
+          if (typeof d === 'string') steps.push({ type: 'desc', text: d });
+          else if (d && typeof d === 'object') steps.push(Object.assign({ type: 'desc' }, d));
+        });
+        (scene.dialogues || []).forEach(d => {
+          if (d && typeof d === 'object') steps.push(Object.assign({ type: 'dialogue' }, d));
+        });
+        if (scene.input && typeof scene.input === 'object') {
+          steps.push(Object.assign({ type: 'input' }, scene.input));
+        }
+        if (Array.isArray(scene.choices) && scene.choices.length > 0) {
+          steps.push({ type: 'choice', choices: scene.choices });
+        }
+        return steps;
+      }
+
+      function renderDialogueScene(scene) {
+        renderBackground(scene);
+        initSceneCharacters(scene);
+        if (scene.items && scene.items.length > 0) {
+          scene.items.forEach(it => {
+            if (!state._items.some(o => o.name === it.name && o.image === it.image)) {
+              state._items.push(it);
+            }
+          });
+        }
+        renderItemIcons();
+
+        state._steps = normalizeScene(scene);
+        state._stepIndex = 0;
+        state._descCount = 0;
+        state._hideUI = false;
+        state.phase = 'step';
+        state._stepWait = false;
+
+        if (scene.initialHideUI) hideUI();
+        else hideAll();
+
+        runNextStep();
+      }
+
+      function runNextStep() {
+        if (state._stepIndex >= state._steps.length) {
+          resolveNext(state.currentNode.next);
+          return;
+        }
+        executeStep(state._steps[state._stepIndex]);
+      }
+
+      function proceedStep() {
+        state._stepIndex++;
+        runNextStep();
+      }
+
+      function executeStep(step) {
+        if (!step || !step.type) { proceedStep(); return; }
+        const h = STEP_HANDLERS[step.type];
+        if (h) h(step);
+        else { console.warn('未知 step 类型:', step.type); proceedStep(); }
+      }
+
+      const STEP_HANDLERS = {
+        desc: showDescStep,
+        dialogue: showDialogueStep,
+        input: (step) => showInputAt(step),
+        choice: () => showChoices(),
+        tree: showTreeStep,
+        pause: (step) => {
+          if (step.hideUI) hideUI();
+          else hideAll();
+          state.phase = 'step';
+          if (step.duration > 0) {
+            state._stepWait = false;
+            const capturedIndex = state._stepIndex;
+            setTimeout(() => {
+              if (state.phase === 'step' && !state._stepWait && state._stepIndex === capturedIndex) {
+                state._stepWait = false;
+                proceedStep();
+              }
+            }, step.duration);
+          } else {
+            state._stepWait = true;
+          }
+        },
+        action: (step) => {
+          state.phase = 'auto';
+          state._stepWait = false;
+          executeActions(step.actions || [], {}).then(proceedStep).catch(proceedStep);
+        },
+        jump: (step) => { goToScene(step.to); },
+        if: (step) => {
+          const branch = evaluateCondition(step.expr) ? (step.then || []) : (step.else || []);
+          state._steps.splice(state._stepIndex + 1, 0, ...branch);
+          proceedStep();
+        },
+        cg: (step) => renderCgStep(step),
+        video: (step) => renderVideoStep(step)
+      };
+
+      function showDescStep(step) {
+        handleDescAppear(state.currentNode);
+        const myIndex = state._stepIndex;
+        if (step.hideUI) {
+          hideUI();
+        } else {
+          hideAll();
+          state._hideUI = false;
+          descBox.style.display = 'block';
+          descText.textContent = fill(String(step.text || ''));
+        }
+        setStatus(`📖 ${state._stepIndex + 1}/${state._steps.length}`, true);
+        state.phase = 'step';
+        state._stepWait = true;
+        if (step.audio) {
+          const p = AudioManager.playVoice(step.audio, { volume: step.audioVolume });
+          if (step.audioWait) {
+            p.then(() => {
+              if (state._stepIndex === myIndex && state._stepWait && state.phase === 'step') {
+                state._stepWait = false;
+                proceedStep();
+                updateRewindBtn();
+              }
+            });
+          }
+        }
+      }
+
+      function showDialogueStep(step) {
+        enterDialogueStage(state.currentNode);
+        applyDialogueSprite(state.currentNode, step);
+        const myIndex = state._stepIndex;
+        if (step.hideUI) {
+          hideUI();
+        } else {
+          hideAll();
+          state._hideUI = false;
+          dialogBox.style.display = 'block';
+          dialogName.textContent = fill(step.speaker || '');
+          dialogProgress.textContent = `${state._stepIndex + 1} / ${state._steps.length}`;
+          dialogText.textContent = fill(step.text || '');
+        }
+        setStatus('💬 对话', true);
+        state.phase = 'step';
+        state._stepWait = true;
+        if (step.audio) {
+          const p = AudioManager.playVoice(step.audio, { volume: step.audioVolume });
+          if (step.audioWait) {
+            p.then(() => {
+              if (state._stepIndex === myIndex && state._stepWait && state.phase === 'step') {
+                state._stepWait = false;
+                proceedStep();
+                updateRewindBtn();
+              }
+            });
+          }
+        }
+      }
+
+      function showTreeStep(step) {
+        hideAll();
+        state._hideUI = false;
+        descBox.style.display = 'block';
+        descText.innerHTML = '';
+        descText.appendChild(renderTree(step.tree || [], {}));
+        state.phase = 'step';
+        state._stepWait = true;
+        setStatus('📋 展示中', true);
+      }
+
+      // ============================================================
+      // 输入与选项
+      // ============================================================
+      function showInputAt(step, savedValue) {
+        const cfg = step || (state.currentNode && state.currentNode.input);
+        if (!cfg) { proceedStep(); return; }
+        hideAll();
+        state._hideUI = false;
+        inputBox.style.display = 'block';
+        inputPrompt.textContent = fill(cfg.prompt || '请作答：');
+        inputField.value = savedValue != null ? savedValue : (cfg.default || '');
+        inputField.placeholder = fill(cfg.placeholder || '');
+        inputField.maxLength = cfg.maxLength || 99999;
+        state._inputConfig = cfg;
+        state._pendingInputNext = cfg.next || null;
+        updateInputCounter();
+        state.phase = 'input';
+        setStatus('✏️ 输入中', true);
+        setTimeout(() => inputField.focus(), 100);
+      }
+
+      function updateInputCounter() {
+        const len = (inputField.value || '').length;
+        const max = state._inputConfig && state._inputConfig.maxLength;
+        inputCounter.textContent = max ? `${len} / ${max} 字` : `${len} 字`;
+      }
+
+      function showChoices() {
+        const step = state._steps[state._stepIndex];
+        const choices = (step && step.choices) || (state.currentNode && state.currentNode.choices) || [];
+        if (!choices.length) { resolveNext(state.currentNode.next); return; }
+        hideAll();
+        state._hideUI = false;
+        choiceBox.style.display = 'flex';
+        choiceBox.innerHTML = '';
+        choices.forEach(c => {
+          const btn = document.createElement('button');
+          btn.className = 'choice-btn';
+          const numSpan = document.createElement('span');
+          numSpan.className = 'choice-num';
+          numSpan.textContent = `【${c.id}】`;
+          btn.appendChild(numSpan);
+          btn.appendChild(document.createTextNode(fill(c.text)));
+          btn.addEventListener('click', () => pickChoice(c));
+          choiceBox.appendChild(btn);
+        });
+        setStatus('🤔 请选择', true);
+        state.phase = 'choice';
+        state._stepWait = false;
+      }
+
+      function pickChoice(c) {
+        pushStepHistory();
+        AudioManager.stopVoice();
+        state.choices.push({
+          scene: state.currentSceneId,
+          sceneName: state.currentNode.sceneName,
+          choiceId: c.id,
+          text: c.text,
+          pathType: c.pathType,
+          next: c.next
+        });
+        state._timeline.push({
+          scene: state.currentSceneId,
+          sceneName: state.currentNode.sceneName || state.currentSceneId,
+          type: 'choice',
+          choiceId: c.id,
+          text: c.text,
+          pathType: c.pathType || null
+        });
+        state._stepWait = false;
+        const go = () => {
+          if (c.next) resolveNext(c.next);
+          else proceedStep();
+        };
+        if (c.actions) executeActions(c.actions, { choice: c }).then(go).catch(go);
+        else go();
+        updateRewindBtn();
+      }
+
+      function advance() {
+        AudioManager.stopVoice();
+        if (state.phase === 'ending') return;
+        if (state.phase === 'input') return;
+        if (state.phase === 'choice') return;
+        if (state.phase === 'auto') return;
+        if (!state._stepWait) return;
+        pushStepHistory();
+        state._stepWait = false;
+        proceedStep();
+        updateRewindBtn();
+      }
+
+      // ============================================================
+      // 输入事件
+      // ============================================================
+      inputField.addEventListener('input', updateInputCounter);
+      inputField.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          inputSubmit.click();
+        }
+      });
+
+      inputSubmit.addEventListener('click', function () {
+        const cfg = state._inputConfig;
+        if (!cfg) return;
+        const value = (inputField.value || '').trim();
+        if (cfg.required !== false && !value) {
+          inputField.focus();
+          setStatus('⚠️ 请先输入内容', false);
+          return;
+        }
+        pushStepHistory();
+        AudioManager.stopVoice();
+        state._timeline.push({
+          scene: state.currentSceneId,
+          sceneName: state.currentNode.sceneName || state.currentSceneId,
+          type: 'input',
+          prompt: cfg.prompt || '',
+          value: value
+        });
+        const varName = cfg.name || ('input_' + state.currentSceneId);
+        state.vars[varName] = value;
+        state._stepWait = false;
+        if (cfg.next) resolveNext(cfg.next);
+        else proceedStep();
+        updateRewindBtn();
+      });
+
+      // ============================================================
+      // 场景类型：cg / video / html / showcase
+      // ============================================================
+      function renderCgScene(scene) {
+        renderBackground(scene);
+        initSceneCharacters(scene);
+        hideAll();
+        const cg = scene.cg || {};
+        const images = cg.images || [];
+        const interval = cg.interval || 1200;
+        if (images.length === 0) { resolveNext(scene.next); return; }
+
+        let idx = 0, timer = null, finished = false, lastShown = -1;
+        const showFrame = (i) => {
+          if (i < 0 || i >= images.length || lastShown === i) return;
+          lastShown = i;
+          const url = assetUrl(images[i]);
+          if (!url) return;
+          const top = _bgOnFade ? bgFade : bg;
+          const bot = _bgOnFade ? bg : bgFade;
+          bot.style.transition = 'none';
+          bot.style.backgroundImage = `url('${url}')`;
+          bot.style.opacity = '0';
+          void bot.offsetWidth;
+          bot.style.transition = 'opacity 0.4s ease';
+          bot.style.opacity = '1';
+          top.style.transition = 'opacity 0.4s ease';
+          top.style.opacity = '0';
+          _bgOnFade = !_bgOnFade;
+        };
+        const finish = () => {
+          if (finished) return;
+          finished = true;
+          if (timer) clearTimeout(timer);
+          state.phase = 'step';
+          state._stepWait = true;
+          setStatus('🎬 点击继续', true);
+        };
+        const step = () => {
+          if (finished) return;
+          showFrame(idx);
+          idx++;
+          if (idx >= images.length) finish();
+          else timer = setTimeout(step, interval);
+        };
+        const onClick = (e) => {
+          if (e.target.closest('button, input, textarea, select, #formModal, #introModal, #uploadPage, #scriptSelectorModal, #itemPopup, #topBar, #bottomLayer')) return;
+          if (!finished) {
+            if (timer) clearTimeout(timer);
+            showFrame(images.length - 1);
+            finish();
+          } else {
+            cleanupCurrentScene();
+            resolveNext(scene.next);
+          }
+        };
+        document.addEventListener('click', onClick);
+        state._sceneCleanup = () => { document.removeEventListener('click', onClick); if (timer) clearTimeout(timer); };
+        state.phase = 'auto';
+        state._stepWait = false;
+        step();
+      }
+
+      function renderVideoScene(scene) {
+        hideAll();
+        const v = scene.video || {};
+        const src = v.src ? assetUrl(v.src) : '';
+        if (!src) { resolveNext(scene.next); return; }
+        const holder = document.createElement('div');
+        holder.style.cssText = 'position:absolute;inset:0;z-index:3;background:#000;';
+        const video = document.createElement('video');
+        video.src = src;
+        video.loop = !!v.loop;
+        video.muted = v.muted !== false;
+        video.playsInline = true;
+        video.autoplay = true;
+        video.style.cssText = 'width:100%;height:100%;object-fit:contain;';
+        holder.appendChild(video);
+        document.getElementById('app').appendChild(holder);
+
+        let finished = false;
+        const finish = () => {
+          if (!finished) {
+            finished = true;
+            state.phase = 'step';
+            state._stepWait = true;
+            setStatus('🎬 点击继续', true);
+          }
+        };
+        const onClick = (e) => {
+          if (e.target.closest('button, input, textarea, select, #formModal, #introModal, #uploadPage, #scriptSelectorModal, #itemPopup, #topBar, #bottomLayer')) return;
+          if (!finished) {
+            try { video.pause(); } catch (err) {}
+            finish();
+          } else {
+            cleanupCurrentScene();
+            resolveNext(scene.next);
+          }
+        };
+        video.addEventListener('ended', () => { if (!video.loop) finish(); });
+        document.addEventListener('click', onClick);
+        state._sceneCleanup = () => {
+          document.removeEventListener('click', onClick);
+          try { video.pause(); } catch (e) {}
+          video.src = '';
+          holder.remove();
+        };
+        state.phase = 'auto';
+        state._stepWait = false;
+        video.play().catch(() => { finish(); });
+      }
+
+      function renderHtmlScene(scene) {
+        hideAll();
+        const h = scene.html || {};
+        const holder = document.createElement('div');
+        holder.style.cssText = 'position:absolute;inset:0;z-index:3;background:#000;';
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = 'width:100%;height:100%;border:none;';
+        holder.appendChild(iframe);
+        if (h.path) iframe.src = assetUrl(h.path);
+        else if (h.inline) iframe.srcdoc = h.inline;
+        else { resolveNext(scene.next); return; }
+        document.getElementById('app').appendChild(holder);
+        state.phase = 'step';
+        state._stepWait = true;
+        setStatus('🖥️ 点击继续', true);
+        const onClick = (e) => {
+          if (e.target.closest('button, input, textarea, select, iframe, #formModal, #introModal, #uploadPage, #scriptSelectorModal, #itemPopup, #topBar, #bottomLayer')) return;
+          cleanupCurrentScene();
+          resolveNext(scene.next);
+        };
+        document.addEventListener('click', onClick);
+        state._sceneCleanup = () => { document.removeEventListener('click', onClick); holder.remove(); };
+      }
+
+      function renderShowcaseScene(scene) {
+        renderBackground(scene);
+        initSceneCharacters(scene);
+        hideAll();
+        state.phase = 'step';
+        state._stepWait = true;
+        setStatus('🎬 点击继续', true);
+        const onClick = (e) => {
+          if (e.target.closest('button, input, textarea, select, #formModal, #introModal, #uploadPage, #scriptSelectorModal, #itemPopup, #topBar, #bottomLayer')) return;
+          cleanupCurrentScene();
+          resolveNext(scene.next);
+        };
+        document.addEventListener('click', onClick);
+        state._sceneCleanup = () => { document.removeEventListener('click', onClick); };
+      }
+
+      function renderCgStep(step) {
+        const images = step.images || [];
+        const interval = step.interval || 1200;
+        if (!images.length) { proceedStep(); return; }
+        hideAll();
+        const myIndex = state._stepIndex;
+        let idx = 0, timer = null, finished = false, lastShown = -1;
+        const showFrame = (i) => {
+          if (i < 0 || i >= images.length || lastShown === i) return;
+          lastShown = i;
+          const url = assetUrl(images[i]);
+          if (!url) return;
+          const top = _bgOnFade ? bgFade : bg;
+          const bot = _bgOnFade ? bg : bgFade;
+          bot.style.transition = 'none';
+          bot.style.backgroundImage = `url('${url}')`;
+          bot.style.opacity = '0';
+          void bot.offsetWidth;
+          bot.style.transition = 'opacity 0.4s ease';
+          bot.style.opacity = '1';
+          top.style.transition = 'opacity 0.4s ease';
+          top.style.opacity = '0';
+          _bgOnFade = !_bgOnFade;
+        };
+        const finish = () => {
+          if (finished) return;
+          finished = true;
+          if (timer) clearTimeout(timer);
+          if (state._stepIndex === myIndex) {
+            state.phase = 'step';
+            state._stepWait = true;
+            setStatus('🎬 点击继续', true);
+          }
+        };
+        const tick = () => {
+          if (finished) return;
+          showFrame(idx);
+          idx++;
+          if (idx >= images.length) finish();
+          else timer = setTimeout(tick, interval);
+        };
+        state._sceneCleanup = () => { if (timer) clearTimeout(timer); };
+        state.phase = 'auto';
+        state._stepWait = false;
+        tick();
+      }
+
+      function renderVideoStep(step) {
+        const src = step.src ? assetUrl(step.src) : '';
+        if (!src) { proceedStep(); return; }
+        hideAll();
+        const holder = document.createElement('div');
+        holder.style.cssText = 'position:absolute;inset:0;z-index:3;background:#000;';
+        const video = document.createElement('video');
+        video.src = src;
+        video.loop = !!step.loop;
+        video.muted = step.muted !== false;
+        video.playsInline = true;
+        video.autoplay = true;
+        video.style.cssText = 'width:100%;height:100%;object-fit:contain;';
+        holder.appendChild(video);
+        document.getElementById('app').appendChild(holder);
+        const myIndex = state._stepIndex;
+        let finished = false;
+        const finish = () => {
+          if (finished) return;
+          finished = true;
+          if (state._stepIndex === myIndex) {
+            state.phase = 'step';
+            state._stepWait = true;
+            setStatus('🎬 点击继续', true);
+          }
+        };
+        video.addEventListener('ended', () => { if (!video.loop) finish(); });
+        state._sceneCleanup = () => {
+          try { video.pause(); } catch (e) {}
+          video.src = '';
+          holder.remove();
+        };
+        state.phase = 'auto';
+        state._stepWait = false;
+        video.play().catch(finish);
+      }
+
+      // ============================================================
+      // 结尾
+      // ============================================================
+      function handleSceneEnding(scene) {
+        if (state._endingLock) return;
+        state._endingLock = true;
+        state.phase = 'ending';
+        cleanupCurrentScene();
+        AudioManager.stopVoice();
+        updateRewindBtn();
+
+        const ending = scene.ending || state.currentScript.ending;
+        if (ending && ending.needsResult) {
+          state.vars.lastChoices = state.choices;
+          state.vars.timeline = state._timeline.slice();
+          const p = loadResult({ scene, ending });
+          Promise.resolve(p).then(() => { autoAddExportButtons(); });
+        } else if (ending && ending.actions) {
+          const p = executeActions(ending.actions, { scene, ending });
+          Promise.resolve(p).then(() => { autoAddExportButtons(); });
+        } else {
+          endingInner.innerHTML = '';
+          endingPage.style.display = 'block';
+          const h = document.createElement('h1');
+          h.textContent = '体验结束';
+          endingInner.appendChild(h);
+          autoAddExportButtons();
+        }
+      }
+
+      // ============================================================
+      // 键盘
+      // ============================================================
+      document.addEventListener('keydown', function (e) {
+        if (endingPage.style.display === 'block') return;
+        const isInput = e.target.matches('input, textarea, select');
+        if (isInput) return;
+
+        if (e.key === ' ' || e.code === 'Space') {
+          if (state.phase === 'step' && state._stepWait) {
+            e.preventDefault();
+            advance();
+          }
+          return;
+        }
+        if ((e.key === 'Backspace' || (e.ctrlKey && e.key === 'z')) && state._allowRewind) {
+          e.preventDefault();
+          rewindOneStep();
+          return;
+        }
+      });
+
+      descBox.addEventListener('click', advance);
+      dialogBox.addEventListener('click', advance);
+
+      window.addEventListener('resize', function () {
+        state._charts.forEach(chart => { try { chart.resize(); } catch (e) {} });
+      });
+
+      // ============================================================
+      // 物品栏
+      // ============================================================
+      function renderItemIcons() {
+        const panel = $('itemPanel');
+        if (state._items.length === 0) { panel.style.display = 'none'; return; }
+        panel.style.display = 'flex';
+
+        itemLayer.innerHTML = '';
+        state._items.forEach((it, idx) => {
+          const url = assetUrl(it.image);
+          if (!url) return;
+          const div = document.createElement('div');
+          div.className = 'item-icon';
+          div.title = it.name;
+          const img = document.createElement('img');
+          img.src = url;
+          img.alt = it.name || '';
+          div.appendChild(img);
+          div.addEventListener('click', (e) => { e.stopPropagation(); showItem(idx); });
+          itemLayer.appendChild(div);
+        });
+      }
+
+      function showItem(index) {
+        state._currentItemIndex = index;
+        const item = state._items[index];
+        if (!item) return;
+
+        itemPopupTabs.innerHTML = '';
+        state._items.forEach((it, i) => {
+          const tab = document.createElement('div');
+          tab.className = 'item-popup-tab' + (i === index ? ' active' : '');
+          tab.textContent = it.name || ('物品 ' + (i + 1));
+          tab.title = it.name || '';
+          tab.addEventListener('click', (e) => { e.stopPropagation(); showItem(i); });
+          itemPopupTabs.appendChild(tab);
+        });
+
+        const url = assetUrl(item.image);
+        if (url) itemPopupImg.src = url;
+        else itemPopupImg.removeAttribute('src');
+        itemPopupImg.alt = item.name || '';
+        itemPopupName.textContent = fill(item.name || '');
+        itemPopupDesc.textContent = fill(item.description || '');
+        itemPopup.style.display = 'flex';
+      }
+
+      itemPopup.addEventListener('click', (e) => {
+        if (e.target.closest('.item-popup-tab')) return;
+        if (e.target.closest('#itemPopupBox')) return;
+        itemPopup.style.display = 'none';
+      });
+
+      // ============================================================
+      // 回到初始
+      // ============================================================
+      function runInit(ctx) {
+        cleanupCurrentScene();
+        AudioManager.stopVoice();
+        AudioManager.stopBgm(0);
+        state._endingLock = false;
+        state.choices = [];
+        state.currentScript = null;
+        state.currentSceneId = null;
+        state.currentNode = null;
+        state.phase = 'idle';
+        state._items = [];
+        state._currentItemIndex = 0;
+        state._stepStack = [];
+        state._allowRewind = false;
+        state._timeline = [];
+        state._inputConfig = null;
+        state._pendingInputNext = null;
+        state.vars = {};
+        state._formVarNames = [];
+        state._charVisible = {};
+        state._dialogStageEntered = false;
+        state._steps = [];
+        state._stepIndex = 0;
+        state._stepWait = false;
+        state._descCount = 0;
+        state._hideUI = false;
+        state._parallelPending = null;
+        endingPage.style.display = 'none';
+        endingInner.innerHTML = '';
+        hideAll();
+
+        bg.style.transition = 'none';
+        bg.style.backgroundImage = 'none';
+        bg.style.opacity = '1';
+        bgFade.style.transition = 'none';
+        bgFade.style.backgroundImage = 'none';
+        bgFade.style.opacity = '0';
+        _bgOnFade = false;
+
+        charLayer.innerHTML = '';
+        itemLayer.innerHTML = '';
+        itemPopup.style.display = 'none';
+        itemPopupTabs.innerHTML = '';
+        introModal.style.display = 'none';
+        formModal.style.display = 'none';
+        $('itemPanel').style.display = 'none';
+        rewindBtn.style.display = 'none';
+        disposeCharts();
+
+        const initFile = Object.keys(state.files).find(k => /^init\.json$/i.test(k));
+        if (initFile) {
+          return executeActions(state.files[initFile].actions || [], ctx);
+        }
+        startDefaultFlow();
+        return Promise.resolve();
+      }
+
+      // ============================================================
+      // 音频解锁
+      // ============================================================
+      document.addEventListener('click', function unlockAudioOnce() {
+        if (state._audioUnlocked) return;
+        state._audioUnlocked = true;
+        try {
+          const a = new Audio();
+          a.muted = true;
+          a.play().catch(() => {});
+        } catch (e) {}
+      }, { once: true });
+
+      setStatus('🟢 就绪', true);
+      console.log('[超级现场] 引擎 v2.3 就绪');
+    })();
+  </script>
+</body>
+
+</html>
